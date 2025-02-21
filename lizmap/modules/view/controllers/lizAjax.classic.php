@@ -1,4 +1,7 @@
 <?php
+
+use Lizmap\Project\UnknownLizmapProjectException;
+
 /**
  * Displays the list of projects for ajax request.
  *
@@ -142,7 +145,7 @@ class lizAjaxCtrl extends jController
                     return $this->error404('The parameter project is mandatory!');
                 }
                 $project = $lser->defaultProject;
-            } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+            } catch (UnknownLizmapProjectException $e) {
                 return $this->error404('The parameter project is mandatory!');
             }
         }
@@ -153,7 +156,7 @@ class lizAjaxCtrl extends jController
             if (!$lproj) {
                 return $this->error404('The lizmap project '.strtoupper($project).' does not exist !');
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             return $this->error404('The lizmap project '.strtoupper($project).' does not exist !');
         }
 
@@ -187,6 +190,9 @@ class lizAjaxCtrl extends jController
             $lizUrls['removeCache'] = jUrl::getFull('admin~maps:removeLayerCache');
         }
 
+        if (jAcl2::check('lizmap.admin.access') || jAcl2::check('lizmap.admin.server.information.view')) {
+            $lizUrls['repositoryAdmin'] = jUrl::getFull('admin~maps:index');
+        }
         $content = '<script type="text/javascript" src="'.jUrl::getFull('view~translate:index').'"/>'."\n";
         $content .= '<script type="text/javascript">// <![CDATA['."\n";
         $content .= 'var lizUrls = '.json_encode($lizUrls).";\n";

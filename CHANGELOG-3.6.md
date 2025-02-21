@@ -8,6 +8,89 @@ with some extra keywords : backend, tests, test, translation, funders, important
 
 ## Unreleased
 
+## 3.6.14 - 2024-07-04
+
+### Funders
+
+* *[WPD](https://www.wpd.fr/)*
+* *[Terre de Provence Agglomération](https://www.terredeprovence-agglo.com/)*
+
+### Changed
+
+* Admin - Add legend about warning icon in project table
+
+### Fixed
+
+* Fix printing of external base-layer
+* Improve debug about failing PDF print, especially when parenthesis are in the layer name
+* Fix cross-site scripting issue with the `theme` parameter
+
+## 3.6.13 - 2024-05-27
+
+### Funders
+
+* *[Terre de Provence Agglomération](https://www.terredeprovence-agglo.com/)*
+
+### Changed
+
+* Check for the Desktop plugin version first instead of showing possible warnings from the plugin
+
+### Fixed
+
+* Fix issue in Dutch language
+* Fix children popup in compact table
+
+### Translations
+
+* Update translated strings from the Transifex website :
+  * [Lizmap Web Client](https://www.transifex.com/3liz-1/lizmap-locales/dashboard/)
+  * [Jelix](https://www.transifex.com/3liz-1/jelix/dashboard/)
+
+## 3.6.12 - 2024-05-07
+
+### Fixed
+
+* Fix some XSS issues into features forms
+
+### Translations
+
+* Update translated strings from the Transifex website :
+  * [Lizmap Web Client](https://www.transifex.com/3liz-1/lizmap-locales/dashboard/)
+  * [Jelix](https://www.transifex.com/3liz-1/jelix/dashboard/)
+
+## 3.6.11 - 2024-03-18
+
+### Added
+
+* Show warnings if the project has some, when connected as an admin
+
+### Changed
+
+* Update the table of QGIS projects in the administration panel
+* Update limit to 500 000 for the row limit in the attribute table tool
+
+### Fixed
+
+* Fix the message "Feature not editable" if the user has the right
+* Fix issue about rights for anonymous users
+* Fix language for compact table in a children popup
+
+### Translations
+
+* Update translated strings from the Transifex website :
+  * [Lizmap Web Client](https://www.transifex.com/3liz-1/lizmap-locales/dashboard/)
+  * [Jelix](https://www.transifex.com/3liz-1/jelix/dashboard/)
+
+### Backend
+
+* Enhancing the way Lizmap build Etag and add an Etag to `GetKeyValueConfig`
+* Upgrade Jelix to version 1.8.8
+
+### Funders
+
+* *[PNR Haut-Jura](https://www.parc-haut-jura.fr)*
+* *[Terre de Provence Agglomération](https://www.terredeprovence-agglo.com/)*
+
 ## 3.6.10 - 2024-02-07
 
 ### Fixed
@@ -39,7 +122,7 @@ with some extra keywords : backend, tests, test, translation, funders, important
 
 ### Fixed
 
-* Fix support of SSL PostgreSQL connection in PostgreSQL layers 
+* Fix support of SSL PostgreSQL connection in PostgreSQL layers
 * Fix on the Feature toolbar :
   * zoom to the feature
   * center map on the feature
@@ -69,7 +152,7 @@ with some extra keywords : backend, tests, test, translation, funders, important
 * Fix error when executing the command `jcommunity~user:create` and
   when the "multiauth" module is installed
 * Fix the auto-login feature ("remember me" checkbox)
-  The encryption key was not upgraded during upgrade from Lizmap 3.5 to 3.6 
+  The encryption key was not upgraded during upgrade from Lizmap 3.5 to 3.6
 * Fix a potential regression in the password reset feature
 * Fix getting the table for sub-queries with escaped double-quotes
 * Form filter - Date range: add a day to the max values when requesting data
@@ -99,7 +182,7 @@ with some extra keywords : backend, tests, test, translation, funders, important
 
 ### Fixed
 
-* When creating/editing a geometry, check the spatial constraint 
+* When creating/editing a geometry, check the spatial constraint
 * Fix an error about GetFeatureInfo and GetFilterToken requests to QGIS server
 * Fix cascade layer's filter to use the parent WMS name instead of the layer name
 * A locale for the account registration was missing, generating a 500 error
@@ -113,7 +196,7 @@ with some extra keywords : backend, tests, test, translation, funders, important
 ### Funders
 
 * [WPD](https://www.wpd.fr/)
-* [Calvados province in France](https://www.calvados.fr/) 
+* [Calvados province in France](https://www.calvados.fr/)
 * [Vaucluse province in France](https://www.vaucluse.fr/)
 
 ## 3.6.6 - 2023-10-04
@@ -281,7 +364,7 @@ with some extra keywords : backend, tests, test, translation, funders, important
 * In a WFS request, no PostGIS features were returned if SRSNAME was different from the layer SRID
 * When you click on the zoom to feature button, from the popup or the attribute table tool, the zoom/pan could be broken
 * When you try to select features with a point, no selection were performed
-* In the administration panel, allow to edit the name for the sender email 
+* In the administration panel, allow to edit the name for the sender email
 
 ### Changed
 
@@ -296,7 +379,7 @@ with some extra keywords : backend, tests, test, translation, funders, important
 
 ### Backend
 
-* Update the way to check the validity about : 
+* Update the way to check the validity about :
   * a geometry in a Well Known Text format
   * a proj4 string in tests
 * Update OpenLayers to 7.2.2

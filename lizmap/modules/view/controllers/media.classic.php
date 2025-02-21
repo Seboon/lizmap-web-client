@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Service to provide media (image, documents).
  *
@@ -11,6 +12,7 @@
  */
 
 use Jelix\FileUtilities\File;
+use Lizmap\Project\UnknownLizmapProjectException;
 use Lizmap\Request\RemoteStorageRequest;
 
 class mediaCtrl extends jController
@@ -156,7 +158,7 @@ class mediaCtrl extends jController
             if (!$lproj) {
                 return $this->error404('The lizmap project '.strtoupper($project).' does not exist !');
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             jLog::logEx($e, 'error');
 
             return $this->error404('The lizmap project '.strtoupper($project).' does not exist !');
@@ -236,6 +238,7 @@ class mediaCtrl extends jController
             }
             $finalPath = $abspath;
         }
+
         // Prepare the file to return
         /** @var jResponseBinary $rep */
         $rep = $this->getResponse('binary');
@@ -270,9 +273,9 @@ class mediaCtrl extends jController
             $mime = jFile::getMimeTypeFromFilename($finalPath);
         }
 
-        // Handle JavaScript modules (.mjs)
+        // Handle JavaScript files (.js) & modules (.mjs)
         // as File::getMimeType() returns "text/x-java" for those files
-        if (strtolower($path_parts['extension']) == 'mjs') {
+        if (in_array(strtolower($path_parts['extension']), array('js', 'mjs'))) {
             $mime = 'application/javascript';
         }
 
@@ -326,7 +329,7 @@ class mediaCtrl extends jController
             if (!$lproj) {
                 return $this->error404('The lizmap project '.strtoupper($project).' does not exist !');
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             jLog::logEx($e, 'error');
 
             return $this->error404('The lizmap project '.strtoupper($project).' does not exist !');
@@ -561,8 +564,6 @@ class mediaCtrl extends jController
 
     /**
      * Get logo or background image defined in lizmap admin theme configuration.
-     *
-     * @param $key : type of image. Can be 'headerLogo' or 'headerBackgroundImage'
      *
      * @return jResponseBinary|jResponseJson configured theme logo
      */

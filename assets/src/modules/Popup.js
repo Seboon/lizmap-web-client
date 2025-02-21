@@ -6,16 +6,37 @@
  */
 
 
-import { mainLizmap } from '../modules/Globals.js';
 import Overlay from 'ol/Overlay.js';
 import WMS from '../modules/WMS.js';
+import { Utils } from './Utils.js';
 
 /**
  * @class
  * @name Popup
  */
 export default class Popup {
-    constructor() {
+
+    /**
+     * Create a popup instance
+     * @param {Config} initialConfig - The lizmap initial config instance
+     * @param {Layers}  lizmapState   - The lizmap user interface state
+     * @param {Map}    map           - OpenLayers map
+     * @param {Digitizing} digitizing - The Lizmap digitizing instance
+     */
+    constructor(initialConfig, lizmapState, map, digitizing) {
+
+        this._initialConfig = initialConfig;
+        this._lizmapState = lizmapState;
+        this._map = map;
+        this._digitizing = digitizing;
+
+        this._pointTolerance = initialConfig.options?.pointTolerance || 25;
+        this._lineTolerance = initialConfig.options?.lineTolerance || 10;
+        this._polygonTolerance = initialConfig.options?.polygonTolerance || 5;
+
+        // Allow toggling of active state
+        this.active = true;
+
         // OL2
         OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {
             defaultHandlerOptions: {
@@ -42,18 +63,19 @@ export default class Popup {
                 this.handleClickOnMap(evt);
             }
         });
-        
+
         var click = new OpenLayers.Control.Click();
         lizMap.map.addControl(click);
         click.activate();
 
         // OL8
         /**
-        * Create an overlay to anchor the popup to the map.
-        */
+         * Create an overlay to anchor the popup to the map.
+         * @returns {boolean} False
+         */
         document.getElementById('liz_layer_popup_closer').onclick = () => {
             this._overlay.setPosition(undefined);
-            mainLizmap.map.clearHighlightFeatures();
+            this._map.clearHighlightFeatures();
             return false;
         };
         this._overlay = new Overlay({
@@ -65,8 +87,8 @@ export default class Popup {
             },
         });
 
-        mainLizmap.map.addOverlay(this._overlay);
-        mainLizmap.map.on('singleclick', evt => this.handleClickOnMap(evt));
+        this._map.addOverlay(this._overlay);
+        this._map.on('singleclick', evt => this.handleClickOnMap(evt));
     }
 
     get mapPopup() {
@@ -74,18 +96,19 @@ export default class Popup {
     }
 
     handleClickOnMap(evt) {
-        const pointTolerance = mainLizmap.config.options?.pointTolerance || 25;
-        const lineTolerance = mainLizmap.config.options?.lineTolerance || 10;
-        const polygonTolerance = mainLizmap.config.options?.polygonTolerance || 5;
+        const pointTolerance = this._pointTolerance;
+        const lineTolerance = this._lineTolerance;
+        const polygonTolerance = this._polygonTolerance;
 
-        if (lizMap.editionPending || mainLizmap.selectionTool.isActive || mainLizmap.digitizing.isActive) {
+        if (!this.active || lizMap.editionPending || this._digitizing.toolSelected != 'deactivate' || this._digitizing.isEdited || this._digitizing.isErasing) {
             return;
         }
 
         const xCoord = evt?.xy?.x || evt?.pixel?.[0];
         const yCoord = evt?.xy?.y || evt?.pixel?.[1];
 
-        let candidateLayers = mainLizmap.state.rootMapGroup.findMapLayers().reverse();
+        // Order popups following layers order
+        let candidateLayers = this._lizmapState.rootMapGroup.findMapLayers().toSorted((a, b) => b.layerOrder - a.layerOrder);
 
         // Only request visible layers
         candidateLayers = candidateLayers.filter(layer => layer.visibility);
@@ -97,8 +120,8 @@ export default class Popup {
 
             let editionLayerCapabilities;
 
-            if (mainLizmap.initialConfig?.editionLayers?.layerNames.includes(layer.name)) {
-                editionLayerCapabilities = mainLizmap.initialConfig?.editionLayers?.getLayerConfigByLayerName(layer.name)?.capabilities;
+            if (this._initialConfig?.editionLayers?.layerNames.includes(layer.name)) {
+                editionLayerCapabilities = this._initialConfig?.editionLayers?.getLayerConfigByLayerName(layer.name)?.capabilities;
             }
             return layerCfg.popup || editionLayerCapabilities?.modifyAttribute || editionLayerCapabilities?.modifyGeometry || editionLayerCapabilities?.deleteFeature;
         });
@@ -107,26 +130,53 @@ export default class Popup {
             return;
         }
 
-        const layersWMS = candidateLayers.map(layer => layer.wmsName).join();
+        //const layersWMS = candidateLayers.map(layer => layer.wmsName).join();
+        //const layersStyles = candidateLayers.map(layer => layer.wmsSelectedStyleName || "").join()
+        const layersNames = [];
+        const layersStyles = [];
+        const filterTokens = [];
+        const legendOn = [];
+        const legendOff = [];
+        let popupMaxFeatures = 10;
+        for (const layer of candidateLayers) {
+            const layerWmsParams = layer.wmsParameters;
+            // Add layer to the list of layers
+            layersNames.push(layerWmsParams['LAYERS']);
+            // Optionally add layer style if needed (same order as layers )
+            layersStyles.push(layerWmsParams['STYLES']);
+            if ('FILTERTOKEN' in layerWmsParams) {
+                filterTokens.push(layerWmsParams['FILTERTOKEN']);
+            }
+            if ('LEGEND_ON' in layerWmsParams) {
+                legendOn.push(layerWmsParams['LEGEND_ON']);
+            }
+            if ('LEGEND_OFF' in layerWmsParams) {
+                legendOff.push(layerWmsParams['LEGEND_OFF']);
+            }
+            if (layer.layerConfig.popupMaxFeatures > popupMaxFeatures) {
+                popupMaxFeatures = layer.layerConfig.popupMaxFeatures;
+            }
+        }
 
         const wms = new WMS();
 
-        const [width, height] = lizMap.mainLizmap.map.getSize();
+        const [width, height] = this._map.getSize();
 
-        let bbox = mainLizmap.map.getView().calculateExtent();
+        let bbox = this._map.getView().calculateExtent();
 
-        if (mainLizmap.map.getView().getProjection().getAxisOrientation().substring(0, 2) === 'ne') {
+        if (this._map.getView().getProjection().getAxisOrientation().substring(0, 2) === 'ne') {
             bbox = [bbox[1], bbox[0], bbox[3], bbox[2]];
         }
 
         const wmsParams = {
-            QUERY_LAYERS: layersWMS,
-            LAYERS: layersWMS,
-            CRS: mainLizmap.projection,
+            QUERY_LAYERS: layersNames.join(','),
+            LAYERS: layersNames.join(','),
+            STYLE: layersStyles.join(','),
+            CRS: this._map.getView().getProjection().getCode(),
             BBOX: bbox,
-            FEATURE_COUNT: 10,
             WIDTH: width,
             HEIGHT: height,
+            FEATURE_COUNT: popupMaxFeatures,
             I: Math.round(xCoord),
             J: Math.round(yCoord),
             FI_POINT_TOLERANCE: pointTolerance,
@@ -134,22 +184,20 @@ export default class Popup {
             FI_POLYGON_TOLERANCE: polygonTolerance
         };
 
-        const filterTokens = [];
-        candidateLayers.forEach(layer => {
-            let filterToken = layer.wmsParameters?.FILTERTOKEN;
-            if (filterToken) {
-                filterTokens.push(filterToken);
-            }
-        });
-
         if (filterTokens.length) {
-            wmsParams['FILTERTOKEN'] = filterTokens.join(';');
+            wmsParams.FILTERTOKEN = filterTokens.join(';');
+        }
+        if (legendOn.length) {
+            wmsParams.LEGEND_ON = legendOn.join(';');
+        }
+        if (legendOff.length) {
+            wmsParams.LEGEND_OFF = legendOff.join(';');
         }
 
         document.getElementById('newOlMap').style.cursor = 'wait';
 
         wms.getFeatureInfo(wmsParams).then(response => {
-            lizMap.displayGetFeatureInfo(response, {x: xCoord, y: yCoord});
+            lizMap.displayGetFeatureInfo(Utils.sanitizeGFIContent(response), { x: xCoord, y: yCoord }, evt?.coordinate);
         }).finally(() => {
             document.getElementById('newOlMap').style.cursor = 'auto';
         });

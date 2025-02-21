@@ -7,8 +7,6 @@
 
 var lizLayerActionButtons = function() {
 
-    var tooltipControl = null;
-    var tooltipLayers = [];
     var featureTypes = null;
 
     /**
@@ -39,7 +37,7 @@ var lizLayerActionButtons = function() {
                 // Test if the link is internal
                 var mediaRegex = /^(\/)?media\//;
                 if(mediaRegex.test(windowLink)){
-                    var mediaLink = lizUrls.media + '?' + new URLSearchParams(lizUrls.params);
+                    var mediaLink = globalThis['lizUrls'].media + '?' + new URLSearchParams(globalThis['lizUrls'].params);
                     windowLink = mediaLink+'&path=/'+windowLink;
                 }
                 // Open link in a new window
@@ -121,7 +119,7 @@ var lizLayerActionButtons = function() {
 
             // Zoom
             html+= '        <dt>'+lizDict['layer.metadata.zoomToExtent.title']+'</dt>';
-            html+= '<dd><button class="btn btn-mini layerActionZoom" title="'+lizDict['layer.metadata.zoomToExtent.title']+'" value="'+aName+'"><i class="icon-zoom-in"></i></button></dd>';
+            html+= '<dd><button class="btn btn-sm layerActionZoom" title="'+lizDict['layer.metadata.zoomToExtent.title']+'" value="'+aName+'"><i class="icon-zoom-in"></i></button></dd>';
 
             // Tools
             var isBaselayer = '';
@@ -150,31 +148,36 @@ var lizLayerActionButtons = function() {
                     html+= '</dd>';
                 }
             }
-
             // Opacity
-            html+= '        <dt>'+lizDict['layer.metadata.opacity.title']+'</dt>';
-            html+= '<dd>';
-            html+= '<input type="hidden" class="opacityLayer '+isBaselayer+'" value="'+aName+'">';
+            let isSingleWMSLayer = false;
+            if (!metadatas.isBaselayer) {
+                isSingleWMSLayer = lizMap.mainLizmap.state.rootMapGroup.getMapLayerOrGroupByName(aName).singleWMSLayer;
+            }
+            if (!isSingleWMSLayer) {
+                html+= '        <dt>'+lizDict['layer.metadata.opacity.title']+'</dt>';
+                html+= '<dd>';
+                html+= '<input type="hidden" class="opacityLayer '+isBaselayer+'" value="'+aName+'">';
 
-            const currentOpacity = lizMap.mainLizmap.state.layersAndGroupsCollection.getLayerOrGroupByName(aName).opacity;
-            var opacities = lizMap.config.options.layersOpacities;
-            if(typeof opacities === 'undefined') {
-                opacities = [0.2, 0.4, 0.6, 0.8, 1];
+                const currentOpacity = lizMap.mainLizmap.state.layersAndGroupsCollection.getLayerOrGroupByName(aName).opacity;
+                var opacities = lizMap.config.options.layersOpacities;
+                if (typeof opacities === 'undefined') {
+                    opacities = [0.2, 0.4, 0.6, 0.8, 1];
+                }
+                for ( var i=0, len=opacities.length; i<len; i++ ) {
+                    var oactive = '';
+                    if(currentOpacity == opacities[i])
+                        oactive = 'active';
+                    html+= '<a href="#" class="btn btn-sm btn-opacity-layer '+ oactive+' '+ opacities[i]*100+'">'+opacities[i]*100+'</a>';
+                }
+                html+= '</dd>';
             }
-            for ( var i=0, len=opacities.length; i<len; i++ ) {
-                var oactive = '';
-                if(currentOpacity == opacities[i])
-                    oactive = 'active';
-                html+= '<a href="#" class="btn btn-mini btn-opacity-layer '+ oactive+' '+ opacities[i]*100+'">'+opacities[i]*100+'</a>';
-            }
-            html+= '</dd>';
 
             // Export
             if ( 'exportLayers' in lizMap.config.options
                 && lizMap.config.options.exportLayers == 'True'
                 && featureTypes != null
                 && featureTypes.length != 0 ) {
-                var exportFormats = lizMap.getVectorLayerResultFormat();
+                var exportFormats = lizMap.mainLizmap.initialConfig.vectorLayerResultFormat;
                 var options = '';
                 for ( const format of exportFormats ) {
                     options += '<option value="'+format+'">'+format+'</option>';
@@ -187,7 +190,7 @@ var lizLayerActionButtons = function() {
                     html+= '<select class="exportLayer '+isBaselayer+'">';
                     html+= options;
                     html+= '</select>';
-                    html+= '<button class="btn btn-mini exportLayer '+isBaselayer+'" title="'+lizDict['layer.metadata.export.title']+'" value="'+aName+'"><i class="icon-download"></i></button>';
+                    html+= '<button class="btn btn-sm exportLayer '+isBaselayer+'" title="'+lizDict['layer.metadata.export.title']+'" value="'+aName+'"><i class="icon-download"></i></button>';
                     html+= '</dd>';
                 }
             }
@@ -220,7 +223,7 @@ var lizLayerActionButtons = function() {
             // Style
             html+= '</div>';
             html+= '</div>';
-            html+= '<button id="hide-sub-dock" class="btn btn-mini pull-right" name="close" title="'+lizDict['generic.btn.close.title']+'" value="'+aName+'">'+lizDict['generic.btn.close.title']+'</button>';
+            html+= '<button id="hide-sub-dock" class="btn btn-sm pull-right" name="close" title="'+lizDict['generic.btn.close.title']+'" value="'+aName+'">'+lizDict['generic.btn.close.title']+'</button>';
         }
 
         return html;
@@ -253,12 +256,12 @@ var lizLayerActionButtons = function() {
             // Display theme switcher if any
             if ('themes' in lizMap.config){
                 var themes = lizMap.config.themes;
-                var themeSelector = '<div id="theme-selector" class="btn-group" role="group">';
-                themeSelector += '<button class="btn btn-mini dropdown-toggle" data-toggle="dropdown" type="button" title="' + lizDict['switcherLayersActions.themeSelector.title'] +'" href="#"><i class="icon-none qgis_sprite mActionShowAllLayers"></i><span class="caret"></span></button>';
-                themeSelector += '<ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu">';
+                var themeSelector = '<div id="theme-selector" class="btn-group">';
+                themeSelector += '<button class="btn btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button" aria-expanded="false" title="' + lizDict['switcherLayersActions.themeSelector.title'] +'"><i class="icon-none qgis_sprite mActionShowAllLayers"></i></button>';
+                themeSelector += '<ul class="dropdown-menu">';
 
                 for (var themeName in themes) {
-                    themeSelector += '<li class="theme"><a href="#">' + themeName + '</a></li>';
+                    themeSelector += '<li><button class="dropdown-item" type="button" data-theme="' + themeName + '">' + themeName + '</button></li>';
                 }
 
                 themeSelector += '</ul>';
@@ -267,27 +270,69 @@ var lizLayerActionButtons = function() {
                 $('#switcher-layers-actions').prepend(themeSelector);
 
                 // Handle theme switching
-                $('#theme-selector').on('click', '.theme', function () {
-                    // Set theme as selected
-                    $('#theme-selector .theme').removeClass('selected');
-                    $(this).addClass('selected');
+                $('#theme-selector .dropdown-menu').on('click', 'button', function () {
+                    // Set theme as active
+                    $('#theme-selector button').removeClass('active');
+                    $(this).addClass('active');
 
                     const themeNameSelected = $(this).text();
 
                     if (themeNameSelected in lizMap.config.themes){
                         const themeSelected = lizMap.config.themes[themeNameSelected];
 
-                        // Set checked state
-                        for(const layerOrGroup of lizMap.mainLizmap.state.layerTree.findTreeLayersAndGroups()){
-                            if(layerOrGroup.type === "group"){
-                                layerOrGroup.checked = themeSelected?.checkedGroupNode !== undefined && themeSelected.checkedGroupNode.includes(layerOrGroup.name);
-                                layerOrGroup.expanded = themeSelected?.expandedGroupNode !== undefined && themeSelected.expandedGroupNode.includes(layerOrGroup.name);
+                        // Groups and subgroups are separated by a '/'. We only keep deeper groups
+                        const checkedGroups = themeSelected?.checkedGroupNode?.map(groupNode => groupNode.split('/').slice(-1)[0]) || [];
+                        const expandedGroups = themeSelected?.expandedGroupNode?.map(groupNode => groupNode.split('/').slice(-1)[0]) || [];
+                        const expandedLegendNodes = themeSelected?.expandedLegendNode || [];
+
+                        // Set checked and expanded states
+                        for (const layerOrGroup of lizMap.mainLizmap.state.layerTree.findTreeLayersAndGroups()) {
+                            // Groups in theme are based on QGIS group (so groupAsLayer is not a layer but a group)
+                            if (layerOrGroup.mapItemState.itemState.type === "group") {
+                                layerOrGroup.checked = checkedGroups.includes(layerOrGroup.name);
+                                layerOrGroup.expanded = expandedGroups.includes(layerOrGroup.name);
                             } else {
-                                layerOrGroup.checked = themeSelected?.layers && Object.hasOwn(themeSelected.layers, layerOrGroup.layerConfig.id);
-                                layerOrGroup.expanded = themeSelected?.layers && Object.hasOwn(themeSelected.layers, layerOrGroup.layerConfig.id) && themeSelected.layers[layerOrGroup.layerConfig.id]?.expanded === "1";
-                                const style = themeSelected?.layers?.[layerOrGroup.layerConfig.id]?.style;
+                                const layerParams = themeSelected?.layers?.[layerOrGroup.layerConfig.id];
+                                if (!layerParams) {
+                                    layerOrGroup.checked = false;
+                                    continue;
+                                }
+
+                                const style = layerParams?.style;
                                 if (style) {
                                     layerOrGroup.wmsSelectedStyleName = style;
+                                }
+
+                                layerOrGroup.checked = true;
+                                layerOrGroup.expanded = layerParams?.expanded === "1" || layerParams?.expanded === true;
+
+                                // `symbologyChildren` is empty for some time if the theme switches
+                                // the layer style from simple to categorized.
+                                // TODO: avoid this hack
+                                setTimeout(() => {
+                                    // Handle expanded legend states
+                                    const symbologyChildren = layerOrGroup.symbologyChildren;
+                                    if (symbologyChildren.length) {
+                                        for (const symbol of symbologyChildren) {
+                                            symbol.expanded = expandedLegendNodes.includes(symbol.ruleKey);
+                                        }
+                                    }
+                                }, 1000);
+
+                            }
+                        }
+
+                        // Set baseLayers checked state
+                        if (themeSelected?.checkedGroupNode?.includes("baselayers/project-background-color")) {
+                            lizMap.mainLizmap.state.baseLayers.selectedBaseLayerName = "project-background-color";
+                        } else {
+                            for (const baseLayer of lizMap.mainLizmap.state.baseLayers.getBaseLayers()) {
+                                if (!baseLayer.layerConfig) {
+                                    continue;
+                                }
+                                if (themeSelected?.layers?.[baseLayer.layerConfig.id]) {
+                                    lizMap.mainLizmap.state.baseLayers.selectedBaseLayerName = baseLayer.name;
+                                    break;
                                 }
                             }
                         }
@@ -300,8 +345,6 @@ var lizLayerActionButtons = function() {
                             }
                         );
                     }
-                    $('#theme-selector.open').click();
-                    return false;
                 });
 
                 // Trigger event with the list of mapThemes
@@ -312,17 +355,17 @@ var lizLayerActionButtons = function() {
                 );
 
                 // Activate first map theme on load
-                if ('activateFirstMapTheme' in lizMap.config.options && lizMap.config.options.activateFirstMapTheme == 'True') {
-                    $('#theme-selector li.theme:nth-child(1)').click();
+                if (lizMap.mainLizmap.initialConfig.options.activateFirstMapTheme) {
+                    document.querySelector('#theme-selector .dropdown-menu button:nth-child(1)').click();
+                }
+                const urlParameters = (new URL(document.location)).searchParams;
+                if (urlParameters.has('mapTheme')) {
+                    const urlMapTheme = urlParameters.get('mapTheme');
+                    document.querySelector('#theme-selector button[data-theme="'+urlMapTheme+'"]').click();
                 }
             }
 
-            featureTypes = lizMap.getVectorLayerFeatureTypes();
-
-            // title tooltip
-            $('#switcher-layers-actions .btn, #get-baselayer-metadata').tooltip({
-                placement: 'bottom'
-            });
+            featureTypes = lizMap.mainLizmap.initialConfig.vectorLayerFeatureTypeList;
 
             // Expand all or unfold all
             document.getElementById('layers-unfold-all').addEventListener('click', () => {
@@ -363,20 +406,6 @@ var lizLayerActionButtons = function() {
                 if(mapProjection == 'EPSG:900913')
                     mapProjection = 'EPSG:3857';
 
-                /*if( !( 'bbox' in itemConfig ) || !( mapProjection in itemConfig['bbox'] ) ){
-                    console.log('The layer bbox information has not been found in config');
-                    console.log(itemConfig);
-                    return false;
-                }*/
-
-                /*var lex = itemConfig['bbox'][mapProjection]['bbox'];
-                var lBounds = new OpenLayers.Bounds(
-                    lex[0],
-                    lex[1],
-                    lex[2],
-                    lex[3]
-                );*/
-
                 if ( !('extent' in itemConfig) ) {
                     console.log('The layer extent information has not been found in config');
                     console.log(itemConfig);
@@ -390,16 +419,6 @@ var lizLayerActionButtons = function() {
                 var lBounds = OpenLayers.Bounds.fromArray(itemConfig['extent']);
                 lBounds = lBounds.transform(itemConfig['crs'],mapProjection);
 
-                // Reverse axis
-                /*if (OpenLayers.Projection.defaults[mapProjection] &&
-                    OpenLayers.Projection.defaults[mapProjection].yx) {
-                    lBounds = new OpenLayers.Bounds(
-                        lex[1],
-                        lex[0],
-                        lex[3],
-                        lex[2]
-                    );
-                }*/
                 lizMap.map.zoomToExtent( lBounds );
 
                 return false;

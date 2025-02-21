@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @author    René-Luc D'hont, Michael Douchin
  * @copyright 2017 3liz
@@ -74,7 +75,7 @@ class lizmapFts
         }
         $sql .= ' )';
         $sql .= '
-        ORDER BY sim DESC
+        ORDER BY sim DESC, item_label
         LIMIT :lim;
         ';
         $this->sql = $sql;

@@ -11,7 +11,7 @@ import { mainLizmap } from '../../modules/Globals.js';
 import '../../images/svg/mActionReverseLine.svg';
 
 /**
- * Webcomponent used to reverse vertices order for a modified feature
+ * Web component used to reverse vertices order for a modified feature
  * @class
  * @name reverseGeom
  * @augments HTMLElement
@@ -20,7 +20,7 @@ export default class reverseGeom extends HTMLElement {
     constructor() {
         super();
 
-        this.insertAdjacentHTML('afterbegin', 
+        this.insertAdjacentHTML('afterbegin',
             `<svg>
                 <use xlink:href="#mActionReverseLine"></use>
             </svg>`);

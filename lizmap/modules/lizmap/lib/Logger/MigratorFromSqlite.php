@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @author    3liz
  * @copyright 2019 3liz
@@ -12,9 +13,7 @@ namespace Lizmap\Logger;
 
 class MigratorFromSqlite
 {
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     public const MIGRATE_RES_OK = 1;
     public const MIGRATE_RES_ALREADY_MIGRATED = 2;
@@ -49,7 +48,7 @@ class MigratorFromSqlite
                 $sequence = $rec->sequence_name;
                 if ($sequence) {
                     $conn->query('SELECT setval('.$conn->quote($sequence).',
-                    (SELECT max('.$conn->encloseName($idField).') 
+                    (SELECT max('.$conn->encloseName($idField).')
                     FROM '.$conn->encloseName($table).'))');
                 }
             }

@@ -13,7 +13,10 @@ var searchProjects = function(){
     }
 
     // Activate tooltips
-    $('#toggle-search, #search-project').tooltip();
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl, {
+        trigger: 'hover'
+    }));
 
     // Handle keywords/title toggle
     $('#toggle-search').click(function(){
@@ -160,12 +163,11 @@ var searchProjects = function(){
                 // Hide all keywords
                 $('#search-project-result .project-keyword').addClass('hide');
                 var visibleProjectEdges = getEdges();
-                var selectedKeywords = getSelectedKeywords();
                 var lastSelectedKeyword = selectedKeywords[selectedKeywords.length - 1];
 
                 var hiddenKeywords = $('#search-project-result .project-keyword.hide');
 
-                for (var index = 0; index < hiddenKeywords.length; index++) {
+                for (let index = 0; index < hiddenKeywords.length; index++) {
                     var hiddenKeyword = hiddenKeywords.eq(index);
 
                     for (var i = 0; i < visibleProjectEdges.length; i++) {
@@ -248,7 +250,7 @@ var searchProjects = function(){
         }
 
         var keywordsHTML = '';
-        for (var index = 0; index < uniqueKeywordList.length; index++) {
+        for (let index = 0; index < uniqueKeywordList.length; index++) {
             keywordsHTML += '<span class="project-keyword hide">' + uniqueKeywordList[index].toLowerCase() + '</span>';
         }
         $('#search-project-result').html(keywordsHTML);
@@ -275,7 +277,7 @@ var searchProjects = function(){
             displayKeywordChoices();
         });
     }else{
-        $('#toggle-search').hide().parent().removeClass('input-prepend');
+        $('#toggle-search').hide().parent().removeClass('input-group');
     }
 }
 

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * HTML Jelix response for full screen map.
  *
@@ -39,5 +40,7 @@ class adminLoginHtmlResponse extends AbstractLizmapHtmlResponse
         $this->title .= ($this->title != '' ? ' - ' : '').'Administration';
         $this->body->assignIfNone('MAIN', '');
         $this->body->assignIfNone('page_title', jLocale::get('jcommunity~login.login.title'));
+
+        parent::doAfterActions();
     }
 }

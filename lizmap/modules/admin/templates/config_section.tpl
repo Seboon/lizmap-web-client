@@ -1,4 +1,4 @@
-{meta_html js $j_basepath.'assets/js/admin/config_section.js'}
+{meta_html js $j_basepath.'assets/js/admin/config_section.js', ['defer' => '']}
 {jmessage_bootstrap}
 
 {if $form->getData('new') == 1}
@@ -30,5 +30,9 @@
 {/form}
 
 <div>
+  {if $form->getData('new') == 1}
   <a class="btn" href="{jurl 'admin~maps:index'}">{@admin~admin.configuration.button.back.label@}</a>
+  {else}
+  <a class="btn" href="{jurl 'admin~maps:index'}#{$form->getData('repository')}">{@admin~admin.configuration.button.back.label@}</a>
+  {/if}
 </div>

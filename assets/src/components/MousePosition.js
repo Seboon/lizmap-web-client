@@ -43,16 +43,18 @@ export default class MousePosition extends HTMLElement {
 
     // Don't add line break between <input>s or it adds a space in UI
     mainTemplate(lon, lat){
+        const inputLongitude = html`<input type="number" step="any" placeholder="longitude" @input=${(event) => this._lonInput = parseFloat(event.target.value)} @keydown=${(event) => { if (event.key === 'Enter') { this._centerToCoords(); } }} .value=${isNaN(lon) ? 0 : lon}>`;
+        const inputLatitude = html`<input type="number" step="any" placeholder="latitude" @input=${(event) => this._latInput = parseFloat(event.target.value)} @keydown=${(event) => { if (event.key === 'Enter') { this._centerToCoords(); } }} .value=${isNaN(lat) ? 0 : lat}>`;
         return html`
             <div class="mouse-position">
                 <div class="editable-position ${['dm', 'dms', 'mgrs'].includes(this._displayUnit) ? 'hide' : ''}">
-                    <input type="number" step="any" placeholder="longitude" @input=${(event) => this._lonInput = parseFloat(event.target.value)} @keydown=${(event) => { if (event.key === 'Enter') { this._centerToCoords(); } }} .value=${isNaN(lon) ? 0 : lon}><input type="number" step="any" placeholder="latitude" @input=${(event) => this._latInput = parseFloat(event.target.value)} @keydown=${(event) => { if (event.key === 'Enter') { this._centerToCoords(); } }} .value=${isNaN(lat) ? 0 : lat}>
+                    ${inputLongitude}${inputLatitude}
                 </div>
                 <div class="readonly-position ${['dm', 'dms', 'mgrs'].includes(this._displayUnit) ? '' : 'hide'}">
                     <span>${lon}</span>
                     <span>${lat}</span>
                 </div>
-                <button class="btn btn-mini" title="${lizDict['mouseposition.removeCenterPoint']}" @click=${() => this._removeCenterPoint()}><i class="icon-refresh"></i></button>
+                <button class="btn btn-sm" title="${lizDict['mouseposition.removeCenterPoint']}" @click=${() => this._removeCenterPoint()}><i class="icon-refresh"></i></button>
             </div>
             <div class="coords-unit">
                 <select title="${lizDict['mouseposition.select']}" @change=${(event) => { this.displayUnit = event.target.value }}>
@@ -92,7 +94,8 @@ export default class MousePosition extends HTMLElement {
     }
 
     /**
-     * @param {string} unit
+     * Update the display unit of the mouse position
+     * @param {string} unit - Unit to display 'm', 'mgrs' ...
      */
     set displayUnit(unit){
         unit === 'm' ? this._numDigits = 0 : this._numDigits = 5;
@@ -108,15 +111,15 @@ export default class MousePosition extends HTMLElement {
                     showLabels: true,
                     wrapX: false,
                 });
+                this._MGRS.setProperties({
+                    name: 'LizmapMousePositionMGRS'
+                });
             }
-            mainLizmap.map.addLayer(this._MGRS);
-
-            // mainLizmap.newOlMap = true;
-        }else{
+            mainLizmap.map.addToolLayer(this._MGRS);
+        } else {
             if(this._MGRS){
-                mainLizmap.map.removeLayer(this._MGRS);
+                mainLizmap.map.removeToolLayer(this._MGRS);
             }
-            // mainLizmap.newOlMap = false;
         }
     }
 
@@ -165,7 +168,9 @@ export default class MousePosition extends HTMLElement {
                     mgrsCoords = forward(lonLatToDisplay);
 
                     mgrsCoords = mgrsCoords.slice(0, -12) + ' ' + mgrsCoords.slice(-12, -10) + ' ' + mgrsCoords.slice(-10, -5) + ' ' + mgrsCoords.slice(-5);
-                } catch (error) {}
+                } catch (error) {
+                    console.error(error);
+                }
 
                 render(this.mainTemplate(mgrsCoords, ''), this);
             } else {

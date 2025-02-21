@@ -7,6 +7,7 @@
  */
 
 import { mainLizmap, mainEventDispatcher } from '../modules/Globals.js';
+import { DigitizingAvailableTools, DigitizingTools } from '../modules/Digitizing.js'
 import { html, render } from 'lit-html';
 
 import '../images/svg/point.svg';
@@ -15,107 +16,284 @@ import '../images/svg/polygon.svg';
 import '../images/svg/box.svg';
 import '../images/svg/circle.svg';
 import '../images/svg/freehand.svg';
+import '../images/svg/text.svg';
 
 import '../images/svg/pencil.svg';
 import '../images/svg/edit.svg';
+import '../images/svg/rotate.svg';
+import '../images/svg/split.svg';
 import '../images/svg/eraser.svg';
+import '../images/svg/eraser-all.svg';
 import '../images/svg/save.svg';
 
 import '../images/svg/file-download.svg';
 import '../images/svg/file-upload.svg';
 
 /**
+ * Digitizing element
+ * Provides user interface for digitizing shapes and text
+ * Attributes:
+ *  context - The digitizing context to linked element to Digitizing module context
+ *  selected-tool - Start selected drawing tools one of DigitizingAvailableTools or available-tools
+ *  available-tools - List of available drawing tools based on DigitizingAvailableTools
+ *  save - Enable save capability
+ *  measure - Enable measure capability
+ *  import-export - Enable import / export capabilities
  * @class
  * @name Digitizing
  * @augments HTMLElement
+ * @example
+ * <lizmap-digitizing
+ *      context="draw"
+ *      selected-tool="box"
+ *      available-tools="point,line,polygon,box,freehand"
+ *      save
+ *      import-export
+ *      measure
+ * ></lizmap-digitizing>
  */
 export default class Digitizing extends HTMLElement {
     constructor() {
         super();
+        this._toolSelected = DigitizingAvailableTools[0];
+        this._availableTools = DigitizingAvailableTools.slice(1);
     }
 
     connectedCallback() {
 
+        if (this.hasAttribute('available-tools')) {
+            const attrAvailableTools = this.getAttribute('available-tools')
+                .split(',')
+                .map((item) => item.trim())
+                .filter((item) => this._availableTools.includes(item));
+            if (attrAvailableTools.length > 0) {
+                this._availableTools = attrAvailableTools;
+            }
+        }
+        if (this.hasAttribute('selected-tool')) {
+            const attrToolSelected = this.getAttribute('selected-tool');
+            if (this._availableTools.includes(attrToolSelected)) {
+                this._toolSelected = attrToolSelected;
+            }
+        }
+
         const mainTemplate = () => html`
         <div class="digitizing">
-            <div class="digitizing-buttons btn-group" data-original-title="${lizDict['digitizing.toolbar.drawTools']}">
-                <a class="btn dropdown-toggle ${mainLizmap.digitizing.toolSelected !== 'deactivate' ? 'active btn-primary' : ''}" @click=${(event) => { if(mainLizmap.digitizing.toolSelected !== 'deactivate') {mainLizmap.digitizing.toolSelected = 'deactivate'; event.stopPropagation();}}} data-toggle="dropdown" href="#">
+            <div
+                class="digitizing-buttons btn-group dropend"
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.drawTools']}"
+                >
+                <button
+                    type="button"
+                    class="btn ${this.deactivate ? '' : 'active btn-primary'}"
+                    @click=${(event) => {this.toggleToolSelected(event)}}
+                    >
                     <svg>
                         <use xlink:href="#pencil"></use>
                     </svg>
                     <!-- Display selected tool -->
-                    <svg class="digitizing-selected-tool ${mainLizmap.digitizing.toolSelected === 'point' ? '' : 'hidden'}">
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Point ? '' : 'visually-hidden'}">
                         <use xlink:href="#point"></use>
                     </svg>
-                    <svg class="digitizing-selected-tool ${mainLizmap.digitizing.toolSelected === 'line' ? '' : 'hidden'}">
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Line ? '' : 'visually-hidden'}">
                         <use xlink:href="#line"></use>
                     </svg>
-                    <svg class="digitizing-selected-tool ${mainLizmap.digitizing.toolSelected === 'polygon' ? '' : 'hidden'}">
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Polygon ? '' : 'visually-hidden'}">
                         <use xlink:href="#polygon"></use>
                     </svg>
-                    <svg class="digitizing-selected-tool ${mainLizmap.digitizing.toolSelected === 'box' ? '' : 'hidden'}">
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Box ? '' : 'visually-hidden'}">
                         <use xlink:href="#box"></use>
                     </svg>
-                    <svg class="digitizing-selected-tool ${mainLizmap.digitizing.toolSelected === 'circle' ? '' : 'hidden'}">
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Circle ? '' : 'visually-hidden'}">
                         <use xlink:href="#circle"></use>
                     </svg>
-                    <svg class="digitizing-selected-tool ${mainLizmap.digitizing.toolSelected === 'freehand' ? '' : 'hidden'}">
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Freehand ? '' : 'visually-hidden'}">
                         <use xlink:href="#freehand"></use>
                     </svg>
-                </a>
-                <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
-                    <span class="caret"></span>
-                </a>
+                    <svg class="digitizing-selected-tool ${this.toolSelected === DigitizingTools.Text ? '' : 'visually-hidden'}">
+                        <use xlink:href="#text"></use>
+                    </svg>
+                </button>
+                <button type="button" class="btn dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
                 <ul class="dropdown-menu">
-                    <li class="digitizing-point btn ${mainLizmap.digitizing.toolSelected === 'point' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'point'} data-original-title="${lizDict['digitizing.toolbar.point']}">
+                    ${this._availableTools.includes(DigitizingTools.Point) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Point} btn ${this.toolSelected === DigitizingTools.Point ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Point}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Point]}"
+                        >
                         <svg>
                             <use xlink:href="#point"></use>
                         </svg>
-                    </li>
-                    <li class="digitizing-line btn ${mainLizmap.digitizing.toolSelected === 'line' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'line'} data-original-title="${lizDict['digitizing.toolbar.line']}">
+                    </li>` : ''}
+                    ${this._availableTools.includes(DigitizingTools.Line) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Line} btn ${this.toolSelected === DigitizingTools.Line ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Line}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Line]}"
+                        >
                         <svg>
                             <use xlink:href="#line"></use>
                         </svg>
-                    </li>
-                    <li class="digitizing-polygon btn ${mainLizmap.digitizing.toolSelected === 'polygon' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'polygon'} data-original-title="${lizDict['digitizing.toolbar.polygon']}">
+                    </li>` : ''}
+                    ${this._availableTools.includes(DigitizingTools.Polygon) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Polygon} btn ${this.toolSelected === DigitizingTools.Polygon ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Polygon}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Polygon]}"
+                        >
                         <svg>
                             <use xlink:href="#polygon"></use>
                         </svg>
-                    </li>
-                    <li class="digitizing-box btn ${mainLizmap.digitizing.toolSelected === 'box' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'box'} data-original-title="${lizDict['digitizing.toolbar.box']}">
+                    </li>` : ''}
+                    ${this._availableTools.includes(DigitizingTools.Box) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Box} btn ${this.toolSelected === DigitizingTools.Box ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Box}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Box]}"
+                        >
                         <svg>
                             <use xlink:href="#box"></use>
                         </svg>
-                    </li>
-                    <li class="digitizing-circle btn ${mainLizmap.digitizing.toolSelected === 'circle' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'circle'} data-original-title="${lizDict['digitizing.toolbar.circle']}">
+                    </li>` : ''}
+                    ${this._availableTools.includes(DigitizingTools.Circle) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Circle} btn ${this.toolSelected === DigitizingTools.Circle ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Circle}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Circle]}"
+                        >
                         <svg>
                             <use xlink:href="#circle"></use>
                         </svg>
-                    </li>
-                    <li class="digitizing-freehand btn ${mainLizmap.digitizing.toolSelected === 'freehand' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'freehand'} data-original-title="${lizDict['digitizing.toolbar.freehand']}">
+                    </li>` : ''}
+                    ${this._availableTools.includes(DigitizingTools.Freehand) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Freehand} btn ${this.toolSelected === DigitizingTools.Freehand ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Freehand}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Freehand]}"
+                        >
                         <svg>
                             <use xlink:href="#freehand"></use>
                         </svg>
-                    </li>
-                    <li class="digitizing-text btn ${mainLizmap.digitizing.toolSelected === 'text' ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toolSelected = 'text'} data-original-title="${lizDict['digitizing.toolbar.text']}">Abc</li>
+                    </li>` : ''}
+                    ${this._availableTools.includes(DigitizingTools.Text) ? html`
+                    <li
+                        class="digitizing-${DigitizingTools.Text} btn ${this.toolSelected === DigitizingTools.Text ? 'active btn-primary' : ''}"
+                        @click=${() => this.toolSelected = DigitizingTools.Text}
+                        data-bs-toggle="tooltip"
+                        data-bs-title="${lizDict['digitizing.toolbar.'+DigitizingTools.Text]}"
+                        >
+                        <svg>
+                            <use xlink:href="#text"></use>
+                        </svg>
+                    </li>` : ''}
                 </ul>
             </div>
-            <input type="color" class="digitizing-color btn" .value="${mainLizmap.digitizing.drawColor}" @input=${(event) => mainLizmap.digitizing._userChangedColor(event.target.value)} data-original-title="${lizDict['digitizing.toolbar.color']}">
-            <button type="button" class="digitizing-edit btn ${mainLizmap.digitizing.isEdited ? 'active btn-primary' : ''}" ?disabled=${!mainLizmap.digitizing.featureDrawn} @click=${() => mainLizmap.digitizing.toggleEdit()} data-original-title="${lizDict['digitizing.toolbar.edit']}">
+            <input
+                type="color"
+                class="digitizing-color btn"
+                .value="${mainLizmap.digitizing.drawColor}"
+                @input=${(event) => mainLizmap.digitizing._userChangedColor(event.target.value)}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.color']}"
+                >
+            <button
+                type="button"
+                class="digitizing-edit btn ${mainLizmap.digitizing.isEdited ? 'active btn-primary' : ''}"
+                ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                @click=${() => mainLizmap.digitizing.toggleEdit()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.edit']}"
+                >
                 <svg>
                     <use xlink:href="#edit"/>
                 </svg>
             </button>
-            <button type="button" class="digitizing-erase btn ${mainLizmap.digitizing.isErasing ? 'active btn-primary' : ''}" ?disabled=${!mainLizmap.digitizing.featureDrawn} @click=${() => mainLizmap.digitizing.toggleErasing()} data-original-title="${lizDict['digitizing.toolbar.erase']}">
+            <button
+                type="button"
+                class="digitizing-rotate btn ${mainLizmap.digitizing.isRotate ? 'active btn-primary' : ''}"
+                ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                @click=${() => mainLizmap.digitizing.toggleRotate()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.rotate']}"
+                >
+                <svg>
+                    <use xlink:href="#rotate"/>
+                </svg>
+            </button>
+            <button
+                type="button"
+                class="digitizing-split btn ${mainLizmap.digitizing.isSplitting ? 'active btn-primary' : ''}"
+                ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                @click=${() => mainLizmap.digitizing.toggleSplit()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.split']}"
+                >
+                <svg>
+                    <use xlink:href="#split"/>
+                </svg>
+            </button>
+            <button
+                type="button"
+                class="digitizing-erase btn ${mainLizmap.digitizing.isErasing ? 'active btn-primary' : ''}"
+                ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                @click=${() => mainLizmap.digitizing.toggleErasing()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.erase']}"
+                >
                 <svg>
                     <use xlink:href="#eraser"/>
                 </svg>
             </button>
-            <button type="button" class="digitizing-toggle-visibility btn" ?disabled=${!mainLizmap.digitizing.featureDrawn} @click=${() => mainLizmap.digitizing.toggleVisibility()} data-original-title="${lizDict['tree.button.checkbox']}">
+            <button
+                type="button"
+                class="digitizing-all btn"
+                ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                @click=${() => this.eraseAll()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.erase.all']}"
+                >
+                <svg>
+                    <use xlink:href="#eraser-all"/>
+                </svg>
+            </button>
+            <button
+                type="button"
+                class="digitizing-toggle-visibility btn"
+                ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                @click=${() => mainLizmap.digitizing.toggleVisibility()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['tree.button.checkbox']}"
+                >
                 <i class="icon-eye-${mainLizmap.digitizing.visibility ? 'open' : 'close'}"></i>
             </button>
-            <button type="button" class="digitizing-toggle-measure btn ${mainLizmap.digitizing.hasMeasureVisible ? 'active btn-primary' : ''}" @click=${() => mainLizmap.digitizing.toggleMeasure()} data-original-title="${lizDict['digitizing.toolbar.measure']}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <button
+                type="button"
+                class="digitizing-toggle-measure btn ${mainLizmap.digitizing.hasMeasureVisible ? 'active btn-primary' : ''} ${this.measureAvailable ? '' : 'hide'}"
+                @click=${() => mainLizmap.digitizing.toggleMeasure()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.measure']}"
+                >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                    stroke="currentColor"
+                    fill="none"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    >
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
                     <path d="M17 3l4 4l-14 14l-4 -4z"></path>
                     <path d="M16 7l-1.5 -1.5"></path>
@@ -124,37 +302,68 @@ export default class Digitizing extends HTMLElement {
                     <path d="M7 16l-1.5 -1.5"></path>
                 </svg>
             </button>
-            <button type="button" class="digitizing-save btn ${mainLizmap.digitizing.isSaved ? 'active btn-primary' : ''} ${this.hasAttribute('save') ? '' : 'hide'}" @click=${()=> mainLizmap.digitizing.toggleSave()} data-original-title="${lizDict['digitizing.toolbar.save']}">
+            <button
+                type="button"
+                class="digitizing-save btn ${mainLizmap.digitizing.isSaved ? 'active btn-primary' : ''} ${this.saveAvailable ? '' : 'hide'}"
+                @click=${()=> this.toggleSave()}
+                data-bs-toggle="tooltip"
+                data-bs-title="${lizDict['digitizing.toolbar.save']}"
+                >
                 <svg>
                     <use xlink:href="#save" />
                 </svg>
             </button>
-            <div class="digitizing-import-export ${this.hasAttribute('import-export') ? '' : 'hide'}">
-                <div class="btn-group digitizing-export">
-                    <button class="btn dropdown-toggle" ?disabled=${!mainLizmap.digitizing.featureDrawn} data-toggle="dropdown" data-original-title="${lizDict['attributeLayers.toolbar.btn.data.export.title']}">
+            <div class="digitizing-import-export ${this.importExportAvailable ? '' : 'hide'}">
+                <div class="btn-group dropend digitizing-export">
+                    <button
+                        type="button"
+                        class="btn dropdown-toggle"
+                        ?disabled=${!mainLizmap.digitizing.featureDrawn}
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        title="${lizDict['attributeLayers.toolbar.btn.data.export.title']}"
+                        >
                         <svg>
                             <use xlink:href="#file-download"></use>
                         </svg>
-                        <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu">
                         <li>
-                            <a href="#" @click=${() => mainLizmap.digitizing.download('geojson')}>GeoJSON</a>
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                @click=${() => mainLizmap.digitizing.download('geojson')}
+                                >GeoJSON</button>
                         </li>
                         <li>
-                            <a href="#" @click=${() => mainLizmap.digitizing.download('gpx')}>GPX</a>
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                @click=${() => mainLizmap.digitizing.download('gpx')}
+                                >GPX</button>
                         </li>
                         <li>
-                            <a href="#" @click=${() => mainLizmap.digitizing.download('kml')}>KML</a>
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                @click=${() => mainLizmap.digitizing.download('kml')}
+                                >KML</button>
+                        </li>
+                        <li>
+                            <button
+                                type="button"
+                                class="dropdown-item"
+                                @click=${() => mainLizmap.digitizing.download('fgb')}
+                                >FlatGeobuf</button>
                         </li>
                     </ul>
                 </div>
                 <div class="digitizing-import">
-                    <label class="btn" data-original-title="${lizDict['digitizing.toolbar.import']}">
+                    <label class="btn" data-bs-toggle="tooltip" data-bs-title="${lizDict['digitizing.toolbar.import']}">
                         <svg>
                             <use xlink:href="#file-upload"></use>
                         </svg>
-                        <input class="hide" type="file" accept=".kml, .geojson, .json, .gpx" @change=${
+                        <input class="hide" type="file" accept=".kml, .geojson, .json, .gpx, .zip, .fgb" @change=${
                             (event) =>
                                     {
                                         if (event.target.files.length > 0){
@@ -167,16 +376,30 @@ export default class Digitizing extends HTMLElement {
                     <span class="file-name"></span>
                 </div>
             </div>
+            <div class="digitizing-state hide">
+                <div class="digitizing-save-state hide">${lizDict['digitizing.toolbar.save.state']}</div>
+            </div>
             <div class="digitizing-constraints ${mainLizmap.digitizing.hasConstraintsPanelVisible ? '' : 'hide'}">
                 <details>
                     <summary>${lizDict['digitizing.constraint.title']}</summary>${lizDict['digitizing.constraint.details']}
                 </details>
                 <div class="input-append">
-                    <input type="number" placeholder="${lizDict['digitizing.constraint.distance']}" class="distance" min="0" @input=${(event)=> mainLizmap.digitizing.distanceConstraint = event.target.value}>
+                    <input
+                        type="number"
+                        placeholder="${lizDict['digitizing.constraint.distance']}"
+                        class="distance"
+                        min="0"
+                        @input=${(event)=> mainLizmap.digitizing.distanceConstraint = event.target.value}
+                        >
                     <span class="add-on">m</span>
                 </div>
                 <div class="input-append">
-                    <input type="number" placeholder="${lizDict['digitizing.constraint.angle']}" class="angle" @input=${(event)=> mainLizmap.digitizing.angleConstraint = event.target.value}>
+                    <input
+                        type="number"
+                        placeholder="${lizDict['digitizing.constraint.angle']}"
+                        class="angle"
+                        @input=${(event)=> mainLizmap.digitizing.angleConstraint = event.target.value}
+                        >
                     <span class="add-on">°</span>
                 </div>
             </div>
@@ -186,37 +409,207 @@ export default class Digitizing extends HTMLElement {
                 </details>
                 <div class="form-row">
                     <label for="textContent">${lizDict['digitizing.toolbar.textLabel']}</label>
-                    <textarea id="textContent" placeholder="${lizDict['digitizing.toolbar.newText']}" .value=${mainLizmap.digitizing.editedFeatureText} @input=${ event=> mainLizmap.digitizing.editedFeatureText = event.target.value}></textarea>
+                    <textarea
+                        id="textContent"
+                        placeholder="${lizDict['digitizing.toolbar.newText']}"
+                        .value=${mainLizmap.digitizing.editedFeatureText}
+                        @input=${ event=> mainLizmap.digitizing.editedFeatureText = event.target.value}
+                        ></textarea>
                 </div>
                 <div class='digitizing-text-rotation form-row'>
                     <label for="textRotation">${lizDict['digitizing.toolbar.textRotation']}</label>
                     <div class="input-append">
-                        <input id="textRotation" type="number" .value=${mainLizmap.digitizing.editedFeatureTextRotation} @input=${ event => { mainLizmap.digitizing.editedFeatureTextRotation = parseInt(event.target.value) }}>
+                        <input
+                            id="textRotation"
+                            type="number"
+                            .value=${mainLizmap.digitizing.editedFeatureTextRotation}
+                            @input=${ event => { mainLizmap.digitizing.editedFeatureTextRotation = parseInt(event.target.value) }}
+                            >
                         <span class="add-on">°</span>
                     </div>
                 </div>
                 <div class="form-row">
                     <label for="textScale">${lizDict['digitizing.toolbar.textScale']}</label>
-                    <input id="textScale" type="number" min="1" .value=${mainLizmap.digitizing.editedFeatureTextScale} @input=${ event => { mainLizmap.digitizing.editedFeatureTextScale = parseInt(event.target.value) }}>
+                    <input
+                        id="textScale"
+                        type="number"
+                        min="1"
+                        .value=${mainLizmap.digitizing.editedFeatureTextScale}
+                        @input=${ event => { mainLizmap.digitizing.editedFeatureTextScale = parseInt(event.target.value) }}
+                        >
                 </div>
             </form>
         </div>`;
 
         render(mainTemplate(), this);
 
-        // Add tooltip on buttons
-        $('.digitizing-buttons, .digitizing .btn', this).tooltip({
-            placement: 'top'
-        });
+        const tooltipTriggerList = this.querySelectorAll('[data-bs-toggle="tooltip"]');
+        [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl, {
+            trigger: 'hover'
+        }));
 
         mainEventDispatcher.addListener(
             () => {
-                render(mainTemplate(), this);
+                if (!this.disabled) {
+                    render(mainTemplate(), this);
+                }
             },
-            ['digitizing.featureDrawn', 'digitizing.visibility', 'digitizing.toolSelected', 'digitizing.editionBegins', 'digitizing.editionEnds', 'digitizing.erasingBegins', 'digitizing.erasingEnds', 'digitizing.erase', 'digitizing.drawColor', 'digitizing.save', 'digitizing.measure', 'digitizing.editedFeatureText', 'digitizing.editedFeatureRotation', 'digitizing.editedFeatureScale']
+            [
+                'digitizing.drawColor',
+                'digitizing.editedFeatureRotation',
+                'digitizing.editedFeatureScale',
+                'digitizing.editedFeatureText',
+                'digitizing.editionBegins',
+                'digitizing.editionEnds',
+                'digitizing.erase',
+                'digitizing.erase.all',
+                'digitizing.erasingBegins',
+                'digitizing.erasingEnds',
+                'digitizing.featureDrawn',
+                'digitizing.measure',
+                'digitizing.rotate',
+                'digitizing.save',
+                'digitizing.split',
+                'digitizing.toolSelected',
+                'digitizing.visibility',
+            ]
         );
     }
 
     disconnectedCallback() {
+    }
+
+    /**
+     * Digitizing context
+     * The element attribute: context
+     * @type {string}
+     */
+    get context() {
+        if (this.hasAttribute('context')) {
+            return this.getAttribute('context');
+        }
+        return 'draw';
+    }
+
+    /**
+     * The element is deactivated
+     * if the element is disabled
+     * or if the tool is deactivated
+     * @type {boolean}
+     */
+    get deactivate() {
+        if (mainLizmap.digitizing.context !== this.context) {
+            return true;
+        }
+        if (mainLizmap.digitizing.toolSelected === 'deactivate') {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The element is disabled if the context is not the same as the module
+     * @type {boolean}
+     */
+    get disabled() {
+        if (mainLizmap.digitizing.context !== this.context) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Measure is available
+     * The element has attribute: measure
+     * @type {boolean}
+     */
+    get measureAvailable() {
+        return this.hasAttribute('measure');
+    }
+
+    /**
+     * Save is available
+     * The element has attribute: save
+     * @type {boolean}
+     */
+    get saveAvailable() {
+        return this.hasAttribute('save');
+    }
+
+    /**
+     * Import/export is available
+     * The element has attribute: import-export
+     * @type {boolean}
+     */
+    get importExportAvailable() {
+        return this.hasAttribute('import-export');
+    }
+
+    /**
+     * The available tools
+     * The element attribute: available-tools
+     * All or part of DigitizingAvailableTools except deactivate
+     * @see DigitizingAvailableTools
+     * @type {string}
+     */
+    get availableTools() {
+        return this._availableTools;
+    }
+
+    /**
+     * The selected tool
+     * The element attribute: selected-tool
+     * @type {string}
+     */
+    get toolSelected() {
+        return this._toolSelected;
+    }
+
+    /**
+     * Setting the selected
+     * @see DigitizingAvailableTools
+     * @param {string} tool - switch new OL map on top of OL2 one
+     */
+    set toolSelected(tool) {
+        if (this._availableTools.includes(tool)) {
+            this._toolSelected = tool;
+            mainLizmap.digitizing.toolSelected = tool;
+        }
+    }
+
+    /**
+     * Toggle selected tool
+     * @param {MouseEvent} event - The click event on the button
+     */
+    toggleToolSelected(event) {
+        const firstAvailableTools =  DigitizingAvailableTools[0];
+        if (this.toolSelected === firstAvailableTools) {
+            bootstrap.Dropdown.getOrCreateInstance(event.currentTarget).toggle();
+        } else if (mainLizmap.digitizing.toolSelected !== firstAvailableTools) {
+            mainLizmap.digitizing.toolSelected = firstAvailableTools;
+        } else {
+            mainLizmap.digitizing.toolSelected = this.toolSelected;
+        }
+        event.stopPropagation();
+    }
+
+    eraseAll() {
+        if (!confirm(lizDict['digitizing.confirm.erase.all'])) {
+            return false;
+        }
+        mainLizmap.digitizing.eraseAll();
+    }
+
+    toggleSave() {
+        mainLizmap.digitizing.toggleSave();
+        if (mainLizmap.digitizing.isSaved) {
+            this.querySelector('button.digitizing-save').dataset.originalTitle = lizDict['digitizing.toolbar.save.remove'];
+            this.querySelector('div.digitizing-save-state').classList.remove('hide');
+            this.querySelector('div.digitizing-state').classList.remove('hide');
+        } else {
+            this.querySelector('button.digitizing-save').dataset.originalTitle = lizDict['digitizing.toolbar.save'];
+            this.querySelector('div.digitizing-save-state').classList.add('hide');
+            this.querySelector('div.digitizing-state').classList.add('hide');
+        }
     }
 }

@@ -26,7 +26,7 @@ var lizTimemanager = function() {
             tmLayersNumber = Object.keys(lizMap.config.timemanagerLayers).length;
 
             $('#timemanager-menu button.btn-timemanager-clear').click(function() {
-                $('#button-timemanager').click();
+                document.getElementById('button-timemanager').click();
             });
 
             lizMap.events.on({
@@ -163,7 +163,7 @@ var lizTimemanager = function() {
                     fieldname: fieldnameContent,
                     filter: ''
                 };
-                $.get(filterConfigData.url, sdata, function(result){
+                $.get(globalThis['filterConfigData'].url, sdata, function(result){
                     if( !result )
                         return false;
                     if( 'status' in result && result['status'] == 'error' ){

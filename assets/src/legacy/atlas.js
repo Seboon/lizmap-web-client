@@ -5,6 +5,10 @@
  * @license MPL-2.0
  */
 
+import DOMPurify from 'dompurify';
+import GeoJSON from 'ol/format/GeoJSON.js';
+import { getCenter } from 'ol/extent.js';
+
 (function () {
 
     lizMap.events.on({
@@ -178,7 +182,7 @@
                         }
 
                         var val = $('#liz-atlas-select').val();
-                        $('#liz-atlas-select').html(options);
+                        $('#liz-atlas-select').html(DOMPurify.sanitize(options));
                         // reset val
                         $('#liz-atlas-select').val(val);
                         // get popup
@@ -274,11 +278,11 @@
                 }
                 home += '</select>';
                 home += '<br><span>';
-                home += '<button class="btn btn-mini btn-primary liz-atlas-item" value="-1">' + lizDict['atlas.toolbar.prev'] + '</button>';
+                home += '<button class="btn btn-sm btn-primary liz-atlas-item" value="-1">' + lizDict['atlas.toolbar.prev'] + '</button>';
                 home += '&nbsp;';
-                home += '<button class="btn btn-mini btn-primary liz-atlas-item" value="1">' + lizDict['atlas.toolbar.next'] + '</button>';
+                home += '<button class="btn btn-sm btn-primary liz-atlas-item" value="1">' + lizDict['atlas.toolbar.next'] + '</button>';
                 home += '&nbsp;';
-                home += '<button class="btn btn-mini btn-wanrning liz-atlas-run" value="1">' + lizDict['atlas.toolbar.play'] + '</button>';
+                home += '<button class="btn btn-sm btn-wanrning liz-atlas-run" value="1">' + lizDict['atlas.toolbar.play'] + '</button>';
                 home += '&nbsp;';
                 home += '</span>';
                 home += '</span>';
@@ -377,7 +381,7 @@
                 // Get Atlas home
                 var home = getAtlasHome(lizAtlasConfig);
 
-                $("#atlas-content").html(home);
+                $("#atlas-content").html(DOMPurify.sanitize(home));
 
                 // Add events
                 activateAtlasTrigger(lizAtlasConfig);
@@ -529,26 +533,18 @@
              * @param feature
              */
             function runAtlasItem(feature) {
-
-                // Use OL tools to reproject feature geometry
-                var format = new OpenLayers.Format.GeoJSON({
-                    ignoreExtraDims: true
-                });
-                var feat = format.read(feature)[0];
-                var f = feat.clone();
-                var proj = lizMap.config.layers[lizAtlasConfig.layername]['featureCrs'];
-                f.geometry.transform(proj, lizMap.map.getProjection());
+                const olFeature = (new GeoJSON()).readFeature(feature);
 
                 // Zoom to feature
                 if (lizAtlasConfig['zoom']) {
                     if (lizAtlasConfig['zoom'].toLowerCase() == 'center') {
                         // center
-                        var lonlat = f.geometry.getBounds().getCenterLonLat();
-                        lizMap.map.setCenter(lonlat);
+                        const center = getCenter(olFeature.getGeometry().getExtent());
+                        lizMap.map.setCenter(center);
                     }
                     else {
                         // zoom
-                        lizMap.map.zoomToExtent(f.geometry.getBounds());
+                        lizMap.mainLizmap.map.zoomToGeometryOrExtent(olFeature.getGeometry());
                     }
                 }
 
@@ -559,7 +555,7 @@
 
                 // Display popup
                 if (lizAtlasConfig['atlasDisplayPopup']) {
-                    lizMap.getFeaturePopupContent(lizAtlasConfig.wmsName, feature, function (data) {
+                    lizMap.getFeaturePopupContent(lizAtlasConfig.layername, feature, function (data) {
                         var popupContainerId = 'liz-atlas-item-detail';
                         // Add class to table
                         var popupReg = new RegExp('lizmapPopupTable', 'g');

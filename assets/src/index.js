@@ -7,6 +7,7 @@
 
 import Geolocation from './components/Geolocation.js';
 import GeolocationSurvey from './components/GeolocationSurvey.js';
+import FeaturesTable from './components/FeaturesTable.js';
 import SelectionTool from './components/SelectionTool.js';
 import SelectionInvert from './components/SelectionInvert.js';
 import Snapping from './components/Snapping.js';
@@ -22,13 +23,32 @@ import Print from './components/Print.js';
 import FullScreen from './components/FullScreen.js';
 import BaseLayers from './components/BaseLayers.js';
 import Treeview from './components/Treeview.js';
+import NavBar from './components/NavBar.js';
+import Tooltip from './components/Tooltip.js';
+import Message from './components/Message.js';
 
 import { mainLizmap, mainEventDispatcher } from './modules/Globals.js';
+import executeJSFromServer from './modules/ExecuteJSFromServer.js';
+
+import olDep from './dependencies/ol.js';
+import litHTMLDep from './dependencies/lit-html.js';
+import proj4 from 'proj4';
+
+lizMap.ol = olDep;
+lizMap.litHTML = litHTMLDep;
+lizMap.proj4 = proj4;
 
 lizMap.events.on({
+    configsloaded: () => {
+
+        lizMap.mainLizmap = mainLizmap;
+        lizMap.mainEventDispatcher = mainEventDispatcher;
+
+    },
     uicreated: () => {
         window.customElements.define('lizmap-geolocation', Geolocation);
         window.customElements.define('lizmap-geolocation-survey', GeolocationSurvey);
+        window.customElements.define('lizmap-features-table', FeaturesTable);
         window.customElements.define('lizmap-selection-tool', SelectionTool);
         window.customElements.define('lizmap-selection-invert', SelectionInvert);
         window.customElements.define('lizmap-snapping', Snapping);
@@ -44,8 +64,10 @@ lizMap.events.on({
         window.customElements.define('lizmap-fullscreen', FullScreen);
         window.customElements.define('lizmap-base-layers', BaseLayers);
         window.customElements.define('lizmap-treeview', Treeview);
-
-        lizMap.mainLizmap = mainLizmap;
-        lizMap.mainEventDispatcher = mainEventDispatcher;
+        window.customElements.define('lizmap-navbar', NavBar);
+        window.customElements.define('lizmap-tooltip', Tooltip);
+        window.customElements.define('lizmap-message', Message);
     }
 });
+
+executeJSFromServer();

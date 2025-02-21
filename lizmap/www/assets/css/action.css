@@ -8,19 +8,21 @@
 #mini-dock #action div.action h3 span.icon  {
     background-position: unset;
 }
+
 #mapmenu li.action a:hover .icon,
 #mapmenu li.action.active a .icon {
     filter: invert(1);
 }
+
 #project-action-selector-container,
 .layer-action-selector-container {
     min-height: 100px;
     max-height: 500px !important;
     padding-bottom: 10px;
 }
+
 div.action-selector-container {
-    padding: 5px;
-    width: 100%;
+    margin-bottom: 5px;
 }
 
 select.action-select {
@@ -35,6 +37,8 @@ select.action-select {
     font-style: italic;
     background: lightgray;
     margin-right: 5%;
+    border: 1px solid var(--color-contrasted-elements-light);
+    border-radius: 5px;
 }
 
 div.action-buttons {
@@ -53,4 +57,9 @@ div.action-buttons button:hover:not([disabled]) {
     background-image: linear-gradient(to bottom,#08c,#04c);
     color: white;
     text-shadow: none;
+}
+
+#project-action-selector-container lizmap-digitizing {
+    margin-bottom: 10px;
+    display: block;
 }

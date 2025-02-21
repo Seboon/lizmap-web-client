@@ -76,6 +76,11 @@ class ProjectConfig
     /**
      * @var mixed
      */
+    protected $warnings;
+
+    /**
+     * @var mixed
+     */
     protected $options;
 
     protected static $cachedProperties = array(
@@ -93,6 +98,7 @@ class ProjectConfig
         'filter_by_polygon',
         'datavizLayers',
         'metadata',
+        'warnings',
     );
 
     /**
@@ -471,6 +477,17 @@ class ProjectConfig
     }
 
     /**
+     * Get warnings from the CFG files
+     * If the CFG file has been made with at least with 4.0.0 version.
+     *
+     * @return null|object
+     */
+    public function getProjectCfgWarnings()
+    {
+        return $this->warnings;
+    }
+
+    /**
      * Print layouts since Lizmap 3.7.
      *
      * @return null|object
@@ -503,6 +520,49 @@ class ProjectConfig
     public function getDatavizLayers()
     {
         return $this->datavizLayers;
+    }
+
+    /**
+     * List of the layers configured in the tools
+     * Attribute table, form filter & dataviz.
+     *
+     * We use this list to find all the fields for which
+     * we need to replace the code by their corresponding labels
+     *
+     * @return array<string> Array of layer ids
+     */
+    public function getLayersWithLabels()
+    {
+        // Keep a list of layer ids for which to replace the code by labels
+        $layersWithLabeledFields = array();
+
+        // Attribute layers
+        foreach ($this->getAttributeLayers() as $config) {
+            if ($config->hideLayer == 'True') {
+                continue;
+            }
+            $layersWithLabeledFields[] = $config->layerId;
+        }
+
+        // Dataviz layers
+        foreach ($this->getDatavizLayers() as $config) {
+            $layerId = $config->layerId;
+            if (array_key_exists($layerId, $layersWithLabeledFields)) {
+                continue;
+            }
+            $layersWithLabeledFields[] = $config->layerId;
+        }
+
+        // Form filter layers
+        foreach ($this->getFormFilterLayers() as $config) {
+            $layerId = $config->layerId;
+            if (array_key_exists($layerId, $layersWithLabeledFields)) {
+                continue;
+            }
+            $layersWithLabeledFields[] = $config->layerId;
+        }
+
+        return $layersWithLabeledFields;
     }
 
     /** Get the HTML template built from the Drag and drop layout
@@ -541,7 +601,7 @@ class ProjectConfig
     {
         // Get the correspondance between the plot uid & the plot ID (integer)
         $plotUidToId = array();
-        foreach ($this->datavizLayers as $id => $plot) {
+        foreach ($this->datavizLayers as $plot) {
             // If a uuid exists in the config, use it
             if (property_exists($plot, 'uuid')) {
                 $plotUidToId[$plot->uuid] = $plot->order;
@@ -595,9 +655,9 @@ class ProjectConfig
                 if ($debug) {
                     \jLog::log("Node {$subNode->name} - n = {$n} ET active = {$active}");
                 }
-                $item = $prefix.'    <li class="'.$active.'">';
-                $item .= $prefix.'    <a href="#dataviz-dnd-'.$level.'-'.md5($subNode->name);
-                $item .= '" data-toggle="tab">'.$subNode->name.'</a>';
+                $item = $prefix.'    <li class="nav-item" role="presentation">';
+                $item .= $prefix.'    <button class="nav-link '.$active.'" data-bs-target="#dataviz-dnd-'.$level.'-'.md5($subNode->name);
+                $item .= '" data-bs-toggle="tab">'.$subNode->name.'</button>';
                 $item .= '</li>';
                 $tabChildren[] = $item;
                 ++$n;
@@ -605,7 +665,7 @@ class ProjectConfig
             // Add the UL only if there is at least one child
             if (!empty($tabChildren)) {
                 $html .= $prefix.'<div class="tab-content">';
-                $html .= $prefix.'<ul class="nav nav-tabs">';
+                $html .= $prefix.'<ul class="nav nav-tabs" role="tablist">';
                 $html .= implode("\n", $tabChildren);
                 $html .= $prefix.'</ul>';
             }

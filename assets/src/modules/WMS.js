@@ -5,6 +5,8 @@
  * @license MPL-2.0
  */
 
+import { Utils } from './Utils.js';
+
 /**
  * @class
  * @name WMS
@@ -13,8 +15,8 @@ export default class WMS {
 
     constructor() {
         this._defaultGetFeatureInfoParameters = {
-            repository: lizUrls.params.repository,
-            project: lizUrls.params.project,
+            repository: globalThis['lizUrls'].params.repository,
+            project: globalThis['lizUrls'].params.project,
             SERVICE: 'WMS',
             REQUEST: 'GetFeatureInfo',
             VERSION: '1.3.0',
@@ -23,8 +25,8 @@ export default class WMS {
         };
 
         this._defaultGetLegendGraphicParameters = {
-            repository: lizUrls.params.repository,
-            project: lizUrls.params.project,
+            repository: globalThis['lizUrls'].params.repository,
+            project: globalThis['lizUrls'].params.project,
             SERVICE: 'WMS',
             REQUEST: 'GetLegendGraphic',
             VERSION: '1.3.0',
@@ -33,37 +35,34 @@ export default class WMS {
     }
 
     /**
+     * Get feature info from WMS
      * @param {object} options - optional parameters which can override this._defaultGetFeatureInfoParameters
      * @returns {Promise} Promise object represents data
      * @memberof WMS
      */
     async getFeatureInfo(options) {
-        const response = await fetch(lizUrls.wms, {
+        return Utils.fetchHTML(globalThis['lizUrls'].wms, {
             method: "POST",
             body: new URLSearchParams({
                 ...this._defaultGetFeatureInfoParameters,
                 ...options
             })
         });
-        return response.text();
     }
 
     /**
+     * Get legend graphic from WMS
      * @param {object} options - optional parameters which can override this._defaultGetLegendGraphicsParameters
      * @returns {Promise} Promise object represents data
      * @memberof WMS
      */
     async getLegendGraphic(options) {
-        const response = await fetch(lizUrls.wms, {
+        return Utils.fetchJSON(globalThis['lizUrls'].wms, {
             method: "POST",
             body: new URLSearchParams({
                 ...this._defaultGetLegendGraphicParameters,
                 ...options
             })
         });
-        if (response.ok) {
-            return response.json();
-        }
-        throw new Error(response.text);
     }
 }

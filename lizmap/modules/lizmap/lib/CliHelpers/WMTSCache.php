@@ -2,6 +2,10 @@
 
 namespace Lizmap\CliHelpers;
 
+use Lizmap\Project\UnknownLizmapProjectException;
+use Lizmap\Request\Proxy;
+use Lizmap\Request\WMTSRequest;
+
 class WMTSCache
 {
     private $outputFunc;
@@ -24,7 +28,7 @@ class WMTSCache
             if (!$project) {
                 throw new \Exception('Unknown repository!');
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             throw new \Exception('The project has not be found!');
         }
 
@@ -96,7 +100,7 @@ class WMTSCache
                 if ($verbose) {
                     foreach ($tileMatrixSetLink->tileMatrixLimits as $tileMatrixLimit) {
                         $tmCount = ($tileMatrixLimit->maxRow - $tileMatrixLimit->minRow + 1) * ($tileMatrixLimit->maxCol - $tileMatrixLimit->minCol + 1);
-                        $outputCallback('For "'.$layer->name.'" and "'.$tileMatrixSetLink->ref.'" the TileMatrix '.$tileMatrixLimit->id.' has '.$tmCount.' tiles'.'');
+                        $outputCallback('For "'.$layer->name.'" and "'.$tileMatrixSetLink->ref.'" the TileMatrix '.$tileMatrixLimit->id.' has '.$tmCount.' tiles');
                     }
                 } else {
                     $tmls = array();
@@ -275,7 +279,7 @@ class WMTSCache
 
                         $tmCount = ($tileMatrix->maxRow - $tileMatrix->minRow + 1) * ($tileMatrix->maxCol - $tileMatrix->minCol + 1);
                         if ($verbose || $dryRun) {
-                            $outputCallback($tmCount.' tiles to generate for "'.$layer->name.'" "'.$tileMatrixSetId.'" "'.$tileMatrixLimit->id.'" "'.implode(',', $bbox).'"'.'');
+                            $outputCallback($tmCount.' tiles to generate for "'.$layer->name.'" "'.$tileMatrixSetId.'" "'.$tileMatrixLimit->id.'" "'.implode(',', $bbox).'"');
                         }
                         $tileCount += $tmCount;
                     } else {
@@ -283,14 +287,14 @@ class WMTSCache
 
                         $tmCount = ($tileMatrixLimit->maxRow - $tileMatrixLimit->minRow + 1) * ($tileMatrixLimit->maxCol - $tileMatrixLimit->minCol + 1);
                         if ($verbose || $dryRun) {
-                            $outputCallback($tmCount.' tiles to generate for "'.$layer->name.'" "'.$tileMatrixSetId.'" "'.$tileMatrixLimit->id.'"'.'');
+                            $outputCallback($tmCount.' tiles to generate for "'.$layer->name.'" "'.$tileMatrixSetId.'" "'.$tileMatrixLimit->id.'"');
                         }
                         $tileCount += $tmCount;
                     }
                 }
             }
             if ($verbose || $dryRun) {
-                $outputCallback($tileCount.' tiles to generate for "'.$layer->name.'" "'.$tileMatrixSetId.'" between "'.$tileMatrixMin.'" and "'.$tileMatrixMax.'"'.'');
+                $outputCallback($tileCount.' tiles to generate for "'.$layer->name.'" "'.$tileMatrixSetId.'" between "'.$tileMatrixMin.'" and "'.$tileMatrixMax.'"');
             }
             if ($dryRun) {
                 return 0;
@@ -309,7 +313,7 @@ class WMTSCache
                     while ($row <= $tileMatrixLimit->maxRow) {
                         $col = (int) $tileMatrixLimit->minCol;
                         while ($col <= $tileMatrixLimit->maxCol) {
-                            $request = new \Lizmap\Request\WMTSRequest(
+                            $request = new WMTSRequest(
                                 $project,
                                 array(
                                     'service' => 'WMTS',
@@ -339,8 +343,8 @@ class WMTSCache
                             ++$tileProgress;
                             if ($verbose && $tileProgress * 100 / $tileCount >= $tileStep) {
                                 $tileStep = floor($tileProgress * 100 / $tileCount);
-                                $outputCallback('Progression: '.$tileStep.'%, '.$tileProgress.' tiles generated on '.$tileCount.' tiles'.'');
-                                $tileStep = $tileStep + $tileStepHeight;
+                                $outputCallback('Progression: '.$tileStep.'%, '.$tileProgress.' tiles generated on '.$tileCount.' tiles');
+                                $tileStep += $tileStepHeight;
                             }
                         }
                         ++$row;
@@ -406,9 +410,9 @@ class WMTSCache
         $outputCallback('Start cleaning');
         $outputCallback('================');
         if ($layerId) {
-            $result = \Lizmap\Request\Proxy::clearLayerCache($repository->getKey(), $project->getKey(), $layerId);
+            $result = Proxy::clearLayerCache($repository->getKey(), $project->getKey(), $layerId);
         } else {
-            $result = \Lizmap\Request\Proxy::clearProjectCache($repository->getKey(), $project->getKey());
+            $result = Proxy::clearProjectCache($repository->getKey(), $project->getKey());
         }
         $outputCallback('================');
         if (!$result) {
