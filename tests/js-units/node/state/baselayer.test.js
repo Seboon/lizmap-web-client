@@ -2,13 +2,14 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { LayersConfig } from '../../../../assets/src/modules/config/Layer.js';
-import { LayerTreeGroupConfig, buildLayerTreeConfig } from '../../../../assets/src/modules/config/LayerTree.js';
-import { BaseLayerTypes, BaseLayerConfig, EmptyBaseLayerConfig, BaseLayersConfig } from '../../../../assets/src/modules/config/BaseLayer.js';
-import { buildLayersOrder } from '../../../../assets/src/modules/config/LayersOrder.js';
-import { LayersAndGroupsCollection } from '../../../../assets/src/modules/state/Layer.js';
+import { LayersConfig } from 'assets/src/modules/config/Layer.js';
+import { LayerTreeGroupConfig, buildLayerTreeConfig } from 'assets/src/modules/config/LayerTree.js';
+import { BaseLayerTypes, BaseLayerConfig, EmptyBaseLayerConfig, BaseLayersConfig } from 'assets/src/modules/config/BaseLayer.js';
+import { buildLayersOrder } from 'assets/src/modules/config/LayersOrder.js';
+import { LayersAndGroupsCollection } from 'assets/src/modules/state/Layer.js';
+import { OptionsConfig } from 'assets/src/modules/config/Options.js';
 
-import { BaseLayerState, EmptyBaseLayerState, BaseLayersState } from '../../../../assets/src/modules/state/BaseLayer.js';
+import { BaseLayerState, EmptyBaseLayerState, BaseLayersState } from 'assets/src/modules/state/BaseLayer.js';
 
 /**
  * Returns the BaseLayersState for the project
@@ -18,18 +19,24 @@ import { BaseLayerState, EmptyBaseLayerState, BaseLayersState } from '../../../.
  * - name +'-config.json': the Lizmap config send by lizmap web client
  *
  * @param {String} name - The project name
+ * @param {string[]} expectedInvalidLayers - Expected list of invalid layers
  *
  * @return {BaseLayersState}
  **/
-function getBaseLayersState(name) {
-    const capabilities = JSON.parse(readFileSync('./data/'+ name +'-capabilities.json', 'utf8'));
+function getBaseLayersState(name, expectedInvalidLayers = []) {
+    console.log(`Current test : ${name}`);
+    const capabilities = JSON.parse(readFileSync(`./tests/js-units/data/${name}-capabilities.json`, 'utf8'));
     expect(capabilities).to.not.be.undefined
     expect(capabilities.Capability).to.not.be.undefined
-    const config = JSON.parse(readFileSync('./data/'+ name +'-config.json', 'utf8'));
+    const config = JSON.parse(readFileSync(`./tests/js-units/data/${name}-config.json`, 'utf8'));
+
     expect(config).to.not.be.undefined
 
     const layers = new LayersConfig(config.layers);
-    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+    let invalid = [];
+    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+    expect(invalid).to.have.length(expectedInvalidLayers.length);
+    expect(invalid).to.deep.eq(expectedInvalidLayers);
 
     let baseLayerTreeItem = null;
     for (const layerTreeItem of rootCfg.getChildren()) {
@@ -43,7 +50,8 @@ function getBaseLayersState(name) {
 
     const layersOrder = buildLayersOrder(config, rootCfg);
 
-    const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+    const options = new OptionsConfig(config.options);
+    const collection = new LayersAndGroupsCollection(rootCfg, layersOrder, options.hideGroupCheckbox);
 
     const baseLayers = new BaseLayersState(baseLayersConfig, collection)
     expect(baseLayers).to.be.instanceOf(BaseLayersState)
@@ -139,10 +147,10 @@ describe('BaseLayersState', function () {
     })
 
     it('From options and layers tree', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
+        const capabilities = JSON.parse(readFileSync('./tests/js-units/data/montpellier-capabilities.json', 'utf8'));
         expect(capabilities).to.not.be.undefined
         expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
+        const config = JSON.parse(readFileSync('./tests/js-units/data/montpellier-config.json', 'utf8'));
         expect(config).to.not.be.undefined
 
         // Update capabilities change Hidden group to Baselayers group
@@ -156,7 +164,10 @@ describe('BaseLayersState', function () {
         config.layers[blName] = blGroupCfg;
 
         const layers = new LayersConfig(config.layers);
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+        let invalid = [];
+        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+        expect(invalid).to.have.length(0);
 
         const blGroup = rootCfg.children[6];
         expect(blGroup).to.be.instanceOf(LayerTreeGroupConfig)
@@ -168,7 +179,7 @@ describe('BaseLayersState', function () {
 
         const layersOrder = buildLayersOrder(config, rootCfg);
 
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder, options.hideGroupCheckbox);
 
         const baseLayers = new BaseLayersState(baseLayersConfig, collection)
         expect(baseLayers.selectedBaseLayerName).to.be.eq('osm-mapnik')
@@ -259,10 +270,43 @@ describe('BaseLayersState', function () {
                 BaseLayerTypes.Lizmap,
                 BaseLayerTypes.WMS,
             ])
+        expect(baseLayers.baseLayers.map(l => l.hasItemState))
+            .to.be.an('array')
+            .that.have.length(11)
+            .that.ordered.members([
+                true,
+                true,
+                true,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+            ])
+        expect(baseLayers.baseLayers.map(l => l.hasLayerConfig))
+            .to.be.an('array')
+            .that.have.length(11)
+            .that.ordered.members([
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+            ])
     });
 
     it('Tiled baselayer', function () {
-        const baseLayers = getBaseLayersState('tiled_baselayers')
+        // This project has OpenStreetMap in its GetCapabilities but not in CFG file
+        const baseLayers = getBaseLayersState('tiled_baselayers', ['OpenStreetMap'])
         expect(baseLayers.selectedBaseLayerName).to.be.eq('wms_baselayer')
         expect(baseLayers.selectedBaseLayer).to.not.be.undefined
         expect(baseLayers.selectedBaseLayer.name).to.be.eq('wms_baselayer')

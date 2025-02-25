@@ -8,9 +8,10 @@
 import { mainLizmap } from '../modules/Globals.js';
 import { ADJUSTED_DPI } from '../utils/Constants.js';
 import { html, render } from 'lit-html';
+import { keyed } from 'lit-html/directives/keyed.js';
 
 import MaskLayer from '../modules/Mask.js';
-import Utils from '../modules/Utils.js';
+import { Utils } from '../modules/Utils.js';
 
 import WKT from 'ol/format/WKT.js';
 import { transformExtent, get as getProjection } from 'ol/proj.js';
@@ -41,8 +42,6 @@ export default class Print extends HTMLElement {
         lizMap.events.on({
             minidockopened: (e) => {
                 if ( e.id == 'print' ) {
-                    // mainLizmap.newOlMap = true;
-
                     this._projectionUnit = getProjection(mainLizmap.qgisProjectProjection).getUnits();
 
                     if (this._projectionUnit === 'degrees') {
@@ -58,7 +57,7 @@ export default class Print extends HTMLElement {
                     // Filtering printTemplates by atlas enabled
                     // and since 3.7 by layout enabled
                     mainLizmap.config?.printTemplates.map((template, index) => {
-                        if (template?.atlas?.enabled === '0'){
+                        if (template?.atlas?.enabled === '0' || template?.atlas?.enabled === false){
                             // Lizmap >= 3.7
                             if (layouts?.list) {
                                 if(layouts.list?.[index]?.enabled){
@@ -100,17 +99,22 @@ export default class Print extends HTMLElement {
                         return this._printScale
                     };
 
-                    mainLizmap.map.addLayer(this._maskLayer);
+                    mainLizmap.map.addToolLayer(this._maskLayer);
+                    this._maskLayer.setProperties({
+                        name: 'LizmapPrintMaskLayer'
+                    });
 
                     mainLizmap.map.getView().on('change:resolution', this._onChangeResolution);
 
                     render(this._template(), this);
+                } else {
+                    mainLizmap.map.removeToolLayer(this._maskLayer);
+                    mainLizmap.map.getView().un('change:resolution', this._onChangeResolution);
                 }
             },
             minidockclosed: (e) => {
                 if ( e.id == 'print' ) {
-                    // mainLizmap.newOlMap = false;
-                    mainLizmap.map.removeLayer(this._maskLayer);
+                    mainLizmap.map.removeToolLayer(this._maskLayer);
                     mainLizmap.map.getView().un('change:resolution', this._onChangeResolution);
                 }
             }
@@ -129,12 +133,12 @@ export default class Print extends HTMLElement {
                 <tr>
                     <td>
                         <select id="print-template" @change=${(event) => { this.printTemplate = event.target.value }}>
-                            ${this._printTemplates.map((template, index) => html`<option value="${index}">${template.title}</option>`)}
+                            ${this._printTemplates.map((template, index) => html`<option value=${index}>${template.title}</option>`)}
                         </select>
                     </td>
                     <td>
                         <select id="print-scale" class="btn-print-scales" .value=${this._printScale} @change=${(event) => { this.printScale = parseInt(event.target.value) }}>
-                            ${this._printScales.map( scale => html`<option .selected=${scale === this._printScale} value="${scale}">${scale.toLocaleString()}</option>`)}
+                            ${this._printScales.map( scale => html`<option .selected=${scale === this._printScale} value=${scale}>${scale.toLocaleString()}</option>`)}
                         </select>
                     </td>
                 </tr>
@@ -146,20 +150,20 @@ export default class Print extends HTMLElement {
 
                     ${this._printTemplates[this.printTemplate].labels.slice().reverse().map((label) =>
                     label?.htmlState ?
-                        html`<textarea name="${label.id}" class="print-label" placeholder="${label.text}" .value=${label.text}></textarea><br>`
-                        : html`<input  name="${label.id}" class="print-label" placeholder="${label.text}" value="${label.text}" type="text"><br>`
+                        html`<textarea name=${label.id} class="print-label" placeholder=${label.text} .value=${label.text}></textarea><br>`
+                        : html`<input  name=${label.id} class="print-label" placeholder=${label.text} value=${label.text} type="text"><br>`
                         )}
                 </div>`
             : ''}
             <details class='print-advanced'>
                 <summary>${lizDict['print.advanced']}</summary>
-                ${this.printDPIs.length > 1 ? html`
+                ${this.printDPIs.length > 1 ? keyed(this.defaultDPI, html`
                 <div class="print-dpi">
                     <span>${lizDict['print.toolbar.dpi']}</span>
-                    <select class="btn-print-dpis" .value="${this.defaultDPI}" @change=${(event) => { this._printDPI = event.target.value }}>
-                        ${this.printDPIs.map( dpi => html`<option ?selected="${dpi === this.defaultDPI}" value="${dpi}">${dpi}</option>`)}
+                    <select class="btn-print-dpis" .value=${this.defaultDPI} @change=${(event) => { this._printDPI = event.target.value }}>
+                        ${this.printDPIs.map( dpi => html`<option ?selected=${dpi === this.defaultDPI} value=${dpi}>${dpi}</option>`)}
                     </select>
-                </div>` : ''}
+                </div>`) : ''}
                 <div class='print-grid'>
                     <span>${lizDict['print.gridIntervals']}</span>
                     <div>
@@ -181,12 +185,11 @@ export default class Print extends HTMLElement {
                     </div>
                 </div>
             </details>
-
             <div class="flex">
-                ${this.printFormats.length > 1 ? html`
-                <select id="print-format" title="${lizDict['print.toolbar.format']}" class="btn-print-format" @change=${(event) => { this._printFormat = event.target.value }}>
-                    ${this.printFormats.map( format => html`<option value="${format}">${format.toUpperCase()}</option>`)}
-                </select>` : ''}
+                ${this.printFormats.length > 1 ? keyed(this.defaultFormat, html`
+                <select id="print-format" title="${lizDict['print.toolbar.format']}" class="btn-print-format" .value=${this.defaultFormat} @change=${(event) => { this._printFormat = event.target.value }}>
+                    ${this.printFormats.map( format => html`<option ?selected=${format === this.defaultFormat} value="${format}">${format.toUpperCase()}</option>`)}
+                </select>`) : ''}
                 <button id="print-launch" class="btn-print-launch btn btn-primary flex-grow-1" @click=${() => { this._launch() }}>${lizDict['print.launch']}</button>
             </div>`;
     }
@@ -232,28 +235,10 @@ export default class Print extends HTMLElement {
         const styleLayers = [];
         const opacityLayers = [];
 
-        // Get active baselayer, and add the corresponding QGIS layer if needed
-        const activeBaseLayerName = mainLizmap._lizmap3.map.baseLayer.name;
-        const externalBaselayersReplacement = mainLizmap._lizmap3.getExternalBaselayersReplacement();
-        const exbl = externalBaselayersReplacement?.[activeBaseLayerName];
-        if (mainLizmap.config.layers?.[exbl]) {
-            const activeBaseLayerConfig = mainLizmap.config.layers[exbl];
-            if (activeBaseLayerConfig?.id && mainLizmap.config.options?.useLayerIDs == 'True') {
-                printLayers.push(activeBaseLayerConfig.id);
-            } else if (activeBaseLayerConfig?.shortname) {
-                printLayers.push(activeBaseLayerConfig.shortname);
-            } else {
-                printLayers.push(exbl);
-            }
-            styleLayers.push('');
-            // TODO: handle baselayers opacity
-            opacityLayers.push(255);
-        }
-
         // Add selected base layer if any
         const selectedBaseLayer = lizMap.mainLizmap.state.baseLayers.selectedBaseLayer;
-        if (selectedBaseLayer && selectedBaseLayer.layerConfig !== null) {
-            printLayers.push(selectedBaseLayer.layerConfig.shortname);
+        if (selectedBaseLayer && selectedBaseLayer.hasItemState) {
+            printLayers.push(selectedBaseLayer.itemState.wmsName);
             styleLayers.push(selectedBaseLayer.itemState.wmsSelectedStyleName);
             opacityLayers.push(parseInt(255 * selectedBaseLayer.itemState.opacity * selectedBaseLayer.layerConfig.opacity));
         }
@@ -331,18 +316,23 @@ export default class Print extends HTMLElement {
 
             // Translate circle coords to WKT
             if (featureDrawn.getGeometry().getType() === 'Circle') {
-                const center = featureDrawn.getGeometry().getCenter()
-                const radius = featureDrawn.getGeometry().getRadius()
-                const circleString = `CIRCULARSTRING(
+                const geomReproj = featureDrawn.getGeometry().clone().transform(mainLizmap.projection, projectProjection);
+                const center = geomReproj.getCenter();
+                const radius = geomReproj.getRadius();
+
+                const circleWKT = `CURVEPOLYGON(CIRCULARSTRING(
                     ${center[0] - radius} ${center[1]},
                     ${center[0]} ${center[1] + radius},
                     ${center[0] + radius} ${center[1]},
                     ${center[0]} ${center[1] - radius},
-                    ${center[0] - radius} ${center[1]})`;
+                    ${center[0] - radius} ${center[1]}))`;
 
-                highlightGeom.push(circleString);
+                highlightGeom.push(circleWKT);
             } else {
-                highlightGeom.push(formatWKT.writeFeature(featureDrawn));
+                highlightGeom.push(formatWKT.writeFeature(featureDrawn, {
+                    featureProjection: mainLizmap.projection,
+                    dataProjection: projectProjection
+                }));
             }
 
             highlightSymbol.push(mainLizmap.digitizing.getFeatureDrawnSLD(index));
@@ -395,15 +385,13 @@ export default class Print extends HTMLElement {
         });
 
         // Overview map
-        if (mainLizmap.config.options.hasOverview && this._overviewMapId) {
+        if (this._overviewMapId) {
             let extent = mainLizmap.config.options.bbox;
 
             if(projectProjection != mapProjection){
                 extent = transformExtent(extent, mapProjection, projectProjection);
             }
             wmsParams[this._overviewMapId + ':EXTENT'] = extent.join(',');
-            wmsParams[this._overviewMapId + ':LAYERS'] = 'Overview';
-            wmsParams[this._overviewMapId + ':STYLES'] = '';
         }
 
         // Display spinner and message while waiting for print
@@ -418,7 +406,10 @@ export default class Print extends HTMLElement {
             printLaunch.disabled = false;
             printLaunch.classList.remove('spinner');
 
-            document.querySelector('#message .print-in-progress a').click();
+            document.querySelector('#message .print-in-progress button').click();
+        }, (errorEvent) => {
+            console.error(errorEvent)
+            mainLizmap._lizmap3.addMessage(lizDict['print.error'], 'danger', true).addClass('print-error');
         });
     }
 
@@ -455,10 +446,11 @@ export default class Print extends HTMLElement {
     }
 
     /**
-     * @param {string | number} index
+     * Update print template
+     * @param {string | number} index - Index of the print template
      */
     set printTemplate(index){
-        // No print templats defined do nothing
+        // No print templates defined do nothing
         if (this._printTemplates.length == 0) {
             return;
         }

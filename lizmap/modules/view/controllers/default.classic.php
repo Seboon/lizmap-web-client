@@ -1,9 +1,14 @@
 <?php
+
+use Lizmap\Project\UnknownLizmapProjectException;
+use Lizmap\Server\Server;
+use LizmapAdmin\LandingContent;
+
 /**
  * Displays a list of project for a given repository.
  *
  * @author    3liz
- * @copyright 2012-2023 3liz
+ * @copyright 2012-2024 3liz
  *
  * @see      http://3liz.com
  *
@@ -14,14 +19,13 @@ class defaultCtrl extends jController
     /**
      * Displays a list of project for a given repository.
      *
-     * @param string $repository. Name of the repository.
-     *
      * @return jResponseHtml|jResponseRedirect|jResponseRedirectUrl page with a list of projects
      */
     public function index()
     {
-        if ($this->param('theme')) {
-            jApp::config()->theme = $this->param('theme');
+        $theme = $this->param('theme');
+        if ($theme && preg_match('/^[a-zA-Z0-9\-_]+$/', $theme)) {
+            jApp::config()->theme = $theme;
         }
 
         /** @var jResponseHtml $rep */
@@ -49,6 +53,7 @@ class defaultCtrl extends jController
                                     return $rep;
                                 }
                             }
+
                             // redirection to default controller
                             /** @var jResponseRedirect $rep */
                             $rep = $this->getResponse('redirect');
@@ -59,7 +64,7 @@ class defaultCtrl extends jController
                         jMessage::add(jLocale::get('view~default.project.needs.update'), 'error');
                     }
                     jMessage::add('The \'only maps\' option is not well configured!', 'error');
-                } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+                } catch (UnknownLizmapProjectException $e) {
                     jMessage::add('The \'only maps\' option is not well configured!', 'error');
                     jLog::logEx($e, 'error');
                 }
@@ -104,7 +109,7 @@ class defaultCtrl extends jController
         $rep->body->assign('allowUserAccountRequests', $services->allowUserAccountRequests);
 
         // Add Google Analytics ID
-        if ($services->googleAnalyticsID != '' && preg_match('/^UA-\\d+-\\d+$/', $services->googleAnalyticsID) == 1) {
+        if ($services->googleAnalyticsID != '' && preg_match('/^UA-\d+-\d+$/', $services->googleAnalyticsID) == 1) {
             $rep->body->assign('googleAnalyticsID', $services->googleAnalyticsID);
         }
 
@@ -113,7 +118,7 @@ class defaultCtrl extends jController
         $checkServerInformation = false;
         if (jAcl2::check('lizmap.admin.server.information.view')) {
             // Check server status
-            $server = new \Lizmap\Server\Server();
+            $server = new Server();
 
             // Check QGIS server status
             $requiredQgisVersion = jApp::config()->minimumRequiredVersion['qgisServer'];
@@ -131,23 +136,11 @@ class defaultCtrl extends jController
         }
         $rep->body->assign('checkServerInformation', $checkServerInformation);
 
-        // Add custom HTML content at top of page
-        $HTMLContentFile = jApp::varPath('lizmap-theme-config/landing_page_content.html');
-        if (file_exists($HTMLContentFile)) {
-            $HTMLContent = jFile::read($HTMLContentFile);
-            if ($HTMLContent) {
-                $rep->body->assign('landing_page_content', $HTMLContent);
-            }
-        }
+        $landingContentService = new LandingContent();
 
-        // Add custom HTML content at bottom of page
-        $HTMLContentFile = jApp::varPath('lizmap-theme-config/landing_page_content_bottom.html');
-        if (file_exists($HTMLContentFile)) {
-            $HTMLContent = jFile::read($HTMLContentFile);
-            if ($HTMLContent) {
-                $rep->body->assign('landing_page_content_bottom', $HTMLContent);
-            }
-        }
+        // Add custom HTML content at top of page
+        $rep->body->assign('landing_page_content_bottom', $landingContentService->getBottomContentForView());
+        $rep->body->assign('landing_page_content', $landingContentService->getTopContentForView());
 
         // Hide header if parameter h=0
         $h = $this->intParam('h', 1);

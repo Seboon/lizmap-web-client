@@ -5,6 +5,8 @@
  * @license MPL-2.0
  */
 
+import { Utils } from './Utils.js';
+
 /**
  * @class
  * @name WFS
@@ -13,8 +15,8 @@ export default class WFS {
 
     constructor() {
         this._defaultGetFeatureParameters = {
-            repository: lizUrls.params.repository,
-            project: lizUrls.params.project,
+            repository: globalThis['lizUrls'].params.repository,
+            project: globalThis['lizUrls'].params.project,
             SERVICE: 'WFS',
             REQUEST: 'GetFeature',
             VERSION: '1.0.0',
@@ -22,8 +24,8 @@ export default class WFS {
         };
 
         this._defaultDescribeFeatureTypeParameters = {
-            repository: lizUrls.params.repository,
-            project: lizUrls.params.project,
+            repository: globalThis['lizUrls'].params.repository,
+            project: globalThis['lizUrls'].params.project,
             SERVICE: 'WFS',
             REQUEST: 'DescribeFeatureType',
             VERSION: '1.0.0',
@@ -32,34 +34,34 @@ export default class WFS {
     }
 
     /**
+     * Get feature from WFS
      * @param {object} options - optional parameters which can override this._defaultParameters
      * @returns {Promise} Promise object represents data
      * @memberof WFS
      */
     async getFeature(options) {
-        const response = await fetch(lizUrls.wms, {
+        return Utils.fetchJSON(globalThis['lizUrls'].wms, {
             method: "POST",
             body: new URLSearchParams({
                 ...this._defaultGetFeatureParameters,
                 ...options
             })
         });
-        return response.json();
     }
 
     /**
+     * Describe feature type
      * @param {object} options - optional parameters which can override this._defaultParameters
      * @returns {Promise} Promise object represents data
      * @memberof WFS
      */
     async describeFeatureType(options) {
-        const response = await fetch(lizUrls.wms, {
+        return Utils.fetchJSON(globalThis['lizUrls'].wms, {
             method: "POST",
             body: new URLSearchParams({
                 ...this._defaultDescribeFeatureTypeParameters,
                 ...options
             })
         });
-        return response.json();
     }
 }

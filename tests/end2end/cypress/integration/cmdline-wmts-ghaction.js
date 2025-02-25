@@ -1,3 +1,4 @@
+import { clearErrorsLog } from './../support/function.js'
 describe('WMTS command line', function () {
 
     it('wmts:capabilities success', function () {
@@ -44,6 +45,16 @@ describe('WMTS command line', function () {
     })
 
     it('wmts:cache:seed --dry-run success', function () {
+        // Get tiles number for zoom level from 0 to 3 (1 for each = 4)
+        cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers EPSG:3857 0 3')
+            .its('stdout')
+            .should('contain', 'The TileMatrixSet \'EPSG:3857\'!')
+            .should('contain', '1 tiles to generate for "Quartiers" "EPSG:3857" "0"')
+            .should('contain', '1 tiles to generate for "Quartiers" "EPSG:3857" "1"')
+            .should('contain', '1 tiles to generate for "Quartiers" "EPSG:3857" "2"')
+            .should('contain', '1 tiles to generate for "Quartiers" "EPSG:3857" "3"')
+            .should('contain', '4 tiles to generate for "Quartiers" "EPSG:3857" between "0" and "3"')
+
         // Get tiles number for zoom level 10
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers EPSG:3857 10 10')
             .its('stdout')
@@ -178,21 +189,21 @@ describe('WMTS command line', function () {
                 expect(result.stderr).to.contain('repository')
                 expect(result.code).to.equal(1)
             })
-       
+
         cy.exec('./../lizmap-ctl console wmts:capabilities -v testsrepository', { failOnNonZeroExit: false })
             .then((result) => {
                 expect(result.stderr).to.contain('missing')
                 expect(result.stderr).to.contain('project')
                 expect(result.code).to.equal(1)
             })
-        
+
         // Bad parameters
         cy.exec('./../lizmap-ctl console wmts:capabilities -v norepository cache', { failOnNonZeroExit: false })
             .then((result) => {
                 expect(result.stdout).to.contain('Unknown repository!')
                 expect(result.code).to.equal(1)
             })
-       
+
         cy.exec('./../lizmap-ctl console wmts:capabilities -v testsrepository unknown', { failOnNonZeroExit: false })
             .then((result) => {
                 expect(result.stdout).to.contain('The project has not be found!')
@@ -200,7 +211,7 @@ describe('WMTS command line', function () {
             })
 
         // Clear errors
-        cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/errors.log')
+        clearErrorsLog()
     })
 
     it('wmts:cache:seed failed', function () {
@@ -213,7 +224,7 @@ describe('WMTS command line', function () {
             })
 
 
-          
+
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.stderr).to.contain('missing')
@@ -242,7 +253,7 @@ describe('WMTS command line', function () {
                 expect(result.code).to.equal(1)
             })
 
-       cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers EPSG:3857 10', {failOnNonZeroExit: false})
+        cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers EPSG:3857 10', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.stderr).to.contain('missing')
                 expect(result.stderr).to.contain('TileMatrixMax')
@@ -262,9 +273,9 @@ describe('WMTS command line', function () {
                 expect(result.stdout).to.contain('The project has not be found!')
             })
 
-        
+
         // Clear errors
-        cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/errors.log')
+        clearErrorsLog()
 
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache unknown EPSG:3857 10 10', {failOnNonZeroExit: false})
             .then((result) => {
@@ -272,33 +283,33 @@ describe('WMTS command line', function () {
                 expect(result.stdout).to.contain('The layers \'unknown\' have not be found!')
             })
 
-        cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/errors.log')
+        clearErrorsLog()
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers unknown 10 10', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.code).to.equal(1)
                 expect(result.stdout).to.contain("The TileMatrixSet 'EPSG:3857'!\nThe TileMatrixSet 'unknown' has not be found!")
             })
 
-        cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/errors.log')
+        clearErrorsLog()
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run --bbox xmin,ymin,xmax,ymax testsrepository cache Quartiers EPSG:3857 10 10', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.code).to.equal(1)
                 expect(result.stdout).to.contain("The TileMatrixSet 'EPSG:3857'!\nThe optional bbox has to contain 4 numbers separated by comma!")
             })
 
-        cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/errors.log')
+        clearErrorsLog()
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run --bbox 417094.94691622,5398163.2080343 testsrepository cache Quartiers EPSG:3857 10 10', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.code).to.equal(1)
                 expect(result.stdout).to.contain("The TileMatrixSet 'EPSG:3857'!\nThe optional bbox has to contain 4 numbers separated by comma!")
             })
-        
+
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers EPSG:3857 BadMin 10', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.code).to.equal(1)
                 expect(result.stdout).to.contain("TileMatrixMin and TileMatrixMax must be of type int")
             })
-        
+
         cy.exec('./../lizmap-ctl console wmts:cache:seed -v -f --dry-run testsrepository cache Quartiers EPSG:3857 10 BadMax', {failOnNonZeroExit: false})
             .then((result) => {
                 expect(result.code).to.equal(1)

@@ -5,7 +5,6 @@
  * @license MPL-2.0
  */
 
-import { mainLizmap } from '../modules/Globals.js';
 import { transformExtent } from 'ol/proj.js';
 
 /**
@@ -14,13 +13,18 @@ import { transformExtent } from 'ol/proj.js';
  */
 export default class Search {
 
-    constructor() {
+    /**
+     * Create a search instance
+     * @param {Map}        map        - OpenLayers map
+     * @param {object}     lizmap3    - The old lizmap object
+     */
+    constructor(map, lizmap3) {
         // Attributes
-        this._config = lizMap.config;
-        this._map = lizMap.map;
+        this._map = map;
+        this._lizmap3 = lizmap3;
 
         // Add or remove searches!
-        var configOptions = this._config.options;
+        var configOptions = this._lizmap3.config.options;
         if (('searches' in configOptions) && (configOptions.searches.length > 0)) {
             this._addSearches();
         }
@@ -31,7 +35,7 @@ export default class Search {
     }
 
     /**
-     *
+     * Start the external search
      */
     _startExternalSearch() {
         if ($('#search-query').val().length != 0) {
@@ -39,12 +43,13 @@ export default class Search {
             $('#lizmap-search .items').html('<li class="start"><ul><li>' + lizDict['externalsearch.search'] + '</li></ul></li>');
             $('#lizmap-search, #lizmap-search-close').addClass('open');
         } else {
-            lizMap.addMessage(lizDict['externalsearch.noquery'], 'info', true).attr('id', 'lizmap-search-message');
+            this._lizmap3.addMessage(lizDict['externalsearch.noquery'], 'info', true).attr('id', 'lizmap-search-message');
         }
     }
 
     /**
-     *
+     * Get the highlight regular expression
+     * @returns {RegExp} The regular expression
      */
     _getHighlightRegEx() {
         // Format answers to highlight searched keywords
@@ -58,8 +63,8 @@ export default class Search {
                 continue;
             }
             sqvalsn.push(sqi);
-            if (sqi != lizMap.cleanName(sqi)) {
-                sqvalsn.push(lizMap.cleanName(sqi));
+            if (sqi != this._lizmap3.cleanName(sqi)) {
+                sqvalsn.push(this._lizmap3.cleanName(sqi));
             }
         }
         sqrex += sqvalsn.join('|');
@@ -70,23 +75,21 @@ export default class Search {
     /**
      * PRIVATE method: addExternalSearch
      * add external search capability
-     *
-     * Returns:
-     * {Boolean} external search is in the user interface
-     * @param searchConfig
+     * @param {object} searchConfig - search configuration
+     * @returns {boolean} external search is in the user interface
      */
     _addSearch(searchConfig) {
         if (searchConfig.type == 'externalSearch') {
             return false;
         }
-        if (!'url' in searchConfig) {
+        if (!searchConfig.url) {
             return false;
         }
 
         // define max extent for searches
         var wgs84 = new OpenLayers.Projection('EPSG:4326');
-        var extent = new OpenLayers.Bounds(this._map.maxExtent.toArray());
-        extent.transform(this._map.getProjection(), wgs84);
+        var extent = new OpenLayers.Bounds(this._lizmap3.map.maxExtent.toArray());
+        extent.transform(this._map.getView().getProjection().getCode(), wgs84);
 
         $('#nominatim-search').submit(() => {
             this._startExternalSearch();
@@ -95,8 +98,8 @@ export default class Search {
             var labrex = this._getHighlightRegEx();
             $.get(searchConfig.url
                 , {
-                    "repository": lizUrls.params.repository,
-                    "project": lizUrls.params.project,
+                    "repository": globalThis['lizUrls'].params.repository,
+                    "project": globalThis['lizUrls'].params.project,
                     "query": $('#search-query').val(),
                     "bbox": extent.toBBOX()
                 }
@@ -118,7 +121,7 @@ export default class Search {
                             var bbox = ftsGeometry.getBounds();
                             if (extent.intersectsBounds(bbox)) {
                                 var lab = ftsFeat.label.replace(labrex, '<strong class="highlight">$1</strong>');
-                                text += '<li><a href="#' + bbox.toBBOX() + '" data="' + ftsGeometry.toString() + '">' + lab + '</a></li>';
+                                text += '<li><a href="#' + bbox.toBBOX() + '" data-wkt="' + ftsGeometry.toString() + '">' + lab + '</a></li>';
                                 count++;
                             }
                         }
@@ -141,10 +144,8 @@ export default class Search {
     /**
      * PRIVATE method: addExternalSearch
      * add external search capability
-     *
-     * Returns:
-     * {Boolean} external search is in the user interface
-     * @param searchConfig
+     * @param {object} searchConfig - search configuration
+     * @returns {boolean} external search is in the user interface
      */
     _addExternalSearch(searchConfig) {
         if (searchConfig.type != 'externalSearch') {
@@ -153,8 +154,8 @@ export default class Search {
 
         // define max extent for searches
         var wgs84 = new OpenLayers.Projection('EPSG:4326');
-        var extent = new OpenLayers.Bounds(this._map.maxExtent.toArray());
-        extent.transform(this._map.getProjection(), wgs84);
+        var extent = new OpenLayers.Bounds(this._lizmap3.map.maxExtent.toArray());
+        extent.transform(this._map.getView().getProjection().getCode(), wgs84);
 
         // define external search service
         var service = null;
@@ -162,7 +163,7 @@ export default class Search {
             case 'nominatim':
                 if ('url' in searchConfig) {
                     service = OpenLayers.Util.urlAppend(searchConfig.url
-                        , new URLSearchParams(lizUrls.params)
+                        , new URLSearchParams(globalThis['lizUrls'].params)
                     );
                 }
                 break;
@@ -185,10 +186,11 @@ export default class Search {
 
             // Format answers to highlight searched keywords
             var labrex = this._getHighlightRegEx();
+            const searchQuery = document.getElementById('search-query').value;
             switch (searchConfig.service) {
                 case 'nominatim':
                     $.get(service
-                        , { "query": $('#search-query').val(), "bbox": extent.toBBOX() }
+                        , { "query": searchQuery, "bbox": extent.toBBOX() }
                         , data => {
                             var text = '';
                             var count = 0;
@@ -209,7 +211,7 @@ export default class Search {
                                 bbox = new OpenLayers.Bounds(bbox);
                                 if (extent.intersectsBounds(bbox)) {
                                     var lab = address.display_name.replace(labrex, '<strong class="highlight">$1</strong>');
-                                    text += '<li><a href="#' + bbox.toBBOX() + '">' + lab + '</a></li>';
+                                    text += `<li><a href="#${bbox.toBBOX()}" data-wkt="POINT(${address.lon} ${address.lat})">${lab}</a></li>`;
                                     count++;
                                 }
                             }
@@ -219,15 +221,19 @@ export default class Search {
                             this._updateExternalSearch('<li><strong>OpenStreetMap</strong><ul>' + text + '</ul></li>');
                         }, 'json');
                     break;
-                case 'ign':
-                    let mapExtent4326 = transformExtent(mainLizmap.map.getView().calculateExtent(), mainLizmap.projection, 'EPSG:4326');
-                    let queryParam = '?text=' + $('#search-query').val() + '&type=StreetAddress&maximumResponses=10&bbox=' + mapExtent4326
+                case 'ign': {
+                    if (searchQuery.length < 3 || searchQuery.length > 200) {
+                        lizMap.addMessage(lizDict['externalsearch.ignlimit'], 'warning', true);
+                        break;
+                    }
+                    let mapExtent4326 = transformExtent(this._map.getView().calculateExtent(), this._map.getView().getProjection().getCode(), 'EPSG:4326');
+                    let queryParam = '?text=' + $('#search-query').val() + '&type=StreetAddress&maximumResponses=10&bbox=' + mapExtent4326;
                     $.getJSON(encodeURI(service + queryParam), data => {
                         let text = '';
                         let count = 0;
                         for (const result of data.results) {
                             var lab = result.fulltext.replace(labrex, '<strong class="highlight">$1</strong>');
-                            text += '<li><a href="#' + result.x + ',' + result.y + ',' + result.x + ',' + result.y + '">' + lab + '</a></li>';
+                            text += `<li><a href="#${result.x},${result.y},${result.x},${result.y}" data-wkt="POINT(${result.x} ${result.y})">${lab}</a></li>`;
                             count++;
                         }
                         if (count == 0 || text == '') {
@@ -236,9 +242,10 @@ export default class Search {
                         this._updateExternalSearch('<li><strong>IGN</strong><ul>' + text + '</ul></li>');
                     });
                     break;
+                }
                 case 'google':
                     service.geocode({
-                        'address': $('#search-query').val(),
+                        'address': searchQuery,
                         'bounds': new google.maps.LatLngBounds(
                             new google.maps.LatLng(extent.top, extent.left),
                             new google.maps.LatLng(extent.bottom, extent.right)
@@ -296,12 +303,10 @@ export default class Search {
     /**
      * PRIVATE method: _addSearches
      * add searches capability
-     *
-     * Returns:
-     * {Boolean} searches added to the user interface
+     * @returns {boolean|void} searches added to the user interface
      */
     _addSearches() {
-        var configOptions = this._config.options;
+        var configOptions = this._lizmap3.config.options;
         if (!('searches' in configOptions) || (configOptions.searches.length == 0)) {
             return;
         }
@@ -327,8 +332,8 @@ export default class Search {
     }
 
     /**
-     *
-     * @param aHTML
+     * Update external search
+     * @param {string} aHTML HTML to update
      */
     _updateExternalSearch(aHTML) {
         if ($('#search-query').val().length != 0) {
@@ -347,19 +352,19 @@ export default class Search {
                     evt.preventDefault();
                     const linkClicked = evt.currentTarget;
                     var bbox = linkClicked.getAttribute('href').replace('#', '');
-                    var bbox = OpenLayers.Bounds.fromString(bbox);
-                    bbox.transform(wgs84, this._map.getProjectionObject());
-                    this._map.zoomToExtent(bbox);
-    
+                    bbox = OpenLayers.Bounds.fromString(bbox);
+                    bbox.transform(wgs84, this._lizmap3.map.getProjectionObject());
+                    this._lizmap3.map.zoomToExtent(bbox);
+
                     var feat = new OpenLayers.Feature.Vector(bbox.toGeometry().getCentroid());
-                    var geomWKT = linkClicked.getAttribute('data');
+                    var geomWKT = linkClicked.dataset.wkt;
                     if (geomWKT) {
-                        mainLizmap.map.setHighlightFeatures(geomWKT, "wkt", "EPSG:4326");
+                        this._map.setHighlightFeatures(geomWKT, "wkt", "EPSG:4326");
                     }
-    
+
                     $('#lizmap-search, #lizmap-search-close').removeClass('open');
                     // trigger event containing selected feature
-                    lizMap.events.triggerEvent('lizmapexternalsearchitemselected',
+                    this._lizmap3.events.triggerEvent('lizmapexternalsearchitemselected',
                         {
                             'feature': feat
                         }
@@ -367,7 +372,7 @@ export default class Search {
                     return false;
                 });
             });
-            
+
             $('#lizmap-search-close button').click(() => {
                 $('#lizmap-search, #lizmap-search-close').removeClass('open');
                 return false;

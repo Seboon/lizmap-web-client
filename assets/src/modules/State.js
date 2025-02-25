@@ -9,8 +9,8 @@ import EventDispatcher from './../utils/EventDispatcher.js';
 import { MapState } from './state/Map.js';
 import { BaseLayersState } from './state/BaseLayer.js';
 import { LayersAndGroupsCollection } from './state/Layer.js';
-import { MapGroupState } from './state/MapLayer.js';
-import { LayerTreeGroupState } from './state/LayerTree.js';
+import { MapRootState } from './state/MapLayer.js';
+import { TreeRootState } from './state/LayerTree.js';
 
 /**
  * @class
@@ -19,13 +19,14 @@ import { LayerTreeGroupState } from './state/LayerTree.js';
  */
 export class State extends EventDispatcher {
     /**
+     * Create a new state instance
      * @param {Config} initialCfg - the lizmap initial config instance
      * @param {Array|undefined} startupFeatures - the features to highlight at startup
      */
     constructor(initialCfg, startupFeatures) {
         super()
         this._initialConfig = initialCfg;
-        this._map = new MapState(startupFeatures);
+        this._map = new MapState(initialCfg.options, startupFeatures);
         this._map.addListener(this.dispatch.bind(this), 'map.state.changed');
         this._baseLayers = null;
         this._collection = null;
@@ -60,7 +61,11 @@ export class State extends EventDispatcher {
      */
     get layersAndGroupsCollection() {
         if (this._collection == null) {
-            this._collection = new LayersAndGroupsCollection(this._initialConfig.layerTree, this._initialConfig.layersOrder);
+            this._collection = new LayersAndGroupsCollection(
+                this._initialConfig.layerTree,
+                this._initialConfig.layersOrder,
+                this._initialConfig.options.hideGroupCheckbox,
+            );
             // Dispatch events from groups and layers
             this._collection.addListener(this.dispatch.bind(this), 'group.visibility.changed');
             this._collection.addListener(this.dispatch.bind(this), 'group.opacity.changed');
@@ -68,6 +73,7 @@ export class State extends EventDispatcher {
             this._collection.addListener(this.dispatch.bind(this), 'layer.opacity.changed');
             this._collection.addListener(this.dispatch.bind(this), 'layer.style.changed');
             this._collection.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+            this._collection.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
             this._collection.addListener(this.dispatch.bind(this), 'layer.selection.changed');
             this._collection.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
             this._collection.addListener(this.dispatch.bind(this), 'layer.filter.changed');
@@ -78,22 +84,22 @@ export class State extends EventDispatcher {
 
     /**
      * Root map group
-     * @type {MapGroupState}
+     * @type {MapRootState}
      */
     get rootMapGroup() {
         if (this._rootMapGroup == null) {
-            this._rootMapGroup = new MapGroupState(this.layersAndGroupsCollection.root);
+            this._rootMapGroup = new MapRootState(this.layersAndGroupsCollection.root);
         }
         return this._rootMapGroup;
     }
 
     /**
      * Root tree layer group
-     * @type {LayerTreeGroupState}
+     * @type {TreeRootState}
      */
     get layerTree() {
         if (this._layerTree == null) {
-            this._layerTree = new LayerTreeGroupState(this.rootMapGroup);
+            this._layerTree = new TreeRootState(this.rootMapGroup);
         }
         return this._layerTree;
     }

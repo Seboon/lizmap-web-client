@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
-import { ValidationError, ConversionError } from '../../../../assets/src/modules/Errors.js';
-import { Extent } from '../../../../assets/src/modules/utils/Extent.js';
+import { ValidationError, ConversionError } from 'assets/src/modules/Errors.js';
+import { Extent } from 'assets/src/modules/utils/Extent.js';
 
 describe('Extent', function () {
     it('Valid', function () {
@@ -15,6 +15,7 @@ describe('Extent', function () {
         expect(ext.ymin).to.be.eq(-1)
         expect(ext.xmax).to.be.eq(1)
         expect(ext.ymax).to.be.eq(1)
+        expect(ext.center).to.be.deep.eq([0, 0])
 
         ext = new Extent('-2','-2.0','2','2.0')
         expect(ext.length).to.be.eq(4)
@@ -26,6 +27,19 @@ describe('Extent', function () {
         expect(ext.ymin).to.be.eq(-2)
         expect(ext.xmax).to.be.eq(2)
         expect(ext.ymax).to.be.eq(2)
+        expect(ext.center).to.be.deep.eq([0, 0])
+
+        ext = new Extent(...[-1,-1,1,1])
+        expect(ext.length).to.be.eq(4)
+        expect(ext[0]).to.be.eq(-1)
+        expect(ext[1]).to.be.eq(-1)
+        expect(ext[2]).to.be.eq(1)
+        expect(ext[3]).to.be.eq(1)
+        expect(ext.xmin).to.be.eq(-1)
+        expect(ext.ymin).to.be.eq(-1)
+        expect(ext.xmax).to.be.eq(1)
+        expect(ext.ymax).to.be.eq(1)
+        expect(ext.center).to.be.deep.eq([0, 0])
     })
 
     it('Equals', function () {

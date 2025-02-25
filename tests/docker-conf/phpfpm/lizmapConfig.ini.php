@@ -50,14 +50,19 @@ projectSwitcher=off
 requestProxyEnabled=0
 requestProxyType=http
 requestProxyNotForDomain="localhost,127.0.0.1"
-adminContactEmail="laurent@jelix.org"
+adminContactEmail="root@localhost.org"
 proxyHttpBackend=curl
 
 [repository:testsrepository]
 label="Tests repository"
 path="/srv/lzm/tests/qgis-projects/tests/"
-allowUserDefinedThemes=0
+allowUserDefinedThemes=1
 accessControlAllowOrigin="http://othersite.local:8130"
+
+[repository:private]
+label="Private repository"
+path="/srv/lzm/tests/qgis-projects/CONFIDENTIAL/"
+allowUserDefinedThemes=1
 
 [repository:badrepository]
 label="Repository with bad path"

@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import {expectParametersToContain, gotoMap} from './globals';
 
 test.describe('Viewport devicePixelRatio 1', () => {
     test('Greater than WMS max size', async ({ page }) => {
@@ -25,7 +26,7 @@ test.describe('Viewport devicePixelRatio 1', () => {
         });
 
         // Go to the map
-        await page.goto(url, { waitUntil: 'load' });
+        await gotoMap(url, page)
         // Wait to let the config loaded
         await page.waitForTimeout(1000);
         // Check that the get project config has been catched
@@ -37,7 +38,7 @@ test.describe('Viewport devicePixelRatio 1', () => {
         // Check that the WMS Max Size has been well overwrite
         expect(await page.evaluate(() => globalThis.lizMap.mainLizmap.initialConfig.options.wmsMaxHeight)).toBe(950);
         expect(await page.evaluate(() => window.devicePixelRatio)).toBe(1);
-        expect(await page.evaluate(() => globalThis.lizMap.mainLizmap.map.getSize())).toStrictEqual([870,575]);
+        expect(await page.evaluate(() => globalThis.lizMap.mainLizmap.map.getSize())).toStrictEqual([870, 575]);
         await page.unroute('**/service/getProjectConfig*')
 
         // Catch GetMaps request;
@@ -95,7 +96,7 @@ test.describe('Viewport devicePixelRatio 2', () => {
         });
 
         // Go to the map
-        await page.goto(url, { waitUntil: 'load' });
+        await gotoMap(url, page)
         // Wait to let the config loaded
         await page.waitForTimeout(1000);
         // Check that the get project config has been catched
@@ -107,7 +108,7 @@ test.describe('Viewport devicePixelRatio 2', () => {
         // Check that the WMS Max Size has been well overwrite
         expect(await page.evaluate(() => globalThis.lizMap.mainLizmap.initialConfig.options.wmsMaxHeight)).toBe(1900);
         expect(await page.evaluate(() => window.devicePixelRatio)).toBe(2);
-        expect(await page.evaluate(() => globalThis.lizMap.mainLizmap.map.getSize())).toStrictEqual([870,620]);
+        expect(await page.evaluate(() => globalThis.lizMap.mainLizmap.map.getSize())).toStrictEqual([870, 620]);
         await page.unroute('**/service/getProjectConfig*')
 
         // Catch GetMaps request;
@@ -118,7 +119,7 @@ test.describe('Viewport devicePixelRatio 2', () => {
             if (request.url().includes('GetMap')) {
                 GetMaps.push(request.url());
             }
-        }, {times: 1}); // No tiles, if High DPI is enabled we got 4 tiles
+        }, { times: 1 }); // No tiles, if High DPI is enabled we got 4 tiles
 
         // Activate world layer
         await page.getByLabel('world').check();
@@ -128,7 +129,7 @@ test.describe('Viewport devicePixelRatio 2', () => {
 
         // Check GetMap requests
         expect(GetMaps).toHaveLength(1); // No tiles, if High DPI is enabled we got 4 tiles
-        for(const GetMap of GetMaps) {
+        for (const GetMap of GetMaps) {
             expect(GetMap).toContain('&WIDTH=957&')
             expect(GetMap).toContain('&HEIGHT=682&')
             expect(GetMap).toContain('&DPI=96&')
@@ -146,45 +147,124 @@ test.describe('Viewport mobile', () => {
         // atlas project
         const url = '/index.php/view/map/?repository=testsrepository&project=atlas'
         // Go to the map
-        await page.goto(url, { waitUntil: 'networkidle' });
+        await gotoMap(url, page)
 
         // Check menu and menu toggle button
-        await expect(await page.locator('#mapmenu')).not.toBeInViewport();
-        await expect(await page.locator('#menuToggle')).toBeVisible();
-        await expect(await page.locator('#menuToggle')).not.toHaveClass('opened');
+        await expect(page.locator('#mapmenu')).not.toBeInViewport();
+        await expect(page.locator('#menuToggle')).toBeVisible();
+        await expect(page.locator('#menuToggle')).not.toHaveClass('opened');
         await page.locator('#menuToggle').click();
 
         // Open menu
-        await expect(await page.locator('#menuToggle')).toHaveClass('opened');
-        await expect(await page.locator('#mapmenu')).toBeInViewport();
-        await expect(await page.getByRole('link', { name: 'atlas' })).toBeVisible();
+        await expect(page.locator('#menuToggle')).toHaveClass('opened');
+        await expect(page.locator('#mapmenu')).toBeInViewport();
+        await expect(page.getByRole('link', { name: 'atlas' })).toBeVisible();
 
         // Open atlas
         await page.getByRole('link', { name: 'atlas', exact: true }).click();
-        await expect(await page.locator('#menuToggle')).not.toHaveClass('opened');
-        await expect(await page.locator('#mapmenu')).not.toBeInViewport();
-        await expect(await page.locator('#right-dock')).toBeVisible();
-        await expect(await page.locator('#right-dock')).toBeInViewport();
+        await expect(page.locator('#menuToggle')).not.toHaveClass('opened');
+        await expect(page.locator('#mapmenu')).not.toBeInViewport();
+        await expect(page.locator('#right-dock')).toBeVisible();
+        await expect(page.locator('#right-dock')).toBeInViewport();
 
         // Choose a feature and check getFeatureInfo
-        let getFeatureInfoRequestPromise = page.waitForRequest(request => request.method() === 'POST' && request.postData().includes('GetFeatureInfo'));
+        let getFeatureInfoRequestPromise = page.waitForRequest(request => request.method() === 'POST' && request.postData()?.includes('GetFeatureInfo') === true);
         await page.locator('#liz-atlas-select').selectOption('2');
         let getFeatureInfoRequest = await getFeatureInfoRequestPromise;
         let getFeatureInfoResponse = await getFeatureInfoRequest.response();
-        await expect(await getFeatureInfoResponse?.headerValue('content-type')).toContain('text/html');
-        await expect(await page.locator('#liz-atlas-item-detail .lizmapPopupContent')).toBeInViewport();
-        await expect(await page.locator('#liz-atlas-item-detail .lizmapPopupContent')).toContainText('MOSSON');
+        expect(await getFeatureInfoResponse?.headerValue('content-type')).toContain('text/html');
+        await expect(page.locator('#liz-atlas-item-detail .lizmapPopupContent')).toBeInViewport();
+        await expect(page.locator('#liz-atlas-item-detail .lizmapPopupContent')).toContainText('MOSSON');
         // Close atlas
         await page.locator('#right-dock-close').click();
-        await expect(await page.locator('#right-dock')).not.toBeInViewport();
-        await expect(await page.locator('#right-dock')).not.toBeVisible();
+        await expect(page.locator('#right-dock')).not.toBeInViewport();
+        await expect(page.locator('#right-dock')).not.toBeVisible();
 
         // Test permalink (mini-dock)
-        await expect(await page.locator('#permalink')).not.toBeVisible();
+        await expect(page.locator('#permalink')).not.toBeVisible();
         await page.locator('#menuToggle').click();
         await page.getByRole('link', { name: 'Permalink' }).click();
-        await expect(await page.locator('#permalink')).toBeVisible();
-        await expect(await page.locator('#permalink')).toBeInViewport();
-        await expect(await page.locator('#tab-share-permalink')).toBeVisible();
+        await expect(page.locator('#permalink')).toBeVisible();
+        await expect(page.locator('#permalink')).toBeInViewport();
+        await expect(page.locator('#tab-share-permalink')).toBeVisible();
+    })
+})
+
+test.describe('Viewport standard', () => {
+    test('Resize viewport', async ({ page }) => {
+        const url = '/index.php/view/map/?repository=testsrepository&project=world-3857';
+        await gotoMap(url, page)
+
+        expect(await page.evaluate(() => lizMap.map.getZoom())).toBe(0);
+        expect(await page.evaluate(() => lizMap.mainLizmap.map.getView().getZoom())).toBe(0);
+
+        // disable rectangle layer
+        await page.getByLabel('rectangle').uncheck();
+
+        let getMapPromise = page.waitForRequest(/GetMap/);
+        // zoom in
+        await page.getByRole('button', { name: 'Zoom in' }).click();
+        // Check GetMap request
+        let getMapRequest = await getMapPromise;
+        let  expectedParameters = {
+            'SERVICE': 'WMS',
+            'VERSION': '1.3.0',
+            'REQUEST': 'GetMap',
+            'FORMAT': 'image/png',
+            'TRANSPARENT': /\b(\w*^true$\w*)\b/gmi,
+            'LAYERS': 'world',
+            'CRS': 'EPSG:3857',
+            'STYLES': 'défaut',
+            'DPI': '96',
+            'WIDTH': '958',
+            'HEIGHT': '633',
+            'BBOX': /-9373014.15\d+,-6193233.77\d+,9373014.15\d+,6193233.77\d+/,
+        }
+        await expectParametersToContain('GetMap', getMapRequest.url(), expectedParameters);
+
+        // Check zoom
+        expect(await page.evaluate(() => lizMap.mainLizmap.map.getView().getZoom())).toBe(1);
+
+        // Get the current viewport size
+        let viewport = page.viewportSize();
+        // check viewport size
+        expect(viewport?.width).toBe(900)
+        expect(viewport?.height).toBe(650)
+
+        getMapPromise = page.waitForRequest(/GetMap/);
+        // Invert viewport size
+        await page.setViewportSize({ width: viewport?.height, height: viewport?.width });
+        // Check GetMap request
+        getMapRequest = await getMapPromise;
+        expectedParameters = {
+            'SERVICE': 'WMS',
+            'VERSION': '1.3.0',
+            'REQUEST': 'GetMap',
+            'FORMAT': 'image/png',
+            'TRANSPARENT': /\b(\w*^true$\w*)\b/gmi,
+            'LAYERS': 'world',
+            'CRS': 'EPSG:3857',
+            'STYLES': 'défaut',
+            'DPI': '96',
+            'WIDTH': '716',
+            'HEIGHT': '909',
+            'BBOX': /-7005300.76\d+,-8893601.11\d+,7005300.76\d+,8893601.11\d+/,
+        }
+        await expectParametersToContain('GetMap', getMapRequest.url(), expectedParameters);
+
+        // Check zoom
+        expect(await page.evaluate(() => lizMap.mainLizmap.map.getView().getZoom())).toBe(1);
+
+        // Get the current viewport size
+        viewport = page.viewportSize();
+        // check viewport size
+        expect(viewport?.width).toBe(650)
+        expect(viewport?.height).toBe(900)
+
+        // Reset the viewport size
+        await page.setViewportSize({ width: viewport?.height, height: viewport?.width });
+        // Check zoom
+        expect(await page.evaluate(() => lizMap.mainLizmap.map.getView().getZoom())).toBe(1);
+        // Do not check GetMap request because it is the same as the first one
     })
 })

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Manage OGC request.
  *
@@ -123,13 +124,13 @@ class WFSRequest extends OGCRequest
         // Get client exp_filter parameter
         $clientExpFilter = $this->param('exp_filter', '');
         if (!empty($clientExpFilter)) {
-            $expFilters[] = $clientExpFilter;
+            $expFilters[] = '( '.$clientExpFilter.' )';
         }
 
         // Merge login filter
         $attribute = '';
-        foreach ($loginFilters as $typename => $lfilter) {
-            $expFilters[] = $lfilter['filter'];
+        foreach ($loginFilters as $lfilter) {
+            $expFilters[] = '( '.$lfilter['filter'].' )';
             $attribute = $lfilter['filterAttribute'];
         }
 
@@ -364,7 +365,7 @@ class WFSRequest extends OGCRequest
         // but in Lizmap, the user can do a selection, based on featureid, and can request
         // a download, a WFS GetFeature request, based on this selection with a restriction
         // to map extent, so featureid and bbox parameter can be set mutually and featureid
-        // parameter needs to be transform in an expression filter.
+        // parameter needs to be transformed into an expression filter.
         // The transformation is only available if the QGIS layer has been set.
         if ($this->param('featureid')
             && $this->param('bbox')
@@ -412,7 +413,7 @@ class WFSRequest extends OGCRequest
         }
 
         // get primary keys values
-        $fids = preg_split('/\\s*,\\s*/', $featureid);
+        $fids = preg_split('/\s*,\s*/', $featureid);
         $pks = array();
         foreach ($fids as $fid) {
             $exp = explode('.', $fid);
@@ -467,7 +468,7 @@ class WFSRequest extends OGCRequest
             // for postgres layer we can build the expression filter for
             // simple and multi fields key
             $dtparams = $qgisLayer->getDatasourceParameters();
-            $keys = preg_split('/\\s*,\\s*/', $dtparams->key);
+            $keys = preg_split('/\s*,\s*/', $dtparams->key);
             if (count($keys) == 1 && !$hasDoubleAtSign) {
                 // for simple field key
                 $expFilter = '"'.$keys[0].'" IN ('.implode(', ', $pks).')';
@@ -643,13 +644,13 @@ class WFSRequest extends OGCRequest
             if (strpos($validFilter, '$id') !== false) {
                 $key = $this->datasource->key;
                 if (count(explode(',', $key)) == 1) {
-                    return ' AND '.str_replace('$id ', $cnx->encloseName($key).' ', $validFilter);
+                    return ' AND ( '.str_replace('$id ', $cnx->encloseName($key).' ', $validFilter).' ) ';
                 }
 
                 return false;
             }
 
-            return ' AND '.$validFilter;
+            return ' AND ( '.$validFilter.' ) ';
         }
 
         return '';
@@ -747,6 +748,7 @@ class WFSRequest extends OGCRequest
         $cnx = $this->qgisLayer->getDatasourceConnection();
         // Get datasource
         $this->datasource = $this->qgisLayer->getDatasourceParameters();
+
         // Get Db fields
         try {
             $dbFields = $this->qgisLayer->getDbFieldList();
@@ -836,6 +838,7 @@ class WFSRequest extends OGCRequest
         // $this->appContext->logMessage($sql);
         // Use PostgreSQL method to export geojson
         $sql = $this->setGeojsonSql($sql, $cnx, $typename, $geometryname);
+
         // $this->appContext->logMessage($sql);
         // Run query
         try {

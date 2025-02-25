@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Manage OGC request.
  *
@@ -13,6 +14,8 @@
 namespace Lizmap\Request;
 
 use Lizmap\App;
+use Lizmap\Project\Project;
+use Lizmap\Project\Repository;
 
 /**
  * @see https://en.wikipedia.org/wiki/Open_Geospatial_Consortium.
@@ -22,12 +25,12 @@ use Lizmap\App;
 abstract class OGCRequest
 {
     /**
-     * @var \Lizmap\Project\Project
+     * @var Project
      */
     protected $project;
 
     /**
-     * @var \Lizmap\Project\Repository
+     * @var Repository
      */
     protected $repository;
 
@@ -59,10 +62,10 @@ abstract class OGCRequest
     /**
      * constructor.
      *
-     * @param \Lizmap\Project\Project $project    the project
-     * @param array                   $params     the params array
-     * @param \lizmapServices         $services
-     * @param null|string             $requestXml the params array
+     * @param Project         $project    the project
+     * @param array           $params     the params array
+     * @param \lizmapServices $services
+     * @param null|string     $requestXml the params array
      */
     public function __construct($project, $params, $services, $requestXml = null)
     {
@@ -186,6 +189,84 @@ abstract class OGCRequest
     }
 
     /**
+     * Generate a string to identify the target of the HTTP request.
+     *
+     * @param array $parameters The list of HTTP parameters in the query
+     * @param int   $code       The HTTP code of the request
+     *
+     * @return string The string to identify the HTTP request, with main OGC parameters first such as MAP, SERVICE...
+     */
+    private function formatHttpErrorString($parameters, $code)
+    {
+        // Clone parameters array to perform unset without modify it
+        $params = array_merge(array(), $parameters);
+
+        // Ordered list of params to fetch first
+        $mainParamsToLog = array('map', 'repository', 'project', 'service', 'request');
+
+        $output = array();
+        foreach ($mainParamsToLog as $paramName) {
+            if (array_key_exists($paramName, $params)) {
+                $output[] = '"'.strtoupper($paramName).'" = '."'".$params[$paramName]."'";
+                unset($params[$paramName]);
+            }
+        }
+
+        // First implode with main parameters
+        $message = implode(' & ', $output);
+
+        if ($params) {
+            // Ideally, we want two lines, one with main parameters, the second one with secondary parameters
+            // It does not work in jLog
+            // $message .= '\n';
+            $message .= ' & ';
+        }
+
+        // For remaining parameters in the array, which are not in the main list
+        $output = array();
+        foreach ($params as $key => $value) {
+            $output[] = '"'.strtoupper($key).'" = '."'".$value."'";
+        }
+
+        $message .= implode(' & ', $output);
+
+        return 'HTTP code '.$code.' on '.$message;
+    }
+
+    /**
+     * Log if the HTTP code is a 4XX or 5XX error code.
+     *
+     * @param int                   $code    The HTTP code of the request
+     * @param array<string, string> $headers The headers of the response
+     */
+    protected function logRequestIfError($code, $headers)
+    {
+        if ($code < 400) {
+            return;
+        }
+
+        $message = 'The HTTP OGC request to QGIS Server ended with an error.';
+
+        $xRequestId = $headers['X-Request-Id'] ?? '';
+        if ($xRequestId !== '') {
+            $message .= ' The X-Request-Id `'.$xRequestId.'`.';
+        }
+
+        // The master error with MAP parameter
+        // This user must have an access to QGIS Server logs
+        $params = $this->parameters();
+        \jLog::log($message.' Check logs on QGIS Server. '.$this->formatHttpErrorString($params, $code), 'error');
+
+        // The admin error without the MAP parameter
+        // but replaced by REPOSITORY and PROJECT parameters
+        // This user might not have an access to QGIS Server logs
+        unset($params['map']);
+        $params['repository'] = $this->project->getRepository()->getKey();
+        $params['project'] = $this->project->getKey();
+        \jLog::log($message.' '.$this->formatHttpErrorString($params, $code), 'lizmapadmin');
+    }
+
+    /**
      * Request QGIS Server.
      *
      * @param bool $post   Force to use POST request
@@ -201,9 +282,10 @@ abstract class OGCRequest
             'X-Qgis-Service-Url' => $this->project->getOgcServiceUrl(),
         );
         // If the OGC request is provided from command line the request is null
-        if ($this->appContext->getCoord()->request) {
-            $host = $this->appContext->getCoord()->request->getDomainName();
-            $proto = $this->appContext->getCoord()->request->getProtocol();
+        $browserRequest = $this->appContext->getCoord()->request;
+        if ($browserRequest) {
+            $host = $browserRequest->getDomainName();
+            $proto = $browserRequest->getProtocol();
             $headers = array_merge(
                 $headers,
                 array(
@@ -233,12 +315,16 @@ abstract class OGCRequest
         $options['loginFilteredOverride'] = \jAcl2::check('lizmap.tools.loginFilteredLayers.override', $this->repository->getKey());
 
         if ($stream) {
-            $response = \Lizmap\Request\Proxy::getRemoteDataAsStream($querystring, $options);
+            $response = Proxy::getRemoteDataAsStream($querystring, $options);
+
+            $this->logRequestIfError($response->getCode(), $response->getHeaders());
 
             return new OGCResponse($response->getCode(), $response->getMime(), $response->getBodyAsStream());
         }
 
-        list($data, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($querystring, $options);
+        list($data, $mime, $code, $headers) = Proxy::getRemoteData($querystring, $options);
+
+        $this->logRequestIfError($code, $headers);
 
         return new OGCResponse($code, $mime, $data);
     }

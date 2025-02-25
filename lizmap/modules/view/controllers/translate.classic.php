@@ -1,6 +1,9 @@
 <?php
+
+use Lizmap\App\LocalesLoader;
+
 /**
- * Service to provide translation dictionnary.
+ * Service to provide translation dictionary.
  *
  * @author    3liz
  * @copyright 2011-2022 3liz
@@ -12,7 +15,7 @@
 class translateCtrl extends jController
 {
     /**
-     * Get text/javascript containing all translation for the dictionnary.
+     * Get text/javascript containing all translation for the dictionary.
      *
      * @urlparam string $lang Language. Ex: fr_FR (optional)
      *
@@ -29,21 +32,14 @@ class translateCtrl extends jController
         $lang = $this->param('lang');
 
         if (!$lang) {
-            $lang = jLocale::getCurrentLang().'_'.jLocale::getCurrentCountry();
+            $lang = jLocale::getCurrentLocale();
         }
 
-        $data = array();
-        $path = jApp::appPath().'modules/view/locales/en_US/dictionnary.UTF-8.properties';
-        if (file_exists($path)) {
-            $lines = file($path);
-            foreach ($lines as $lineNumber => $lineContent) {
-                if (!empty($lineContent) and $lineContent != '\n') {
-                    $exp = explode('=', trim($lineContent));
-                    if (!empty($exp[0])) {
-                        $data[$exp[0]] = jLocale::get('view~dictionnary.'.$exp[0], null, $lang);
-                    }
-                }
-            }
+        $data = LocalesLoader::getLocalesFrom('view~dictionnary', $lang);
+
+        if (strpos(jApp::config()->jResponseHtml['plugins'], 'debugbar') !== false) {
+            $fallback = LocalesLoader::getLocalesFrom('view~dictionnary', jApp::config()->fallbackLocale);
+            $data = array_merge($fallback, $data);
         }
         $rep->content = 'var lizDict = '.json_encode($data).';';
 
@@ -68,23 +64,10 @@ class translateCtrl extends jController
         $lang = $this->param('lang');
 
         if (!$lang) {
-            $lang = jLocale::getCurrentLang().'_'.jLocale::getCurrentCountry();
+            $lang = jLocale::getCurrentLocale();
         }
 
-        $data = array();
-        $path = jApp::appPath().'modules/view/locales/'.$lang.'/'.$property.'.UTF-8.properties';
-        if (file_exists($path)) {
-            $lines = file($path);
-            foreach ($lines as $lineNumber => $lineContent) {
-                if (!empty($lineContent) and $lineContent != '\n') {
-                    $exp = explode('=', trim($lineContent));
-                    if (!empty($exp[0])) {
-                        $data[$exp[0]] = jLocale::get('view~dictionnary.'.$exp[0], null, $lang);
-                    }
-                }
-            }
-        }
-        $rep->data = $data;
+        $rep->data = LocalesLoader::getLocalesFrom('view~'.$property, $lang);
 
         return $rep;
     }

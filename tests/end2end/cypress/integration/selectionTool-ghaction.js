@@ -23,7 +23,7 @@ describe('Selection tool', function () {
                     req.alias = 'postToService'
             } else
                 req.alias = 'postToService'
-          })
+        })
 
         cy.intercept('*REQUEST=GetMap*',
             { middleware: true },
@@ -57,12 +57,12 @@ describe('Selection tool', function () {
         cy.get('#button-selectiontool').click()
 
         // Activate polygon tool
-        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle').first().click()
+        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle-split').click()
         cy.get('#selectiontool .digitizing-polygon').click()
 
         // Select single layer and intersects geom operator
         cy.get('lizmap-selection-tool .selectiontool-layer-list').select('selection_polygon')
-        cy.get('lizmap-selection-tool .selection-geom-operator').select('intersects')
+        cy.get('lizmap-selection-tool .selectiontool-geom-operator').select('intersects')
 
 
         // It should select two features
@@ -101,12 +101,12 @@ describe('Selection tool', function () {
         cy.get('#button-selectiontool').click()
 
         // Activate polygon tool
-        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle').first().click()
+        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle-split').click()
         cy.get('#selectiontool .digitizing-line').click()
 
         // Select single layer and intersects geom operator
         cy.get('lizmap-selection-tool .selectiontool-layer-list').select('selection_polygon')
-        cy.get('lizmap-selection-tool .selection-geom-operator').select('intersects')
+        cy.get('lizmap-selection-tool .selectiontool-geom-operator').select('intersects')
 
 
         // It should select two features
@@ -144,12 +144,12 @@ describe('Selection tool', function () {
         cy.get('#button-selectiontool').click()
 
         // Activate polygon tool
-        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle').first().click()
+        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle-split').click()
         cy.get('#selectiontool .digitizing-point').click()
 
         // Select single layer and intersects geom operator
         cy.get('lizmap-selection-tool .selectiontool-layer-list').select('selection_polygon')
-        cy.get('lizmap-selection-tool .selection-geom-operator').select('intersects')
+        cy.get('lizmap-selection-tool .selectiontool-geom-operator').select('intersects')
 
 
         // It should select one feature
@@ -194,12 +194,12 @@ describe('Selection tool connected as user a', function () {
         cy.get('#button-selectiontool').click()
 
         // Activate polygon tool
-        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle').first().click()
+        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle-split').click()
         cy.get('#selectiontool .digitizing-polygon').click()
 
         // Select single layer and intersects geom operator
         cy.get('lizmap-selection-tool .selectiontool-layer-list').select('selection')
-        cy.get('lizmap-selection-tool .selection-geom-operator').select('intersects')
+        cy.get('lizmap-selection-tool .selectiontool-geom-operator').select('intersects')
 
         cy.intercept('*REQUEST=GetMap*',
             { middleware: true },
@@ -243,12 +243,12 @@ describe('Selection tool connected as admin', function () {
         cy.get('#button-selectiontool').click()
 
         // Activate polygon tool
-        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle').first().click()
+        cy.get('#selectiontool .digitizing-buttons .dropdown-toggle-split').click()
         cy.get('#selectiontool .digitizing-polygon').click()
 
         // Select single layer and intersects geom operator
         cy.get('lizmap-selection-tool .selectiontool-layer-list').select('selection')
-        cy.get('lizmap-selection-tool .selection-geom-operator').select('intersects')
+        cy.get('lizmap-selection-tool .selectiontool-geom-operator').select('intersects')
 
         cy.intercept('*REQUEST=GetMap*',
             { middleware: true },

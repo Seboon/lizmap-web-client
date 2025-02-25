@@ -12,15 +12,16 @@ PREFIX:=lizmap-$(LZMBRANCH)-tests
 
 LIZMAP_USER_ID ?= $(shell id -u)
 LIZMAP_GROUP_ID ?= $(shell id -g)
+# Note that GH Action E2E has its own version config for PHP, PG and QGIS
+PHP_VERSION ?= 8.2
 LZMPOSTGISVERSION ?= 14-3
-LZMQGSRVVERSION ?= 3.28
+LZMQGSRVVERSION ?= 3.34
 LZMPGPORT ?= 8132
 LZMQGSRVPORT ?= 8131
 LZMWEBPORT ?= 8130
 LIZMAP_ADMIN_LOGIN ?= admin
 LIZMAP_ADMIN_EMAIL ?= admin@localhost.local
 LIZMAP_ADMIN_DEFAULT_PASSWORD_SOURCE ?= /srv/etc/admin.conf
-PHP_VERSION ?= 8.2
 DOCKER_BUILDKIT ?= 1
 
 env:

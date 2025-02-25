@@ -45,27 +45,6 @@ describe('Attribute table', () => {
 
     it('should have correct column order', () => {
 
-        const correct_column_order = ['', 'quartier', 'quartmno', 'libquart', 'photo', 'url'];
-
-        // postgreSQL layer
-        cy.get('button[value="Les_quartiers_a_Montpellier"].btn-open-attribute-layer').click({ force: true })
-
-        // Wait for features
-        cy.wait('@postGetFeature').then((interception) => {
-            expect(interception.request.body)
-                .to.contain('SERVICE=WFS')
-                .to.contain('REQUEST=GetFeature')
-                .to.contain('TYPENAME=quartiers')
-                .to.contain('OUTPUTFORMAT=GeoJSON')
-        })
-
-        cy.get('#attribute-layer-table-Les_quartiers_a_Montpellier_wrapper div.dataTables_scrollHead th').then(theaders => {
-            const headers = [...theaders].map(t => t.innerText)
-
-            // Test arrays are deeply equal (eql) to test column order
-            expect(headers).to.eql(correct_column_order)
-        })
-
         // shapefile layer
         cy.get('button[value="quartiers_shp"].btn-open-attribute-layer').click({ force: true })
 
@@ -80,13 +59,35 @@ describe('Attribute table', () => {
 
         cy.get('#attribute-layer-table-quartiers_shp_wrapper div.dataTables_scrollHead th').then(theaders => {
             const headers = [...theaders].map(t => t.innerText)
+            const correct_column_order = ['', 'quartmno', 'libquart', 'photo', 'url', 'thumbnail'];
+
+            // Test arrays are deeply equal (eql) to test column order
+            expect(headers).to.eql(correct_column_order)
+        })
+
+        // attribute table config
+        // postgreSQL layer
+        cy.get('button[value="Les_quartiers_a_Montpellier"].btn-open-attribute-layer').click({ force: true })
+
+        // Wait for features
+        cy.wait('@postGetFeature').then((interception) => {
+            expect(interception.request.body)
+                .to.contain('SERVICE=WFS')
+                .to.contain('REQUEST=GetFeature')
+                .to.contain('TYPENAME=quartiers')
+                .to.contain('OUTPUTFORMAT=GeoJSON')
+        })
+
+        cy.get('#attribute-layer-table-Les_quartiers_a_Montpellier_wrapper div.dataTables_scrollHead th').then(theaders => {
+            const headers = [...theaders].map(t => t.innerText)
+            const correct_column_order = ['', 'quartier', 'quartmno', 'libquart', 'thumbnail', 'url', 'photo'];
 
             // Test arrays are deeply equal (eql) to test column order
             expect(headers).to.eql(correct_column_order)
         })
     })
 
-    it.only('should select / filter / refresh', () => {
+    it('should select / filter / refresh', () => {
 
         cy.get('#bottom-dock-window-buttons .btn-bottomdock-size').click()
 
@@ -137,7 +138,7 @@ describe('Attribute table', () => {
                 .to.contain('REQUEST=GetFeature')
                 .to.contain('TYPENAME=quartiers')
                 .to.contain('OUTPUTFORMAT=GeoJSON')
-                .to.contain('EXP_FILTER=%24id+IN+(+2+)')
+                .to.contain('EXP_FILTER=%24id+IN+%28+2+%29')
             expect(interception.response.body)
                 .to.have.property('type')
             expect(interception.response.body.type).to.be.eq('FeatureCollection')
@@ -194,6 +195,12 @@ describe('Attribute table', () => {
             expect(interception.response.body)
                 .to.have.property('features')
             expect(interception.response.body.features).to.have.length(7)
+            // the virtual field exists
+            expect(interception.response.body.features[1].properties).to.have.property('thumbnail')
+            // the content of the field is ok
+            expect(interception.response.body.features[1].properties.thumbnail).to.contain('img class="data-attr-thumbnail"');
+            // the 'onload' value is here (ie whole content is here)
+            expect(interception.response.body.features[1].properties.thumbnail).to.contain("BAD_CODE");
         })
         // Check that GetMap is requested without the filter token
         cy.wait('@getMap').then((interception) => {
@@ -207,6 +214,11 @@ describe('Attribute table', () => {
 
         // Check table lines
         cy.get('#attribute-layer-table-Les_quartiers_a_Montpellier tbody tr').should('have.length', 7)
+        // Attribute table config changes virtual field position form last one to 5th
+        // the virtual field is here with good attribute (data-src)
+        cy.get('#attribute-layer-table-Les_quartiers_a_Montpellier tbody tr:nth-child(1) td:nth-child(5) img[data-src]').should('exist')
+        // the onload attribute have disappeared
+        cy.get('#attribute-layer-table-Les_quartiers_a_Montpellier tbody tr:nth-child(1) td:nth-child(5) img[onload]').should('not.exist')
 
         // select feature 2,4,6
         // click to select 2
@@ -281,7 +293,7 @@ describe('Attribute table', () => {
                 .to.contain('REQUEST=GetFeature')
                 .to.contain('TYPENAME=quartiers')
                 .to.contain('OUTPUTFORMAT=GeoJSON')
-                .to.contain('EXP_FILTER=%24id+IN+(+2+%2C+4+%2C+6+)')
+                .to.contain('EXP_FILTER=%24id+IN+%28+2+%2C+4+%2C+6+%29')
             expect(interception.response.body)
                 .to.have.property('type')
             expect(interception.response.body.type).to.be.eq('FeatureCollection')
@@ -347,7 +359,7 @@ describe('Attribute table', () => {
         cy.get('#attribute-layer-table-Les_quartiers_a_Montpellier tbody tr').should('have.length', 3)
 
         // refresh
-        cy.get('#attribute-layer-main-Les_quartiers_a_Montpellier .attribute-layer-action-bar .btn-filter-attributeTable').click({ force: true })
+        cy.get('#attribute-layer-main-Les_quartiers_a_Montpellier .attribute-layer-action-bar .btn-filter-attributeTable').first().click({ force: true })
 
         // Wait for features
         cy.wait('@postGetFeature').then((interception) => {
@@ -425,7 +437,7 @@ describe('Attribute table', () => {
                 .to.contain('REQUEST=GetFeature')
                 .to.contain('TYPENAME=quartiers_shp')
                 .to.contain('OUTPUTFORMAT=GeoJSON')
-                .to.contain('EXP_FILTER=%24id+IN+(+2+)')
+                .to.contain('EXP_FILTER=%24id+IN+%28+2+%29')
             expect(interception.response.body)
                 .to.have.property('type')
             expect(interception.response.body.type).to.be.eq('FeatureCollection')
@@ -525,7 +537,7 @@ describe('Attribute table', () => {
                 .to.contain('REQUEST=GetFeature')
                 .to.contain('TYPENAME=quartiers')
                 .to.contain('OUTPUTFORMAT=GeoJSON')
-                .to.contain('EXP_FILTER=%24id+IN+(+2+%2C+4+%2C+6+)')
+                .to.contain('EXP_FILTER=%24id+IN+%28+2+%2C+4+%2C+6+%29')
             expect(interception.response.body)
                 .to.have.property('type')
             expect(interception.response.body.type).to.be.eq('FeatureCollection')

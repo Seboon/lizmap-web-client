@@ -1,4 +1,7 @@
 <?php
+
+use Lizmap\Server\Server;
+
 /**
  * Manage and give access to lizmap configuration.
  *
@@ -138,7 +141,7 @@ class lizmapServices
      *
      * @var string
      *
-     * @deprecated 3.7.0 Use the {@see \Lizmap\Server\Server}
+     * @deprecated 3.7.0 Use the {@see Server}
      */
     public $qgisServerVersion = '3.0';
 
@@ -178,7 +181,15 @@ class lizmapServices
     public $wmsMaxHeight = 3000;
 
     /**
-     * URL to the API exposed by the Lizmap plugin for QGIS Server.
+     * QGIS server JSON metadata file name.
+     *
+     * @var string
+     */
+    public static $qgisServerMetadata = '/server.json';
+
+    /**
+     * Custom URL to the API exposed by the Lizmap plugin for QGIS Server.
+     * Property which can be an empty string if QGIS FCGI is used.
      *
      * @var string
      */
@@ -492,7 +503,7 @@ class lizmapServices
 
     public function isSmtpEnabled()
     {
-        $config = \jApp::config()->mailer;
+        $config = jApp::config()->mailer;
 
         return $config['mailerType'] == 'smtp'
             && $config['smtpHost'] != ''
@@ -608,6 +619,33 @@ class lizmapServices
         }
 
         return $modified;
+    }
+
+    /**
+     * Host URL to the Lizmap QGIS Server API, taking care of the QGIS Server context : FCGI, QJazz, etc.
+     *
+     * @return string the host part of the Lizmap API
+     */
+    public function getHostLizmapAPI()
+    {
+        if (empty($this->lizmapPluginAPIURL)) {
+            // When the Lizmap API URL is not set, we use the WMS server URL only
+            // and we add '/lizmap' at then end
+            return rtrim($this->wmsServerURL, '/').'/lizmap';
+        }
+
+        // When the Lizmap API URL is set
+        return rtrim($this->lizmapPluginAPIURL, '/');
+    }
+
+    /**
+     * URL to the JSON QGIS Server metadata, taking care of the QGIS Server context : FCGI, QJazz, etc.
+     *
+     * @return string the URL to the QGIS Server JSON metadata file
+     */
+    public function getUrlLizmapQgisServerMetadata()
+    {
+        return $this->getHostLizmapAPI().self::$qgisServerMetadata;
     }
 
     public function saveIntoIni($ini, $liveIni)

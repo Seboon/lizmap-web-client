@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Abstract class for our custom HTML response objects.
  *
@@ -22,7 +23,7 @@ class AbstractLizmapHtmlResponse extends jResponseHtml
         // Header
         $this->addHttpHeader('x-ua-compatible', 'ie=edge');
 
-        $csp = \jApp::config()->lizmap[$this->CSPPropName];
+        $csp = jApp::config()->lizmap[$this->CSPPropName];
         if ($csp != '') {
             $this->addHttpHeader('Content-Security-Policy', $csp);
         }
@@ -49,5 +50,22 @@ class AbstractLizmapHtmlResponse extends jResponseHtml
         $this->addHeadContent('<meta name="theme-color" content="#ffffff">');
 
         $this->addHeadContent('<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />');
+    }
+
+    protected $jsVarData = array();
+
+    public function addJsVariable($name, $value)
+    {
+        $this->jsVarData[$name] = $value;
+    }
+
+    public function addJsVariables(array $variables)
+    {
+        $this->jsVarData = array_merge($this->jsVarData, $variables);
+    }
+
+    protected function doAfterActions()
+    {
+        $this->addHeadContent('<script id="lizmap-vars" type="application/json">'.json_encode($this->jsVarData).'</script>');
     }
 }

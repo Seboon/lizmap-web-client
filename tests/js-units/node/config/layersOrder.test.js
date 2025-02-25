@@ -2,9 +2,9 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { LayersConfig } from '../../../../assets/src/modules/config/Layer.js';
-import { buildLayerTreeConfig } from '../../../../assets/src/modules/config/LayerTree.js';
-import { buildLayersOrder } from '../../../../assets/src/modules/config/LayersOrder.js';
+import { LayersConfig } from 'assets/src/modules/config/Layer.js';
+import { buildLayerTreeConfig } from 'assets/src/modules/config/LayerTree.js';
+import { buildLayersOrder } from 'assets/src/modules/config/LayersOrder.js';
 
 describe('buildLayersOrder', function () {
     it('From config', function () {
@@ -44,16 +44,18 @@ describe('buildLayersOrder', function () {
         ])
     })
     it('From layer tree', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
+        const capabilities = JSON.parse(readFileSync('./tests/js-units/data/montpellier-capabilities.json', 'utf8'));
         expect(capabilities).to.not.be.undefined
         expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
+        const config = JSON.parse(readFileSync('./tests/js-units/data/montpellier-config.json', 'utf8'));
         expect(config).to.not.be.undefined
 
         const layers = new LayersConfig(config.layers);
 
-        const root = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+        let invalid = [];
+        const root = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
 
+        expect(invalid).to.have.length(0);
         const layersOrder = buildLayersOrder(config, root);
         expect(layersOrder).to.have.ordered.members([
             "points_of_interest",

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Give access to qgis mapLayer configuration.
  *
@@ -22,6 +23,7 @@ class qgisVectorLayerDatasource
         'user' => "user='?([^ ']+)'? ",
         'password' => "password='?([^ ']+)'? ",
         'sslmode' => "sslmode='?([^ ']+)'? ",
+        'authcfg' => "authcfg='?([^ ']+)'? ",
         'key' => "key='?([^ ']+)'? ",
         'estimatedmetadata' => 'estimatedmetadata=([^ ]+) ',
         'selectatid' => 'selectatid=([^ ]+) ',
@@ -95,7 +97,7 @@ class qgisVectorLayerDatasource
             $backSlashedQuoteReplacement = '@@@LIZMAP@@@';
             preg_match(
                 '#'.$regex.'#s',
-                str_replace('\\"', $backSlashedQuoteReplacement, $this->datasource),
+                str_replace('\"', $backSlashedQuoteReplacement, $this->datasource),
                 $result
             );
         } else {
@@ -120,7 +122,7 @@ class qgisVectorLayerDatasource
 
                 // Complex sub-query
                 if (substr($table, 0, 1) == '(' and substr($table, -1) == ')') {
-                    $table = $table.' fooliz';
+                    $table .= ' fooliz';
                 }
                 // Simple "schemaname"."table_name"
                 elseif (preg_match('#"."#', $table)) {

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Edition tool web services.
  *
@@ -10,11 +11,15 @@
  * @license Mozilla Public License : http://www.mozilla.org/MPL/
  */
 
+use GuzzleHttp\Psr7\Utils as Psr7Utils;
 use Lizmap\Form;
+use Lizmap\Project\Project;
+use Lizmap\Project\UnknownLizmapProjectException;
+use Lizmap\Request\WFSRequest;
 
 class editionCtrl extends jController
 {
-    /** @var null|Lizmap\Project\Project */
+    /** @var null|Project */
     private $project;
 
     /** @var lizmapRepository */
@@ -148,7 +153,7 @@ class editionCtrl extends jController
 
                 return false;
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             $this->setErrorMessage('The lizmap project '.strtoupper($project).' does not exist !', 'ProjectNotDefined');
 
             return false;
@@ -199,10 +204,10 @@ class editionCtrl extends jController
     /**
      * Get layer parameters and returns layers info for edition.
      *
-     * @param null|Lizmap\Project\Project $proj       the project
-     * @param null|string                 $lid        the layer id
-     * @param null|string|string[]        $fIdParams  the feature ids
-     * @param bool                        $setMessage set/not set error message
+     * @param null|Project         $proj       the project
+     * @param null|string          $lid        the layer id
+     * @param null|string|string[] $fIdParams  the feature ids
+     * @param bool                 $setMessage set/not set error message
      *
      * @return null|array{'layer': qgisVectorLayer, 'layerXml': simpleXMLElement, 'layerName': string, 'featureId': mixed, 'featureIdParam': string, 'dbFieldsInfo': qgisLayerDbFieldsInfo, 'primaryKeys': string[], 'geometryColumn': string, 'srid': mixed, 'proj4': mixed}
      */
@@ -342,7 +347,7 @@ class editionCtrl extends jController
                 unset($wfs_params['FEATUREID']);
             }
 
-            $wfs_request = new \Lizmap\Request\WFSRequest(
+            $wfs_request = new WFSRequest(
                 $this->project,
                 $wfs_params,
                 lizmap::getServices()
@@ -767,6 +772,11 @@ class editionCtrl extends jController
         // Some errors where encountered
         if (!$check || !$pkvals) {
             // Redirect to the display action
+            jLog::log(
+                'Error in project '.$this->repository->getKey().'/'.$this->project->getKey().', '.
+                'layer '.$this->layerId.' while saving the feature '.$this->featureIdParam,
+                'lizmapadmin'
+            );
             $rep->params['status'] = '1';
             $rep->action = 'lizmap~edition:editFeature';
 
@@ -1161,7 +1171,7 @@ class editionCtrl extends jController
                 $feature = $this->featureData->features[0];
                 $rs = $qgisForm->deleteFromDb($feature, $cnx);
 
-                if ($rs) {
+                if ($rs !== false) {
                     jMessage::add(jLocale::get('view~edition.message.success.delete'), 'success');
                     $eventParams['deleteFiles'] = $deleteFiles;
                     $eventParams['success'] = true;
@@ -1424,7 +1434,7 @@ class editionCtrl extends jController
 
                 return $rep;
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             $rep->data['message'] = 'The lizmap project '.strtoupper($project).' does not exist !';
 
             return $rep;
@@ -1452,9 +1462,42 @@ class editionCtrl extends jController
             return $rep;
         }
 
-        $rep->data['success'] = true;
-        $rep->data['message'] = 'Success';
-        $rep->data = array_merge($rep->data, $layer->editableFeatures());
+        /** @var jResponseBinary $rep */
+        $rep = $this->getResponse('binary');
+
+        $rep->outputFileName = 'editableFeatures.json';
+        $rep->doDownload = false;
+
+        // Get editable features array: status and features as iterator
+        $editableFeatures = $layer->editableFeatures();
+
+        // Build response generator based on editable features
+        $inputGenerator = function () use ($editableFeatures) {
+            // Build static data
+            $data = array();
+            $data['success'] = true;
+            $data['message'] = 'Success';
+            $data['status'] = $editableFeatures['status'];
+
+            // send first part of the JSON based on static data
+            yield trim(json_encode($data, JSON_PRETTY_PRINT), "}\n").",\n    \"features\": [";
+
+            // send features step by step
+            $separator = '';
+            foreach ($editableFeatures['features'] as $feat) {
+                yield $separator.json_encode($feat);
+                $separator = ",\n        ";
+            }
+
+            // send end of the JSON
+            yield "\n    ]\n}\n";
+        };
+
+        $rep->setContentCallback(function () use ($inputGenerator) {
+            $output = Psr7Utils::streamFor(fopen('php://output', 'w+'));
+            $input = Psr7Utils::streamFor($inputGenerator());
+            Psr7Utils::copyToStream($input, $output);
+        });
 
         return $rep;
     }
@@ -1498,7 +1541,7 @@ class editionCtrl extends jController
 
                 return $this->serviceAnswer();
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             jMessage::add('The lizmap project '.strtoupper($project).' does not exist !', 'ProjectNotDefined');
 
             return $this->serviceAnswer();
@@ -1623,6 +1666,7 @@ class editionCtrl extends jController
 
                 return $this->serviceAnswer();
             }
+
             // Update the child features to add the parent id
             try {
                 $foreign_key_column = $key2;
@@ -1696,7 +1740,7 @@ class editionCtrl extends jController
 
                 return $this->serviceAnswer();
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             jMessage::add('The lizmap project '.strtoupper($project).' does not exist !', 'ProjectNotDefined');
 
             return $this->serviceAnswer();

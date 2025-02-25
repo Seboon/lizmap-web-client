@@ -13,6 +13,7 @@ import { AttributionConfig } from './../config/Attribution.js'
 import { LayerStyleConfig, LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig } from './../config/LayerTree.js';
 import { LayerItemState, LayerGroupState, LayerLayerState, LayerVectorState, LayerRasterState } from './Layer.js';
 import { LayerSymbolsSymbology, LayerIconSymbology, LayerGroupSymbology } from './Symbology.js';
+import { ExternalMapGroupState } from './ExternalMapLayer.js'
 
 /**
  * Enum for map layer load status
@@ -66,20 +67,23 @@ export class MapItemState extends EventDispatcher {
                 this.dispatch.bind(this),
                 layerItemState.mapType + '.opacity.changed'
             );
+            layerItemState.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
         } else {
             layerItemState.addListener(this.dispatch.bind(this), 'layer.visibility.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.symbology.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.opacity.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.style.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+            layerItemState.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.selection.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.filter.changed');
             layerItemState.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
         }
     }
+
     /**
-     * Config layers
+     * Map item name
      * @type {string}
      */
     get name() {
@@ -87,7 +91,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * Config layers
+     * Map item type
      * @type {string}
      */
     get type() {
@@ -95,7 +99,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * the layer tree item level
+     * the layer item level
      * @type {number}
      */
     get level() {
@@ -103,7 +107,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * WMS layer name
+     * WMS item name
      * @type {?string}
      */
     get wmsName() {
@@ -111,7 +115,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * WMS layer title
+     * WMS item title
      * @type {string}
      */
     get wmsTitle() {
@@ -119,7 +123,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * WMS layer Geographic Bounding Box
+     * WMS item Geographic Bounding Box
      * @type {?LayerGeographicBoundingBoxConfig}
      */
     get wmsGeographicBoundingBox() {
@@ -127,13 +131,12 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * WMS layer Bounding Boxes
+     * WMS item Bounding Boxes
      * @type {LayerBoundingBoxConfig[]}
      */
     get wmsBoundingBoxes() {
         return this._layerItemState.wmsBoundingBoxes;
     }
-
 
     /**
      * WMS Minimum scale denominator
@@ -148,7 +151,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * WMS layer maximum scale denominator
+     * WMS Maximum scale denominator
      * If the maximum scale denominator is not defined: -1 is returned
      * If the WMS layer is a group, the maximum scale denominator is the largest of the layers in the group
      * @type {number}
@@ -158,7 +161,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * Layer tree item is checked
+     * Map item is checked
      * @type {boolean}
      */
     get checked() {
@@ -166,7 +169,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * Set layer tree item is checked
+     * Set map item is checked
      * @type {boolean}
      */
     set checked(val) {
@@ -174,7 +177,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * Layer tree item is visible
+     * Map item is visible
      * It depends on the parent visibility
      * @type {boolean}
      */
@@ -183,7 +186,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * Layer tree item opacity
+     * Map item opacity
      * @type {number}
      */
     get opacity() {
@@ -191,7 +194,7 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
-     * Set layer tree item opacity
+     * Set map item opacity
      * @type {number}
      */
     set opacity(val) {
@@ -208,7 +211,7 @@ export class MapItemState extends EventDispatcher {
 
     /**
      * Lizmap layer item state
-     * @type {?LayerConfig}
+     * @type {?LayerItemState}
      */
     get itemState() {
         return this._layerItemState;
@@ -285,15 +288,12 @@ export class MapGroupState extends MapItemState {
                     group.addListener(this.dispatch.bind(this), 'layer.load.status.changed');
                     group.addListener(this.dispatch.bind(this), 'layer.style.changed');
                     group.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                    group.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                     group.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                     group.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                     group.addListener(this.dispatch.bind(this), 'layer.filter.changed');
                     group.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
                     this._items.push(group);
-                    // Group is checked if one child is checked
-                    if (group.checked) {
-                        this._checked = true;
-                    }
                 } else {
                     // Build group as layer
                     const layer = new MapLayerState(layerItem, this)
@@ -304,15 +304,12 @@ export class MapGroupState extends MapItemState {
                     layer.addListener(this.dispatch.bind(this), 'layer.load.status.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.style.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                    layer.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.filter.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
                     this._items.push(layer);
-                    // Group is checked if one child is checked
-                    if (layer.checked) {
-                        this._checked = true;
-                    }
                 }
             } else if (layerItem instanceof LayerLayerState && !layerItem.layerConfig.baseLayer) {
                 // layer with geometry type equal to 'none' or 'unknown' cannot be displayed
@@ -338,14 +335,11 @@ export class MapGroupState extends MapItemState {
                     layer.addListener(this.dispatch.bind(this), 'layer.load.status.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.style.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                    layer.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.filter.changed');
                     layer.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
-                    // Group is checked if one child is checked
-                    if (layer.checked) {
-                        this._checked = true;
-                    }
                 }
             }
         }
@@ -508,19 +502,32 @@ export class MapLayerState extends MapItemState {
         super('layer', layerItemState, parentMapGroup);
         // The layer is group
         if (this.itemState instanceof LayerGroupState) {
-            //layerItemState.addListener(this.dispatch.bind(this), 'layer.visibility.changed');
-            //layerItemState.addListener(this.dispatch.bind(this), 'layer.symbology.changed');
-            //layerItemState.addListener(this.dispatch.bind(this), 'layer.loading.changed');
-            //layerItemState.addListener(this.dispatch.bind(this), 'layer.style.changed');
-            //layerItemState.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
             this.itemState.addListener(this.dispatch.bind(this), 'layer.selection.changed');
             this.itemState.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
             this.itemState.addListener(this.dispatch.bind(this), 'layer.filter.changed');
             this.itemState.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
         }
+        // load the layer in a single ImageWMS layer
+        this._singleWMSLayer = false;
         // set isLoading to false
         this._loading = false;
         this._loadStatus = MapLayerLoadStatus.Undefined;
+    }
+
+    /**
+     * vector layer is loaded in a single layer ImageLayer or not
+     * @type {boolean}
+     */
+    get singleWMSLayer(){
+        return this._singleWMSLayer;
+    }
+
+    /**
+     * set if the map layer is loaded in a single ImageWMS layer or not
+     * @type {boolean}
+     */
+    set singleWMSLayer(val){
+        this._singleWMSLayer = val;
     }
 
     /**
@@ -579,7 +586,12 @@ export class MapLayerState extends MapItemState {
      * @type {string}
      */
     get wmsSelectedStyleName() {
-        return this._layerItemState.wmsSelectedStyleName;
+        // The map layer is not a group
+        if (!this._layerItemState.groupAsLayer) {
+            return this._layerItemState.wmsSelectedStyleName;
+        }
+        // WMS Style for group as layer
+        return '';
     }
 
     /**
@@ -588,7 +600,14 @@ export class MapLayerState extends MapItemState {
      * @param {string} styleName - The WMS layer style name to select
      */
     set wmsSelectedStyleName(styleName) {
-        this._layerItemState.wmsSelectedStyleName = styleName;
+        // The map layer is not a group
+        if (!this._layerItemState.groupAsLayer) {
+            this._layerItemState.wmsSelectedStyleName = styleName;
+            return;
+        }
+        if (styleName !== '') {
+            throw TypeError('Cannot assign an unknown WMS style name! `'+styleName+'` is not in the layer `'+this.name+'` WMS styles!');
+        }
     }
 
     /**
@@ -599,6 +618,7 @@ export class MapLayerState extends MapItemState {
         if ( this._layerItemState.type == 'layer' ) {
             return this._layerItemState.wmsStyles;
         }
+        // WMS Style for group as layer
         return [new LayerStyleConfig('', '')];
     }
 
@@ -618,7 +638,16 @@ export class MapLayerState extends MapItemState {
      * @type {object}
      */
     get wmsParameters() {
-        return this._layerItemState.wmsParameters;
+        // The map layer is not a group
+        if (!this._layerItemState.groupAsLayer) {
+            return this._layerItemState.wmsParameters;
+        }
+        return {
+            'LAYERS': this.wmsName,
+            'STYLES': this.wmsSelectedStyleName,
+            'FORMAT': this.layerConfig.imageFormat,
+            'DPI': 96
+        };
     }
 
     /**
@@ -670,5 +699,77 @@ export class MapLayerState extends MapItemState {
             name: this.name,
             loadStatus: this.loadStatus,
         })
+    }
+}
+
+/**
+ * Class representing a map group state as map root
+ * @class
+ * @augments MapGroupState
+ */
+export class MapRootState extends MapGroupState {
+
+    /**
+     * Creating a map root state instance
+     * @param {LayerGroupState} layerGroupState  - the layer tree group config
+     */
+    constructor(layerGroupState) {
+        super(layerGroupState);
+    }
+
+    /**
+     * Create an external map group state
+     * @param {string} name - the external map group name
+     * @returns {ExternalMapGroupState} The external map group state
+     */
+    createExternalGroup(name) {
+        // Checks that name is unknown
+        const groups = this._items
+            .map((item, index) => {return {'name': item.name, 'type': item.type,'index':index}})
+            .filter((item) => item.type == 'ext-group' && item.name == name);
+        if (groups.length != 0) {
+            throw RangeError('The group name `'+ name +'` is already used by an external group child!');
+        }
+        const extGroup = new ExternalMapGroupState(name);
+        extGroup.addListener(this.dispatch.bind(this), 'ext-group.wmsTitle.changed');
+        extGroup.addListener(this.dispatch.bind(this), 'ext-group.visibility.changed');
+        extGroup.addListener(this.dispatch.bind(this), 'ol-layer.wmsTitle.changed');
+        extGroup.addListener(this.dispatch.bind(this), 'ol-layer.icon.changed');
+        extGroup.addListener(this.dispatch.bind(this), 'ol-layer.opacity.changed');
+        extGroup.addListener(this.dispatch.bind(this), 'ol-layer.visibility.changed');
+        this._items.unshift(extGroup);
+        this.dispatch({
+            type: 'ext-group.added',
+            name: name,
+        });
+        return extGroup;
+    }
+
+    /**
+     * Create an external map group state
+     * @param {string} name - the external map group name to remove
+     * @returns {ExternalMapGroupState|undefined} The removed external map group or undefined if the name is unknown
+     */
+    removeExternalGroup(name) {
+        const groups = this._items
+            .map((item, index) => {return {'name': item.name, 'type': item.type,'index':index}})
+            .filter((item) => item.type == 'ext-group' && item.name == name);
+        if (groups.length == 0) {
+            return undefined;
+        }
+        const extGroup = this._items.at(groups[0].index);
+        extGroup.removeListener(this.dispatch.bind(this), 'ext-group.wmsTitle.changed');
+        extGroup.removeListener(this.dispatch.bind(this), 'ext-group.visibility.changed');
+        extGroup.removeListener(this.dispatch.bind(this), 'ol-layer.wmsTitle.changed');
+        extGroup.removeListener(this.dispatch.bind(this), 'ol-layer.icon.changed');
+        extGroup.removeListener(this.dispatch.bind(this), 'ol-layer.opacity.changed');
+        extGroup.removeListener(this.dispatch.bind(this), 'ol-layer.visibility.changed');
+        this._items.splice(groups[0].index, 1);
+        this.dispatch({
+            type: 'ext-group.removed',
+            name: name,
+        });
+        extGroup.clean();
+        return extGroup;
     }
 }
