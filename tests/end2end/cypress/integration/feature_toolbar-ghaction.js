@@ -35,7 +35,7 @@ describe('Feature Toolbar in popup', function () {
                     req.alias = 'postToService'
             } else
                 req.alias = 'postToService'
-          })
+        })
 
         cy.intercept('*REQUEST=GetMap*',
             { middleware: true },
@@ -92,12 +92,12 @@ describe('Feature Toolbar in popup', function () {
         let lizMap
 
         cy.window()
-          .then((win) => {
-            lizMap = win.lizMap
-          })
-          .then(() => {
-            expect(lizMap.mainLizmap.map.getView().calculateExtent()).to.eql([771100.0350324942, 6278833.179665077, 772753.6841731258, 6279792.296166643])
-          })
+            .then((win) => {
+                lizMap = win.lizMap
+            })
+            .then(() => {
+                expect(lizMap.mainLizmap.map.getView().calculateExtent()).to.eql([771100.0350324942, 6278833.179665077, 772753.6841731258, 6279792.296166643])
+            })
     })
 
     it('should center', function () {
@@ -133,12 +133,12 @@ describe('Feature Toolbar in popup', function () {
         let lizMap
 
         cy.window()
-          .then((win) => {
-            lizMap = win.lizMap
-          })
-          .then(() => {
-            expect(lizMap.mainLizmap.map.getView().getCenter()).to.eql([771926.85960281, 6279312.73791586])
-          })
+            .then((win) => {
+                lizMap = win.lizMap
+            })
+            .then(() => {
+                expect(lizMap.mainLizmap.map.getView().getCenter()).to.eql([771926.85960281, 6279312.73791586])
+            })
 
     })
 
@@ -365,7 +365,7 @@ describe('Feature Toolbar in popup', function () {
         cy.get('#message #lizmap-action-message p').should('have.text', 'The buffer 500 m has been displayed in the map')
 
         // End action
-        cy.get('#popupcontent lizmap-feature-toolbar button.popup-action[value="buffer_500.parent_layer_d3dc849b_9622_4ad0_8401_ef7d75950111.1"]').click()
+        cy.get('#popupcontent lizmap-feature-toolbar button.popup-action[value="buffer_500.parent_layer_d3dc849b_9622_4ad0_8401_ef7d75950111.1"]').click({force:true})
         cy.get('#message').should('be.empty')
 
     })
@@ -389,7 +389,7 @@ describe('Feature Toolbar in popup', function () {
         cy.get('#message #lizmap-action-message p').should('have.text', 'The displayed geometry represents the buffer 2000 m of the current map center')
 
         // Deactivate
-        cy.get('#lizmap-project-actions button.action-run-button').click()
+        cy.get('#lizmap-project-actions button.action-deactivate-button').click()
 
         // Check
         cy.get('#message').should('be.empty')
@@ -442,8 +442,8 @@ describe('Feature Toolbar in popup', function () {
 
         cy.wait(300)
 
-        // Parent_id is disabled in form when edition is started from parent form
-        cy.get('#jforms_view_edition_parent_id').should('be.disabled')
+        // Parent_id is hidden in form when edition is started from parent form
+        cy.get('#jforms_view_edition_parent_id').should('have.class', 'hide');
 
         // Parent_id input should have the value 2 selected
         cy.get('#jforms_view_edition_parent_id').find('option:selected').should('have.value', '2');
@@ -459,8 +459,8 @@ describe('Feature Toolbar in popup', function () {
 
         cy.wait(300)
 
-        // Parent_id is disabled in form when edition is started from parent form
-        cy.get('#jforms_view_edition_parent_id').should('be.disabled')
+        // Parent_id is hidden in form when edition is started from parent form
+        cy.get('#jforms_view_edition_parent_id').should('have.class', 'hide');
 
         // Parent_id input should have the value 2 selected
         cy.get('#jforms_view_edition_parent_id').find('option:selected').should('have.value', '2');
@@ -481,7 +481,7 @@ describe('Feature Toolbar in attribute table', function () {
                 })
             }).as('getMap')
 
-            cy.visit('/index.php/view/map/?repository=testsrepository&project=feature_toolbar&lang=en_US')
+        cy.visit('/index.php/view/map/?repository=testsrepository&project=feature_toolbar&lang=en_US')
 
         cy.wait('@getMap')
 
@@ -502,9 +502,9 @@ describe('Feature Toolbar in attribute table', function () {
         let lizMap
 
         const promise = cy.window()
-          .then((win) => {
-            lizMap = win.lizMap
-          })
+            .then((win) => {
+                lizMap = win.lizMap
+            })
 
         promise.then(() => {
             expect(lizMap.mainLizmap.map.getView().calculateExtent()).to.eql([771100.0350363201, 6278833.179664319, 772753.6841769516, 6279792.296165885])
@@ -557,31 +557,31 @@ describe('Export data', function () {
 
         // Click on the export button
         cy.get('#attribute-layer-main-parent_layer .export-formats > button:nth-child(1)').click({ force: true })
-        cy.get('#attribute-layer-main-parent_layer .export-formats > ul:nth-child(2) > li:nth-child(1) > a:nth-child(1)').click({ force: true })
+        cy.get('#attribute-layer-main-parent_layer .export-formats > ul:nth-child(2) > li:nth-child(1) > button:nth-child(1)').click({ force: true })
 
         cy.wait('@GetExport')
-        .then(({response}) => {
-            expect(response.statusCode).to.eq(200)
-            expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
-            expect(response.body).to.have.property('type', 'FeatureCollection')
-            expect(response.body).to.have.property('features')
-            expect(response.body.features).to.have.length(2)
-            const feature = response.body.features[0]
-            expect(feature).to.have.property('id')
-            expect(feature.id).to.equal('parent_layer.1')
-            expect(feature).to.have.property('bbox')
-            expect(feature.bbox).to.have.length(4)
-            expect(feature).to.have.property('properties')
-            expect(feature.properties).to.have.property('id', 1)
-            expect(feature).to.have.property('geometry')
-            expect(feature.geometry).to.have.property('type', 'Point')
-            expect(feature.geometry).to.have.property('coordinates')
-            expect(feature.geometry.coordinates).to.have.length(2)
+            .then(({response}) => {
+                expect(response.statusCode).to.eq(200)
+                expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
+                expect(response.body).to.have.property('type', 'FeatureCollection')
+                expect(response.body).to.have.property('features')
+                expect(response.body.features).to.have.length(2)
+                const feature = response.body.features[0]
+                expect(feature).to.have.property('id')
+                expect(feature.id).to.equal('parent_layer.1')
+                expect(feature).to.have.property('bbox')
+                expect(feature.bbox).to.have.length(4)
+                expect(feature).to.have.property('properties')
+                expect(feature.properties).to.have.property('id', 1)
+                expect(feature).to.have.property('geometry')
+                expect(feature.geometry).to.have.property('type', 'Point')
+                expect(feature.geometry).to.have.property('coordinates')
+                expect(feature.geometry.coordinates).to.have.length(2)
             /*cy.fixture('export/export_parent_layer.geojson').then((fixtureGeoJSON) => {
                 expect(response.statusCode).to.eq(200)
                 expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
             })*/
-        })
+            })
 
         // Select the second feature
         cy.get('#attribute-layer-table-parent_layer lizmap-feature-toolbar[value="parent_layer_d3dc849b_9622_4ad0_8401_ef7d75950111.2"] .feature-select').click({ force: true })
@@ -589,35 +589,35 @@ describe('Export data', function () {
 
         // Click on the export button
         cy.get('#attribute-layer-main-parent_layer .export-formats > button:nth-child(1)').click({ force: true })
-        cy.get('#attribute-layer-main-parent_layer .export-formats > ul:nth-child(2) > li:nth-child(1) > a:nth-child(1)').click({ force: true })
+        cy.get('#attribute-layer-main-parent_layer .export-formats > ul:nth-child(2) > li:nth-child(1) > button:nth-child(1)').click({ force: true })
 
         cy.wait('@GetExport')
-        .then(({response}) => {
-            expect(response.statusCode).to.eq(200)
-            expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
-            expect(response.body).to.have.property('type', 'FeatureCollection')
-            expect(response.body).to.have.property('features')
-            expect(response.body.features).to.have.length(1)
-            const feature = response.body.features[0]
-            expect(feature).to.have.property('id')
-            expect(feature.id).to.equal('parent_layer.2')
-            expect(feature).to.have.property('bbox')
-            assert.isNumber(feature.bbox[0], 'BBox xmin is number')
-            assert.isNumber(feature.bbox[1], 'BBox ymin is number')
-            assert.isNumber(feature.bbox[2], 'BBox xmax is number')
-            assert.isNumber(feature.bbox[3], 'BBox ymax is number')
-            expect(feature.bbox).to.have.length(4)
-            expect(feature).to.have.property('properties')
-            expect(feature.properties).to.have.property('id', 2)
-            expect(feature).to.have.property('geometry')
-            expect(feature.geometry).to.have.property('type', 'Point')
-            expect(feature.geometry).to.have.property('coordinates')
-            expect(feature.geometry.coordinates).to.have.length(2)
+            .then(({response}) => {
+                expect(response.statusCode).to.eq(200)
+                expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
+                expect(response.body).to.have.property('type', 'FeatureCollection')
+                expect(response.body).to.have.property('features')
+                expect(response.body.features).to.have.length(1)
+                const feature = response.body.features[0]
+                expect(feature).to.have.property('id')
+                expect(feature.id).to.equal('parent_layer.2')
+                expect(feature).to.have.property('bbox')
+                assert.isNumber(feature.bbox[0], 'BBox xmin is number')
+                assert.isNumber(feature.bbox[1], 'BBox ymin is number')
+                assert.isNumber(feature.bbox[2], 'BBox xmax is number')
+                assert.isNumber(feature.bbox[3], 'BBox ymax is number')
+                expect(feature.bbox).to.have.length(4)
+                expect(feature).to.have.property('properties')
+                expect(feature.properties).to.have.property('id', 2)
+                expect(feature).to.have.property('geometry')
+                expect(feature.geometry).to.have.property('type', 'Point')
+                expect(feature.geometry).to.have.property('coordinates')
+                expect(feature.geometry.coordinates).to.have.length(2)
             /*cy.fixture('export/export_parent_layer_feature_2.geojson').then((fixtureGeoJSON) => {
                 expect(response.statusCode).to.eq(200)
                 expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
             })*/
-        })
+            })
 
         // Filter the selected feature and export
         cy.get('#attribute-layer-main-parent_layer .btn-filter-attributeTable').click({ force: true })
@@ -625,35 +625,35 @@ describe('Export data', function () {
 
         // Export
         cy.get('#attribute-layer-main-parent_layer .export-formats > button:nth-child(1)').click({ force: true })
-        cy.get('#attribute-layer-main-parent_layer .export-formats > ul:nth-child(2) > li:nth-child(1) > a:nth-child(1)').click({ force: true })
+        cy.get('#attribute-layer-main-parent_layer .export-formats > ul:nth-child(2) > li:nth-child(1) > button:nth-child(1)').click({ force: true })
 
         cy.wait('@GetExport')
-        .then(({response}) => {
-            expect(response.statusCode).to.eq(200)
-            expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
-            expect(response.body).to.have.property('type', 'FeatureCollection')
-            expect(response.body).to.have.property('features')
-            expect(response.body.features).to.have.length(1)
-            const feature = response.body.features[0]
-            expect(feature).to.have.property('id')
-            expect(feature.id).to.equal('parent_layer.2')
-            expect(feature).to.have.property('bbox')
-            assert.isNumber(feature.bbox[0], 'BBox xmin is number')
-            assert.isNumber(feature.bbox[1], 'BBox ymin is number')
-            assert.isNumber(feature.bbox[2], 'BBox xmax is number')
-            assert.isNumber(feature.bbox[3], 'BBox ymax is number')
-            expect(feature.bbox).to.have.length(4)
-            expect(feature).to.have.property('properties')
-            expect(feature.properties).to.have.property('id', 2)
-            expect(feature).to.have.property('geometry')
-            expect(feature.geometry).to.have.property('type', 'Point')
-            expect(feature.geometry).to.have.property('coordinates')
-            expect(feature.geometry.coordinates).to.have.length(2)
+            .then(({response}) => {
+                expect(response.statusCode).to.eq(200)
+                expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
+                expect(response.body).to.have.property('type', 'FeatureCollection')
+                expect(response.body).to.have.property('features')
+                expect(response.body.features).to.have.length(1)
+                const feature = response.body.features[0]
+                expect(feature).to.have.property('id')
+                expect(feature.id).to.equal('parent_layer.2')
+                expect(feature).to.have.property('bbox')
+                assert.isNumber(feature.bbox[0], 'BBox xmin is number')
+                assert.isNumber(feature.bbox[1], 'BBox ymin is number')
+                assert.isNumber(feature.bbox[2], 'BBox xmax is number')
+                assert.isNumber(feature.bbox[3], 'BBox ymax is number')
+                expect(feature.bbox).to.have.length(4)
+                expect(feature).to.have.property('properties')
+                expect(feature.properties).to.have.property('id', 2)
+                expect(feature).to.have.property('geometry')
+                expect(feature.geometry).to.have.property('type', 'Point')
+                expect(feature.geometry).to.have.property('coordinates')
+                expect(feature.geometry.coordinates).to.have.length(2)
             /*cy.fixture('export/export_parent_layer_feature_2.geojson').then((fixtureGeoJSON) => {
                 expect(response.statusCode).to.eq(200)
                 expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
             })*/
-        })
+            })
     })
 
     it('should export the features of a non spatial layer depending on the selection or filter', function () {
@@ -684,21 +684,21 @@ describe('Export data', function () {
 
         // Click on the export button
         cy.get('#attribute-layer-main-data_uids .export-formats > button:nth-child(1)').click({ force: true })
-        cy.get('#attribute-layer-main-data_uids .export-formats > ul:nth-child(2) > li:nth-child(1) > a:nth-child(1)').click({ force: true })
+        cy.get('#attribute-layer-main-data_uids .export-formats > ul:nth-child(2) > li:nth-child(1) > button:nth-child(1)').click({ force: true })
 
         cy.wait('@GetExport')
-        .then(({response}) => {
-            expect(response.statusCode).to.eq(200)
-            expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
-            expect(response.body).to.have.property('type', 'FeatureCollection')
-            expect(response.body).to.have.property('features')
-            expect(response.body.features).to.have.length(5)
-            expect(response.body.features[0].id).to.equal('data_uids.1')
-            cy.fixture('export/export_data_uids.geojson').then((fixtureGeoJSON) => {
+            .then(({response}) => {
                 expect(response.statusCode).to.eq(200)
-                expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
+                expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
+                expect(response.body).to.have.property('type', 'FeatureCollection')
+                expect(response.body).to.have.property('features')
+                expect(response.body.features).to.have.length(5)
+                expect(response.body.features[0].id).to.equal('data_uids.1')
+                cy.fixture('export/export_data_uids.geojson').then((fixtureGeoJSON) => {
+                    expect(response.statusCode).to.eq(200)
+                    expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
+                })
             })
-        })
 
         // Select the second feature
         cy.get('#attribute-layer-main-data_uids lizmap-feature-toolbar[value="data_uids_481aebcb_1b4e_495a_9664_ca64ee1becc4.2"] .feature-select').click({ force: true })
@@ -707,22 +707,22 @@ describe('Export data', function () {
 
         // Click on the export button
         cy.get('#attribute-layer-main-data_uids  .export-formats > button:nth-child(1)').click({ force: true })
-        cy.get('#attribute-layer-main-data_uids  .export-formats > ul:nth-child(2) > li:nth-child(1) > a:nth-child(1)').click({ force: true })
+        cy.get('#attribute-layer-main-data_uids  .export-formats > ul:nth-child(2) > li:nth-child(1) > button:nth-child(1)').click({ force: true })
 
         cy.wait('@GetExport')
-        .then(({response}) => {
-            expect(response.statusCode).to.eq(200)
-            expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
-            expect(response.body).to.have.property('type', 'FeatureCollection')
-            expect(response.body).to.have.property('features')
-            expect(response.body.features).to.have.length(2)
-            expect(response.body.features[0].id).to.equal('data_uids.2')
-            expect(response.body.features[1].id).to.equal('data_uids.4')
-            cy.fixture('export/export_data_uids_features_2_and_4.geojson').then((fixtureGeoJSON) => {
+            .then(({response}) => {
                 expect(response.statusCode).to.eq(200)
-                expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
+                expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
+                expect(response.body).to.have.property('type', 'FeatureCollection')
+                expect(response.body).to.have.property('features')
+                expect(response.body.features).to.have.length(2)
+                expect(response.body.features[0].id).to.equal('data_uids.2')
+                expect(response.body.features[1].id).to.equal('data_uids.4')
+                cy.fixture('export/export_data_uids_features_2_and_4.geojson').then((fixtureGeoJSON) => {
+                    expect(response.statusCode).to.eq(200)
+                    expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
+                })
             })
-        })
 
         // Filter the selected feature and export
         cy.get('#attribute-layer-main-data_uids .btn-filter-attributeTable').click({ force: true })
@@ -730,21 +730,21 @@ describe('Export data', function () {
 
         // Export
         cy.get('#attribute-layer-main-data_uids  .export-formats > button:nth-child(1)').click({ force: true })
-        cy.get('#attribute-layer-main-data_uids  .export-formats > ul:nth-child(2) > li:nth-child(1) > a:nth-child(1)').click({ force: true })
+        cy.get('#attribute-layer-main-data_uids  .export-formats > ul:nth-child(2) > li:nth-child(1) > button:nth-child(1)').click({ force: true })
         cy.wait('@GetExport')
-        .then(({response}) => {
-            expect(response.statusCode).to.eq(200)
-            expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
-            expect(response.body).to.have.property('type', 'FeatureCollection')
-            expect(response.body).to.have.property('features')
-            expect(response.body.features).to.have.length(2)
-            expect(response.body.features[0].id).to.equal('data_uids.2')
-            expect(response.body.features[1].id).to.equal('data_uids.4')
-            cy.fixture('export/export_data_uids_features_2_and_4.geojson').then((fixtureGeoJSON) => {
+            .then(({response}) => {
                 expect(response.statusCode).to.eq(200)
-                expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
+                expect(response.headers['content-type']).to.contain('application/vnd.geo+json')
+                expect(response.body).to.have.property('type', 'FeatureCollection')
+                expect(response.body).to.have.property('features')
+                expect(response.body.features).to.have.length(2)
+                expect(response.body.features[0].id).to.equal('data_uids.2')
+                expect(response.body.features[1].id).to.equal('data_uids.4')
+                cy.fixture('export/export_data_uids_features_2_and_4.geojson').then((fixtureGeoJSON) => {
+                    expect(response.statusCode).to.eq(200)
+                    expect(response.body).to.deep.eq(JSON.parse(fixtureGeoJSON))
+                })
             })
-        })
     })
 
 })

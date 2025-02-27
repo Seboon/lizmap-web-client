@@ -26,7 +26,7 @@ cd lizmap-web-client/tests/
 # and unzip the content in `qgis-server-plugins/` directory
 # Launch Lizmap Web Client with docker compose
 docker compose --env-file .env.windows up
-# You can now go to http://localhost:8130 and test!
+# You can now go to http://localhost:8130 and test
 
 # Later, you can get the latest changes in Lizmap Web Client with:
 git pull
@@ -214,11 +214,10 @@ To launch PHP tests:
 
 The `js-units` directory contains some unit tests.
 
-Go in `js-units` directory and execute `npm install` to install Mocha (only the first time).
+In the **root** directory :
 
-You can then :
-
-- launch `npm run js:test` to run the JavaScript unit tests
+* Run `npm install` to install Mocha
+* `npm run js:test` to run the JavaScript unit tests
 
 ## Testing data
 
@@ -229,7 +228,8 @@ You must execute `tests/qgis-projects/tests/load_sql.sh` to populate PostgreSQL 
 *First add testing data as explained above.*
 
 The `end2end` directory contains some end-to-end tests made for Cypress and Playwright.
-Go in `end2end` directory and execute `npm install` to install Cypress and Playwright (only the first time).
+
+In the **root** directory, `npm install` to install Cypress and Playwright.
 
 ### Cypress
 
@@ -251,14 +251,20 @@ Output colors can be kept with `--tty` parameter, but it won't work with `--grou
 
 You have to install the browsers with `npx playwright install` (only the first time or after an update)
 You can then :
-- execute `npx playwright test --ui --project=chromium` to open a UI as in Cypress which ease testing
-- execute `npx playwright test` to execute all tests with all browsers
-- execute `npx playwright test --project=chromium` to execute all tests with the Chromium browser
-- execute `npx playwright test mytest.spec.js --project=chromium` to execute one test with the Chromium browser
-- execute `npx playwright test mytest.spec.js --project=chromium --debug` to execute one test with the Chromium browser in debug mode
+- `npx playwright test --ui --project=chromium` to open a UI as in Cypress which ease testing
+- `npx playwright test` to execute all tests with all browsers
+- `npx playwright test --grep @readonly --workers 4` to run tests with 4 workers for tests which are read-only
+- `npx playwright test --project=chromium` to execute all tests with the Chromium browser
+- `npx playwright test --project=chromium --grep-invert "test_a|test_b"` to execute all tests but "test_a" and "test_b" with the Chromium browser
+- `npx playwright test mytest.spec.js --project=chromium` to execute one test with the Chromium browser
+- `npx playwright test mytest.spec.js --project=chromium --debug` to execute one test with the Chromium browser in debug mode
 - other command line : https://playwright.dev/docs/intro#command-line
 
-You can also install the handy Visual Studio Code extension : https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright
+You can also install the handy [Playwright extension](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright) on VSCode.
+
+#### Writing tests
+
+A tests doing only a **read-only** on Lizmap must be tagged as `@readonly`, otherwise, it must be tagged `@write`.
 
 ### Artifacts
 
@@ -285,6 +291,32 @@ the admin page of Lizmap, or in its `var/config/lizmapConfig.ini.php`.
 To test CORS, you can load `http://othersite.local:8130`, click on the buttons,
 and check the JS console for errors.
 
+## ESLint
+
+Eslint can be run if you're located in `assets/`.
+
+```bash
+# Run eslint without fixing issues
+npm run pretest
+
+# Run eslint and fix issues
+npm run pretest:fix
+```
+
+## PHP Rector
+
+[PHP Rector](https://getrector.com/) can be run if you're located in `tests/units`.
+
+```bash
+# Install composer dependencies
+composer install
+
+# Run PHP Rector without fixing issues
+composer rector
+
+# Run PHP Rector and fix issues
+composer rector:fix
+```
 
 ## Using LDAP
 

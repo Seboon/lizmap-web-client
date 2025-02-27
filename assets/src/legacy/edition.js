@@ -655,7 +655,7 @@ var lizEdition = function() {
     function finishEdition() {
 
         // Put old OL2 map at bottom
-        document.getElementById("newOlMap").style.zIndex = 750;
+        lizMap.mainLizmap.newOlMap = true;
 
         // Lift the constraint on edition
         lizMap.editionPending = false;
@@ -693,7 +693,7 @@ var lizEdition = function() {
         $('.edition-tabs').hide();
 
         // Display digitization tab back
-        $('.edition-tabs a[href="#tabdigitization"]').show();
+        $('.edition-tabs button[data-bs-target="#tabdigitization"]').show();
     }
 
     // Is there at least one layer with creation capability?
@@ -711,6 +711,16 @@ var lizEdition = function() {
         }
         return false;
     }
+
+    /**
+     * Sleep function
+     * @param {number} sleepDuration Duration to wait (milliseconds)
+     * @returns {Promise}
+     */
+    const editingDelay = sleepDuration => new Promise((resolve, reject) => {
+        setTimeout(_ => resolve(), sleepDuration)
+    });
+
 
     /**
      *
@@ -909,14 +919,23 @@ var lizEdition = function() {
                 }
             });
 
-            $('#edition-draw').click(function(){
+            $('#edition-draw').click(async function(){
                 // Do nothing if not enabled
                 if ( $(this).hasClass('disabled') )
                     return false;
                 // Deactivate previous edition
                 if( lizMap.editionPending){
-                    if ( !confirm( lizDict['edition.confirm.cancel'] ) )
+                    // Show editing dock
+                    document.querySelector('li.edition:not(.active) #button-edition')?.click();
+
+                    // Display a confirmation message
+                    // We need to add a delay in order to show the editing dock
+                    // If not the confirm message is displayed before the editing dock is shown
+                    await editingDelay(10);
+                    if ( !confirm( lizDict['edition.confirm.cancel'] ) ) {
                         return false;
+                    }
+
                     finishEdition();
                     editionLayer.clear();
                 }
@@ -1271,10 +1290,6 @@ var lizEdition = function() {
      * @param aCallback
      */
     function launchEdition( aLayerId, aFid, aParent, aCallback ) {
-
-        // Put old OL2 map on top
-        document.getElementById("newOlMap").style.zIndex = 'unset';
-
         var editedFeature = new FeatureEditionData(aLayerId, null, null);
 
         // Get parent relation
@@ -1331,6 +1346,7 @@ var lizEdition = function() {
         return internalLaunchEdition(parentInfo, parentFeat.id.split('.').pop());
     }
 
+
     /**
      *
      * @param {FeatureEditionData} editedFeature
@@ -1338,13 +1354,23 @@ var lizEdition = function() {
      * @param {Function} aCallback
      * @returns {boolean}
      */
-    function internalLaunchEdition(editedFeature, aFid, aCallback) {
+    async function internalLaunchEdition(editedFeature, aFid, aCallback) {
 
         // Deactivate previous edition when the feature to edit has no
         // relation to the current edited feature
         if (lizMap.editionPending) {
-            if ( !confirm( lizDict['edition.confirm.cancel'] ) )
+            // Show editing dock
+            document.querySelector('li.edition:not(.active) #button-edition')?.click();
+
+            // Display a confirmation message
+            // We need to add a delay in order to show the editing dock
+            // If not the confirm message is displayed before the editing dock is shown
+            await editingDelay(10);
+            if ( !confirm( lizDict['edition.confirm.cancel'] ) ) {
                 return false;
+            }
+
+            // Finish editing
             finishEdition();
         }
 
@@ -1417,34 +1443,64 @@ var lizEdition = function() {
             originalForm.unbind('submit');
         }
 
+        // Build params
+        var params = Object.assign({}, globalThis['lizUrls'].params, {
+            layerId: editionLayer['id']
+        })
+        if (featureId) {
+            params['featureId'] = featureId;
+        }
+
         // Get form via web service
-        var service = lizUrls.edition + '?' + new URLSearchParams(lizUrls.params);
-        $.get(service.replace('getFeature', editionType),{
-            layerId: editionLayer['id'],
-            featureId: featureId
-        }, function(data){
-            // Activate some controls
-            if( !editCtrls )
-                return false;
-            if ( !editionLayer['id'] )
-                return false;
+        var service = globalThis['lizUrls'].edition + '?' + new URLSearchParams(params);
+        // TODO: replaced by Utils.fetch
+        fetch(service.replace('getFeature', editionType))
+            .then(response => {
+                if (response.ok) {
+                    return response;
+                }
+                return Promise.reject('Invalid response: '+response.status+' '+response.statusText);
+            }).then(response => {
+                const contentType = response.headers.get('Content-Type') || '';
 
-            // Hide drawfeature controls : they will go back when finishing edition or canceling
-            $('#edition-modification-msg').hide();
-            $('#edition-creation').hide();
+                if (contentType.includes('text/plain')) {
+                    return response.text();
+                }
+                return Promise.reject('Invalid response content: '+contentType);
+            }).then(data => {
+                // Activate some controls
+                if( !editCtrls )
+                    return false;
+                if ( !editionLayer['id'] )
+                    return false;
 
-            // Show edition tabs
-            $('.edition-tabs').show();
+                // Hide drawfeature controls : they will go back when finishing edition or canceling
+                $('#edition-modification-msg').hide();
+                $('#edition-creation').hide();
 
-            // Display the form: after the previous show to be sure
-            // tabs visibility test (see: ) return correct response
-            // See "Check li (tabs) visibility" in displayEditionForm method
-            displayEditionForm( data );
+                // Show edition tabs
+                $('.edition-tabs').show();
 
-            if( aCallback )
-                aCallback( editionLayer['id'], featureId );
+                // Display the form: after the previous show to be sure
+                // tabs visibility test (see: ) return correct response
+                // See "Check li (tabs) visibility" in displayEditionForm method
+                displayEditionForm( data );
 
-        });
+                // Put old OL2 map on top and synchronize position with new OL map
+                lizMap.mainLizmap.newOlMap = false;
+
+                if( aCallback )
+                    aCallback( editionLayer['id'], featureId );
+            })
+            .catch(e => {
+                console.error(e);
+
+                // Deactivate edition
+                finishEdition();
+
+                // Display the message
+                addEditionMessage(lizDict['edition.message.error.fetch.form'], 'error', true);
+            });
     }
 
     /*
@@ -1591,19 +1647,13 @@ var lizEdition = function() {
                 } else {
                     var select = form.find('select[name="'+relationRefField+'"]');
                     if( select.length == 1 ){
-                        // Disable the select, the value will be stored in an hidden input
-                        select.val(parentFeatProp)
-                            .attr('disabled','disabled');
-                        // Create hidden input to store value because the select is disabled
-                        var hiddenInput = $('<input type="hidden"></input>')
-                            .attr('id', select.attr('id')+'_hidden')
-                            .attr('name', relationRefField)
-                            .attr('value', parentFeatProp);
-                        form.find('div.jforms-hiddens').append(hiddenInput);
-                        // Disable required constraint
-                        jFormsJQ.getForm(form.attr('id'))
-                            .getControl(relationRefField)
-                            .required=false;
+                        // select the option via jquery (and fire event with "change", will update depending controls)
+                        select.val(parentFeatProp).change();
+                        // create a disabled input with selected option value (will look alike a select)
+                        let readOnlyInput4Select = $('<input type="text" disabled value="'+$("select[name="+relationRefField+"] option:selected").html() +'" />');
+                        select.parent().append(readOnlyInput4Select);
+                        // hide the select, we don't want to see it, but it need to still be enable for controls that depends of its value
+                        select.addClass('hide');
                     } else {
                         var input = form.find('input[name="'+relationRefField+'"]');
                         if( input.length == 1 && input.attr('type') != 'hidden'){
@@ -1696,7 +1746,7 @@ var lizEdition = function() {
                                 $('#edition-geomtool-container').show();
                         }
                     } else {
-                        $('.edition-tabs a[href="#tabdigitization"]').hide();
+                        $('.edition-tabs button[data-bs-target="#tabdigitization"]').hide();
                     }
                 }
                 // Modification
@@ -1716,7 +1766,7 @@ var lizEdition = function() {
                                 $('#edition-geomtool-container').show();
                         }
                     }else{
-                        $('.edition-tabs a[href="#tabdigitization"]').hide();
+                        $('.edition-tabs button[data-bs-target="#tabdigitization"]').hide();
                     }
 
                     addEditionMessage(lizDict['edition.select.modify.activate'],'info',true);
@@ -1818,7 +1868,7 @@ var lizEdition = function() {
         $('#edition-waiter').hide();
 
         // Activate edition dock if not yet
-        $('li.edition:not(.active) #button-edition').click();
+        document.querySelector('li.edition:not(.active) #button-edition')?.click();
 
         // Hide popup
         if( $('#liz_layer_popup_close').length )
@@ -1879,7 +1929,7 @@ var lizEdition = function() {
                 if (group.hasClass('tab-pane')) {
                     // group is tab content
                     // so manage tab visibility
-                    var tab = form.children('ul.nav-tabs').find('li a[href="#' + groupId + '"]');
+                    var tab = form.children('ul.nav-tabs').find('li button[data-bs-target="#' + groupId + '"]');
                     var tabParent = tab.parent();
                     if (data[groupId]) {
                         // tab has to be visible
@@ -2022,6 +2072,11 @@ var lizEdition = function() {
             var sendFormPromise = sendNewFeatureForm(url, featureData);
             sendFormPromise.then(function(data) {
                 formResult = data;
+            }).catch(e => {
+                console.error(e);
+                $('#edition-waiter').hide();
+                // Display the message
+                addEditionMessage(lizDict['edition.message.error.send.feature'], 'error', true);
             });
             editionLayer.newfeatures.forEach(function(newFeatForm) {
                 sendFormPromise = sendFormPromise.then(() => sendNewFeatureForm(newFeatureUrl, newFeatForm[1]));
@@ -2046,13 +2101,15 @@ var lizEdition = function() {
 
             var request = new XMLHttpRequest();
             request.open("POST", url);
-            request.onload = function(oEvent) {
+            request.onload = function() {
                 if (request.status == 200) {
                     resolve(request.responseText);
                 } else {
-                    reject();
+                    reject(new Error(`Nouveau message d'erreur`, { cause: request }));
                 }
             };
+            request.addEventListener("error", reject);
+            request.addEventListener("abort", reject);
             request.send(formData);
         });
     }
@@ -2237,7 +2294,13 @@ var lizEdition = function() {
         if(lizMap.config?.relations?.[aLayerId]){
             hasNToMRelations = lizMap.config.relations[aLayerId].some((el)=>{
                 const pivotAttributeLayerConf = lizMap.getLayerConfigById( el.referencingLayer, lizMap.config.attributeLayers, 'layerId' );
-                return lizMap.config.relations.pivot && lizMap.config.relations.pivot[el.referencingLayer] != null && pivotAttributeLayerConf[1]?.pivot == 'True'
+                // The referencingLayer has no attribute layer configuration
+                if (!Array.isArray(pivotAttributeLayerConf ) || pivotAttributeLayerConf.length != 2) {
+                    return false;
+                }
+                return lizMap.config.relations.pivot &&
+                    lizMap.config.relations.pivot[el.referencingLayer] != null &&
+                    pivotAttributeLayerConf[1]?.pivot == 'True';
             })
         }
         var deleteConfirm = lizDict['edition.confirm.delete'];
@@ -2253,7 +2316,7 @@ var lizEdition = function() {
         if ( !confirm( deleteConfirm ) )
             return false;
 
-        var eService = lizUrls.edition + '?' + new URLSearchParams(lizUrls.params);
+        var eService = globalThis['lizUrls'].edition + '?' + new URLSearchParams(globalThis['lizUrls'].params);
         $.get(eService.replace('getFeature','deleteFeature'),{
             layerId: aLayerId,
             featureId: aFeatureId,
@@ -2353,7 +2416,7 @@ lizEditionErrorDecorator.prototype = {
         if(this.message != ''){
             if (!div) {
                 div = document.createElement('div');
-                div.setAttribute('class', 'jforms-error-list alert alert-block alert-error');
+                div.setAttribute('class', 'jforms-error-list alert alert-danger');
                 div.setAttribute('id', errid);
                 $(this.form.element).first().before(div);
             }

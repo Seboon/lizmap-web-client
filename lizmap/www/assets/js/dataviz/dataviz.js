@@ -39,7 +39,7 @@ let lizDataviz = function () {
      * Get the percentage of an element covering the viewport
      *
      * @param {HTMLElement} element The element to test
-     * @return {integer} Percentage
+     * @return {int} Percentage
      */
     function getViewPercentage(element) {
         const viewport = {
@@ -121,8 +121,6 @@ let lizDataviz = function () {
             // initialize plot info
             dv.plots[i] = { 'json': null, 'filter': null, 'show_plot': true, 'cache': null, 'data_fetched': false };
             if (!(optionToBoolean(dv.config.layers[i]['only_show_child']))) {
-                let plotContainerId = `dataviz_plot_${i}`;
-
                 // Add plot container
                 addPlotContainer(i);
             }
@@ -143,6 +141,10 @@ let lizDataviz = function () {
             if (!(optionToBoolean(dv.config.layers[i]['only_show_child']))) {
                 // Get the plot data and display it if the container is visible
                 let elem = document.getElementById(plotContainerId);
+                // skip the element if it does not exist
+                if (elem === null) {
+                    continue;
+                }
                 if (isInViewport(elem) || getViewPercentage(elem) > 0) {
                     getPlot(i, null, plotContainerId);
                 }
@@ -309,7 +311,7 @@ let lizDataviz = function () {
      * or in a user-defined plot container if the HTML template
      * has been configured inside Lizmap plugin
      *
-     * @param {integer} plot_id The plot id
+     * @param {int} plot_id The plot id
      */
     function addPlotContainer(plot_id) {
         let dataviz_plot_id = 'dataviz_plot_' + plot_id;
@@ -338,7 +340,7 @@ let lizDataviz = function () {
      * Get the plot data from the backend
      * and draw the plot with the buildPlot method
      *
-     * @param {integer} plot_id The id of the plot.
+     * @param {int} plot_id The id of the plot.
      * @param {string} exp_filter The optional data filter.
      * @param {string} target_id The ID of the target dom element.
      *
@@ -389,7 +391,7 @@ let lizDataviz = function () {
 
         // No cache -> get data
         try {
-            const response = await fetch(datavizConfig.url, {
+            const response = await fetch(globalThis['datavizConfig'].url, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -463,17 +465,25 @@ let lizDataviz = function () {
      * It is responsible for rendering the plot and
      * adding it in the document.
      *
-     * @param {integer} plotContainerId The plot container element ID
+     * @param {int} targetId The ID of the plot HTML container element.
      * @param {object} data The plot data as given by the backend
+     * @param {int} pid The plot integer ID
      * @param {object} layout The plot layout defined by the user
      *
      */
-    function buildHtmlPlot(plotContainerId, data, layout) {
+    function buildHtmlPlot(targetId, data, pid = null, layout = null) {
         if (!data) {
             return;
         }
-        let plot_id = parseInt(plotContainerId.replace('dataviz_plot_', ''));
-        let plot_config = dv.config.layers[plot_id];
+
+        // We need to get the plot Lizmap config from its container id
+        pid = pid != null ? pid : getPlotIdByContainerId(targetId);
+
+        // Do nothing if pid not found
+        if (pid == null) {
+            return;
+        }
+        let plot_config = dv.config.layers[pid];
         let plot = plot_config.plot;
         if (!('html_template' in plot)) {
             return;
@@ -530,13 +540,13 @@ let lizDataviz = function () {
         distinct_x.sort();
 
         // Empty previous html
-        $('#' + plotContainerId).html('');
+        $('#' + targetId).html('');
 
         // Add new built html
         for (let x in distinct_x) {
             let x_val = distinct_x[x];
             let html = '<div style="padding:5px;">' + htmls[x_val] + '</div>';
-            $('#' + plotContainerId).append(html);
+            $('#' + targetId).append(html);
         }
     }
 
@@ -557,7 +567,7 @@ let lizDataviz = function () {
      * Return the plot integer ID by passing the plot element container ID?
      *
      * @param {string} id The plot integer ID
-     * @return {integer} The container HTML element ID
+     * @return {int} The container HTML element ID
      */
     function getPlotIdByContainerId(id) {
         let pid = null;
@@ -589,13 +599,13 @@ let lizDataviz = function () {
      *
      * @param {string} targetId The ID of the plot HTML container element.
      * @param {object} conf The plot configuration with data and layout properties.
-     * @param {integer} pid The plot integer ID
+     * @param {int} pid The plot integer ID
      */
     function buildPlot(targetId, conf, pid = null) {
 
         // Build plot with plotly or lizmap
         if (conf.data.length && conf.data[0]['type'] == 'html') {
-            buildHtmlPlot(targetId, conf.data, conf.layout);
+            buildHtmlPlot(targetId, conf.data, pid, conf.layout);
         } else {
             let plotLocale = dv.config.locale.substring(0, 2);
             let plotConfig = {
@@ -709,7 +719,7 @@ let lizDataviz = function () {
      * based on the source OpenLayers layer visibility
      * depending on the parameter display_when_layer_visible
      *
-     * @param {integer} plotId The plot integer ID
+     * @param {int} plotId The plot integer ID
      * @return {boolean} True if the plot must be visible
      */
     function setPlotContainerVisibilityFromLayerVisibility(plotId) {

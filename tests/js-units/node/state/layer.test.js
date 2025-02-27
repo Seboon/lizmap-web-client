@@ -2,31 +2,85 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { ValidationError, ConversionError } from '../../../../assets/src/modules/Errors.js';
-import { LayersConfig } from '../../../../assets/src/modules/config/Layer.js';
-import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerTreeGroupConfig, buildLayerTreeConfig } from '../../../../assets/src/modules/config/LayerTree.js';
-import { LayerIconSymbology, LayerSymbolsSymbology, SymbolIconSymbology } from '../../../../assets/src/modules/state/Symbology.js';
-import { buildLayersOrder } from '../../../../assets/src/modules/config/LayersOrder.js';
-import { Extent } from '../../../../assets/src/modules/utils/Extent.js';
+import { ValidationError, ConversionError } from 'assets/src/modules/Errors.js';
+import { LayersConfig } from 'assets/src/modules/config/Layer.js';
+import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerTreeGroupConfig, buildLayerTreeConfig } from 'assets/src/modules/config/LayerTree.js';
+import { BaseSymbolsSymbology, LayerIconSymbology, LayerSymbolsSymbology, SymbolIconSymbology, LayerGroupSymbology } from 'assets/src/modules/state/Symbology.js';
+import { buildLayersOrder } from 'assets/src/modules/config/LayersOrder.js';
+import { Extent } from 'assets/src/modules/utils/Extent.js';
 
-import { LayerGroupState, LayerVectorState, LayerRasterState, LayersAndGroupsCollection } from '../../../../assets/src/modules/state/Layer.js';
+import { LayerGroupState, LayerVectorState, LayerRasterState, LayersAndGroupsCollection } from 'assets/src/modules/state/Layer.js';
+import { OptionsConfig } from 'assets/src/modules/config/Options.js';
+
+/**
+ * Returns the root LayerGroupState for the project
+ *
+ * The files for building it are stored in js-units/data/ and are
+ * - name +'-capabilities.json': the WMS capabilities parsed by OpenLayers
+ * - name +'-config.json': the Lizmap config send by lizmap web client
+ *
+ * @param {String} name - The project name
+ *
+ * @return {LayerGroupState}
+ **/
+function getRootLayerGroupState(name) {
+    const capabilities = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-capabilities.json', 'utf8'));
+    expect(capabilities).to.not.be.undefined
+    expect(capabilities.Capability).to.not.be.undefined
+    const config = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-config.json', 'utf8'));
+    expect(config).to.not.be.undefined
+
+    const layers = new LayersConfig(config.layers);
+
+    let invalid = [];
+    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+    expect(invalid).to.have.length(0);
+    expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
+
+    const layersOrder = buildLayersOrder(config, rootCfg);
+
+    const options = new OptionsConfig(config.options);
+    const root = new LayerGroupState(rootCfg, layersOrder, options.hideGroupCheckbox);
+    expect(root).to.be.instanceOf(LayerGroupState)
+    return root;
+}
+
+/**
+ * Returns the LayersAndGroupsCollection for the project
+ *
+ * The files for building it are stored in js-units/data/ and are
+ * - name +'-capabilities.json': the WMS capabilities parsed by OpenLayers
+ * - name +'-config.json': the Lizmap config send by lizmap web client
+ *
+ * @param {String} name - The project name
+ *
+ * @return {LayersAndGroupsCollection}
+ **/
+function getLayersAndGroupsCollection(name) {
+    const capabilities = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-capabilities.json', 'utf8'));
+    expect(capabilities).to.not.be.undefined
+    expect(capabilities.Capability).to.not.be.undefined
+    const config = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-config.json', 'utf8'));
+    expect(config).to.not.be.undefined
+
+    const layers = new LayersConfig(config.layers);
+
+    let invalid = [];
+    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+    expect(invalid).to.have.length(0);
+    expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
+
+    const layersOrder = buildLayersOrder(config, rootCfg);
+
+    const options = new OptionsConfig(config.options);
+    return new LayersAndGroupsCollection(rootCfg, layersOrder, options.hideGroupCheckbox);
+}
 
 describe('LayerGroupState', function () {
     it('Valid', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const root = new LayerGroupState(rootCfg, layersOrder);
+        const root = getRootLayerGroupState('montpellier');
         expect(root).to.be.instanceOf(LayerGroupState)
         expect(root.id).to.be.null
         expect(root.name).to.be.eq('root')
@@ -116,8 +170,8 @@ describe('LayerGroupState', function () {
         expect(bus.wmsBoundingBoxes[1].ymax).to.be.eq(bus.wmsGeographicBoundingBox.north)
         expect(bus.wmsMinScaleDenominator).to.be.eq(-1)
         expect(bus.wmsMaxScaleDenominator).to.be.eq(40001)
-        expect(bus.checked).to.be.false
-        expect(bus.visibility).to.be.false
+        expect(bus.checked).to.be.true
+        expect(bus.visibility).to.be.true
         expect(bus.opacity).to.be.eq(1)
         expect(bus.baseLayer).to.be.false
         expect(bus.displayInLegend).to.be.true
@@ -293,21 +347,7 @@ describe('LayerGroupState', function () {
     })
 
     it('Selection and parameters', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const root = new LayerGroupState(rootCfg, layersOrder);
-        expect(root).to.be.instanceOf(LayerGroupState)
+        const root = getRootLayerGroupState('montpellier');
 
         const sousquartiers = root.children[3];
         expect(sousquartiers).to.be.instanceOf(LayerVectorState)
@@ -505,21 +545,7 @@ describe('LayerGroupState', function () {
     })
 
     it('Filter and parameters', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const root = new LayerGroupState(rootCfg, layersOrder);
-        expect(root).to.be.instanceOf(LayerGroupState)
+        const root = getRootLayerGroupState('montpellier');
 
         const sousquartiers = root.children[3];
         expect(sousquartiers).to.be.instanceOf(LayerVectorState)
@@ -717,21 +743,7 @@ describe('LayerGroupState', function () {
     })
 
     it('Mutually exclusive', function () {
-        const capabilities = JSON.parse(readFileSync('./data/mutually-exclusive-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/mutually-exclusive-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const root = new LayerGroupState(rootCfg, layersOrder);
-        expect(root).to.be.instanceOf(LayerGroupState)
+        const root = getRootLayerGroupState('mutually-exclusive');
 
         const group = root.children[0]
         expect(group).to.be.instanceOf(LayerGroupState)
@@ -783,21 +795,7 @@ describe('LayerGroupState', function () {
     })
 
     it('Group as layer', function () {
-        const capabilities = JSON.parse(readFileSync('./data/cadastre-caen-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/cadastre-caen-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const root = new LayerGroupState(rootCfg, layersOrder);
-        expect(root).to.be.instanceOf(LayerGroupState)
+        const root = getRootLayerGroupState('cadastre-caen');
         expect(root.childrenCount).to.be.eq(1)
 
         const group = root.children[0]
@@ -820,7 +818,7 @@ describe('LayerGroupState', function () {
         expect(fond.childrenCount).to.be.eq(2)
 
         expect(fond.children[0].isInGroupAsLayer).to.be.true
-        expect(fond.children[0].checked).to.be.false
+        expect(fond.children[0].checked).to.be.true
         expect(fond.children[0].visibility).to.be.true
         expect(fond.children[0].displayInLegend).to.be.false
         expect(fond.children[0]).to.be.instanceOf(LayerGroupState)
@@ -843,7 +841,7 @@ describe('LayerGroupState', function () {
         fond.checked = false;
         expect(fond.checked).to.be.false
         expect(fond.visibility).to.be.false
-        expect(fond.children[0].checked).to.be.false
+        expect(fond.children[0].checked).to.be.true
         expect(fond.children[0].visibility).to.be.false
         expect(fond.children[0].children[0].checked).to.be.false
         expect(fond.children[0].children[0].visibility).to.be.false
@@ -855,7 +853,7 @@ describe('LayerGroupState', function () {
         fond.children[1].children[0].checked = true;
         expect(fond.checked).to.be.false
         expect(fond.visibility).to.be.false
-        expect(fond.children[0].checked).to.be.false
+        expect(fond.children[0].checked).to.be.true
         expect(fond.children[0].visibility).to.be.false
         expect(fond.children[0].children[0].checked).to.be.false
         expect(fond.children[0].children[0].visibility).to.be.false
@@ -867,7 +865,7 @@ describe('LayerGroupState', function () {
         fond.children[0].children[0].checked = true;
         expect(fond.checked).to.be.false
         expect(fond.visibility).to.be.false
-        expect(fond.children[0].checked).to.be.false
+        expect(fond.children[0].checked).to.be.true
         expect(fond.children[0].visibility).to.be.false
         expect(fond.children[0].children[0].checked).to.be.true
         expect(fond.children[0].children[0].visibility).to.be.false
@@ -879,7 +877,7 @@ describe('LayerGroupState', function () {
         fond.checked = true;
         expect(fond.checked).to.be.true
         expect(fond.visibility).to.be.true
-        expect(fond.children[0].checked).to.be.false
+        expect(fond.children[0].checked).to.be.true
         expect(fond.children[0].visibility).to.be.true
         expect(fond.children[0].children[0].checked).to.be.true
         expect(fond.children[0].children[0].visibility).to.be.true
@@ -891,7 +889,7 @@ describe('LayerGroupState', function () {
         fond.children[1].checked = false;
         expect(fond.checked).to.be.true
         expect(fond.visibility).to.be.true
-        expect(fond.children[0].checked).to.be.false
+        expect(fond.children[0].checked).to.be.true
         expect(fond.children[0].visibility).to.be.true
         expect(fond.children[0].children[0].checked).to.be.true
         expect(fond.children[0].children[0].visibility).to.be.true
@@ -900,24 +898,134 @@ describe('LayerGroupState', function () {
         expect(fond.children[1].children[0].checked).to.be.true
         expect(fond.children[1].children[0].visibility).to.be.true
     })
+
+    it('Group as layer checked', function () {
+        const root = getRootLayerGroupState('layer_legends');
+        expect(root.childrenCount).to.be.eq(6)
+
+        const layer_legend_single_symbol = root.children[0]
+        expect(layer_legend_single_symbol).to.be.instanceOf(LayerVectorState)
+        expect(layer_legend_single_symbol.name).to.be.eq('layer_legend_single_symbol')
+        expect(layer_legend_single_symbol.type)
+            .to.be.eq('layer')
+            .that.be.eq(layer_legend_single_symbol.mapType)
+
+        const layer_legend_categorized = root.children[1]
+        expect(layer_legend_categorized).to.be.instanceOf(LayerVectorState)
+        expect(layer_legend_categorized.name).to.be.eq('layer_legend_categorized')
+        expect(layer_legend_categorized.type)
+            .to.be.eq('layer')
+            .that.be.eq(layer_legend_categorized.mapType)
+
+        const layer_legend_ruled = root.children[2]
+        expect(layer_legend_ruled).to.be.instanceOf(LayerVectorState)
+        expect(layer_legend_ruled.name).to.be.eq('layer_legend_ruled')
+        expect(layer_legend_ruled.type)
+            .to.be.eq('layer')
+            .that.be.eq(layer_legend_ruled.mapType)
+
+        const tramway_lines = root.children[3]
+        expect(tramway_lines).to.be.instanceOf(LayerVectorState)
+        expect(tramway_lines.name).to.be.eq('tramway_lines')
+        expect(tramway_lines.type)
+            .to.be.eq('layer')
+            .that.be.eq(tramway_lines.mapType)
+
+        // A group is checked only if at least 1 child is checked
+        const legend_option_test = root.children[4]
+        expect(legend_option_test).to.be.instanceOf(LayerGroupState)
+        expect(legend_option_test.name).to.be.eq('legend_option_test')
+        expect(legend_option_test.type)
+            .to.be.eq('group')
+            .that.be.eq(legend_option_test.mapType)
+        expect(legend_option_test.groupAsLayer).to.be.false
+        expect(legend_option_test.layerConfig).not.to.be.null
+        expect(legend_option_test.layerConfig.toggled).to.be.true
+        expect(legend_option_test.childrenCount).to.be.eq(3)
+        expect(legend_option_test.children[0]).to.be.instanceOf(LayerVectorState)
+        expect(legend_option_test.children[0].checked).to.be.false
+        expect(legend_option_test.children[1]).to.be.instanceOf(LayerVectorState)
+        expect(legend_option_test.children[1].checked).to.be.false
+        expect(legend_option_test.children[2]).to.be.instanceOf(LayerVectorState)
+        expect(legend_option_test.children[2].checked).to.be.false
+        expect(legend_option_test.checked).to.be.true
+
+        // A group as layer is checked if its config has toggled
+        const group_as_layer = root.children[5]
+        expect(group_as_layer).to.be.instanceOf(LayerGroupState)
+        expect(group_as_layer.name).to.be.eq('Group as layer')
+        expect(group_as_layer.type)
+            .to.be.eq('group')
+            .that.not.be.eq(group_as_layer.mapType)
+        expect(group_as_layer.mapType).to.be.eq('layer')
+        expect(group_as_layer.groupAsLayer).to.be.true
+        expect(group_as_layer.layerConfig).not.to.be.null
+        expect(group_as_layer.layerConfig.toggled).to.be.true
+        expect(group_as_layer.checked).to.be.true
+    })
+
+    it('Group as layer symbology', function () {
+        const root = getRootLayerGroupState('cadastre-caen');
+        expect(root.childrenCount).to.be.eq(1)
+
+        const group = root.children[0]
+        expect(group).to.be.instanceOf(LayerGroupState)
+        expect(group.groupAsLayer).to.be.false
+        expect(group.type)
+            .to.be.eq('group')
+            .that.be.eq(group.mapType)
+        expect(group.childrenCount).to.be.eq(4)
+
+        const fond = group.children[3]
+        expect(fond).to.be.instanceOf(LayerGroupState)
+        expect(fond.groupAsLayer).to.be.true
+        expect(fond.type)
+            .to.be.eq('group')
+            .that.not.be.eq(fond.mapType)
+        expect(fond.mapType).to.be.eq('layer')
+        /*const collection = getLayersAndGroupsCollection('cadastre-caen');
+
+        const fond = collection.getLayerByName('Fond')*/
+
+        expect(fond.symbology).to.be.undefined
+
+        let fondSymbologyChangedEvt = null;
+
+        fond.addListener(evt => {
+            fondSymbologyChangedEvt = evt
+        }, 'layer.symbology.changed');
+
+        const legend = JSON.parse(readFileSync('./tests/js-units/data/cadastre-caen-fond-legend.json', 'utf8'));
+        expect(legend).to.not.be.undefined
+
+        // Set symbology
+        fond.symbology = legend
+        expect(fond.symbology).to.be.instanceOf(LayerGroupSymbology)
+
+        // Event dispatched
+        expect(fondSymbologyChangedEvt).to.not.be.null
+        expect(fondSymbologyChangedEvt.name).to.be.eq('Fond')
+
+
+        let expandedChangedEvt = null;
+        fond.addListener(evt => {
+            expandedChangedEvt = evt
+        }, 'layer.symbol.expanded.changed');
+        const symbologyChildren = fond.symbology.children
+        expect(symbologyChildren[1]).to.be.instanceOf(BaseSymbolsSymbology)
+        expect(symbologyChildren[1].expanded).to.be.false
+        symbologyChildren[1].expanded = true;
+
+        expect(expandedChangedEvt).to.not.be.null
+        expect(expandedChangedEvt.title).to.be.eq('Objets ponctuels')
+        expect(expandedChangedEvt.symbolType).to.be.eq('layer')
+        expect(expandedChangedEvt.expanded).to.be.true
+    })
 })
 
 describe('LayersAndGroupsCollection', function () {
     it('Valid', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const collection = getLayersAndGroupsCollection('montpellier');
 
         const root = collection.root;
         expect(root).to.be.instanceOf(LayerGroupState)
@@ -1184,8 +1292,8 @@ describe('LayersAndGroupsCollection', function () {
         expect(bus.wmsBoundingBoxes[1].ymax).to.be.eq(bus.wmsGeographicBoundingBox.north)
         expect(bus.wmsMinScaleDenominator).to.be.eq(-1)
         expect(bus.wmsMaxScaleDenominator).to.be.eq(40001)
-        expect(bus.checked).to.be.false
-        expect(bus.visibility).to.be.false
+        expect(bus.checked).to.be.true
+        expect(bus.visibility).to.be.true
         expect(bus.opacity).to.be.eq(1)
         expect(bus.baseLayer).to.be.false
         expect(bus.displayInLegend).to.be.true
@@ -1270,20 +1378,7 @@ describe('LayersAndGroupsCollection', function () {
     })
 
     it('Checked & visibility', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const collection = getLayersAndGroupsCollection('montpellier');
 
         let collectionLayerVisibilityChangedEvt = [];
         let collectionGroupVisibilityChangedEvt = [];
@@ -1420,10 +1515,11 @@ describe('LayersAndGroupsCollection', function () {
         // Set all in transports not visible
         transports.checked = false
         // Events dispatched
-        expect(transportsGroupVisibilityChangedEvt).to.have.length(3)
+        expect(transportsGroupVisibilityChangedEvt).to.have.length(4)
         expect(transportsGroupVisibilityChangedEvt[0].name).to.be.eq('Buildings')
         expect(transportsGroupVisibilityChangedEvt[1].name).to.be.eq('Tramway')
-        expect(transportsGroupVisibilityChangedEvt[2].name).to.be.eq('datalayers')
+        expect(transportsGroupVisibilityChangedEvt[2].name).to.be.eq('Bus')
+        expect(transportsGroupVisibilityChangedEvt[3].name).to.be.eq('datalayers')
         expect(transportsLayerVisibilityChangedEvt).to.have.length(3)
         expect(transportsLayerVisibilityChangedEvt[0].name).to.be.eq('tramstop')
         expect(transportsLayerVisibilityChangedEvt[1].name).to.be.eq('tramway')
@@ -1447,10 +1543,11 @@ describe('LayersAndGroupsCollection', function () {
         expect(tramway.checked).to.be.true
         expect(tramway.visibility).to.be.false
         // Events dispatched at collection level
-        expect(collectionGroupVisibilityChangedEvt).to.have.length(3)
+        expect(collectionGroupVisibilityChangedEvt).to.have.length(4)
         expect(collectionGroupVisibilityChangedEvt[0].name).to.be.eq('Buildings')
         expect(collectionGroupVisibilityChangedEvt[1].name).to.be.eq('Tramway')
-        expect(collectionGroupVisibilityChangedEvt[2].name).to.be.eq('datalayers')
+        expect(collectionGroupVisibilityChangedEvt[2].name).to.be.eq('Bus')
+        expect(collectionGroupVisibilityChangedEvt[3].name).to.be.eq('datalayers')
         expect(collectionLayerVisibilityChangedEvt).to.have.length(3)
         expect(collectionLayerVisibilityChangedEvt[0].name).to.be.eq('tramstop')
         expect(collectionLayerVisibilityChangedEvt[1].name).to.be.eq('tramway')
@@ -1527,10 +1624,11 @@ describe('LayersAndGroupsCollection', function () {
         // Set tramway layer checked to true - visibilities are changed
         tramway.checked = true
         // Events dispatched
-        expect(transportsGroupVisibilityChangedEvt).to.have.length(3)
+        expect(transportsGroupVisibilityChangedEvt).to.have.length(4)
         expect(transportsGroupVisibilityChangedEvt[0].name).to.be.eq('Buildings')
         expect(transportsGroupVisibilityChangedEvt[1].name).to.be.eq('Tramway')
-        expect(transportsGroupVisibilityChangedEvt[2].name).to.be.eq('datalayers')
+        expect(transportsGroupVisibilityChangedEvt[2].name).to.be.eq('Bus')
+        expect(transportsGroupVisibilityChangedEvt[3].name).to.be.eq('datalayers')
         expect(transportsLayerVisibilityChangedEvt).to.have.length(3)
         expect(transportsLayerVisibilityChangedEvt[0].name).to.be.eq('tramstop')
         expect(transportsLayerVisibilityChangedEvt[1].name).to.be.eq('tramway')
@@ -1554,31 +1652,87 @@ describe('LayersAndGroupsCollection', function () {
         expect(tramway.checked).to.be.true
         expect(tramway.visibility).to.be.true
         // Events dispatched at collection level
-        expect(collectionGroupVisibilityChangedEvt).to.have.length(3)
+        expect(collectionGroupVisibilityChangedEvt).to.have.length(4)
         expect(collectionGroupVisibilityChangedEvt[0].name).to.be.eq('Buildings')
         expect(collectionGroupVisibilityChangedEvt[1].name).to.be.eq('Tramway')
-        expect(collectionGroupVisibilityChangedEvt[2].name).to.be.eq('datalayers')
+        expect(collectionGroupVisibilityChangedEvt[2].name).to.be.eq('Bus')
+        expect(collectionGroupVisibilityChangedEvt[3].name).to.be.eq('datalayers')
         expect(collectionLayerVisibilityChangedEvt).to.have.length(3)
         expect(collectionLayerVisibilityChangedEvt[0].name).to.be.eq('tramstop')
         expect(collectionLayerVisibilityChangedEvt[1].name).to.be.eq('tramway')
         expect(collectionLayerVisibilityChangedEvt[2].name).to.be.eq('publicbuildings')
     })
 
-    it('Display in legend', function () {
-        const capabilities = JSON.parse(readFileSync('./data/display-in-legend-capabilities.json', 'utf8'));
+    it('Empty group as group', function () {
+        const capabilities = JSON.parse(readFileSync('./tests/js-units/data/display-in-legend-capabilities.json', 'utf8'));
         expect(capabilities).to.not.be.undefined
         expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/display-in-legend-config.json', 'utf8'));
+        const config = JSON.parse(readFileSync('./tests/js-units/data/display-in-legend-config.json', 'utf8'));
         expect(config).to.not.be.undefined
 
+        // `group-without-children` has a config
         const layers = new LayersConfig(config.layers);
+        expect(layers.layerNames).to.be.an('array').that.have.length(12).that.includes(
+            "group-without-children"
+        )
 
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+        let invalid = [];
+        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+        expect(invalid).to.have.length(0);
         expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
+
+        // `group-without-children` has a layerTree config and it is a layer not a group
+        expect(rootCfg.childrenCount).to.be.eq(4)
+        expect(rootCfg.findTreeLayerConfigNames()).to.be.an('array').that.have.length(8).that.includes(
+            "group-without-children"
+        )
 
         const layersOrder = buildLayersOrder(config, rootCfg);
 
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const options = new OptionsConfig(config.options);
+        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder, options.hideGroupCheckbox);
+
+        // `group-without-children` has no state
+        expect(collection.groupNames).to.be.an('array').that.have.ordered.members([
+            "PostgreSQL",
+            "Shapefiles",
+            "POIs",
+            "baselayers",
+        ])
+
+        const root = collection.root;
+        expect(root).to.be.instanceOf(LayerGroupState)
+        expect(root.childrenCount).to.be.eq(3)
+        expect(root.children).to.have.length(3)
+
+        // `group-without-children` is not a child of root layer state
+        expect(root.children[0].type).to.be.eq('group')
+        expect(root.children[0].name).to.be.eq('PostgreSQL')
+        expect(root.children[1].type).to.be.eq('group')
+        expect(root.children[1].name).to.be.eq('Shapefiles')
+        expect(root.children[2].type).to.be.eq('group')
+        expect(root.children[2].name).to.be.eq('baselayers')
+
+        // try to get `group-without-children`
+        try {
+            collection.getGroupByName('group-without-children')
+        } catch (error) {
+            expect(error.name).to.be.eq('RangeError')
+            expect(error.message).to.be.eq('The group name `group-without-children` is unknown!')
+            expect(error).to.be.instanceOf(RangeError)
+        }
+        try {
+            collection.getLayerOrGroupByName('group-without-children')
+        } catch (error) {
+            expect(error.name).to.be.eq('RangeError')
+            expect(error.message).to.be.eq('The name `group-without-children` is unknown!')
+            expect(error).to.be.instanceOf(RangeError)
+        }
+    })
+
+    it('Display in legend', function () {
+        const collection = getLayersAndGroupsCollection('display-in-legend');
 
         const shapefilesGroup = collection.getGroupByName('Shapefiles')
         expect(shapefilesGroup).to.be.instanceOf(LayerGroupState)
@@ -1608,7 +1762,7 @@ describe('LayersAndGroupsCollection', function () {
         expect(poisGroup.name).to.be.eq('POIs')
         expect(poisGroup).to.be.instanceOf(LayerGroupState)
 
-        expect(poisGroup.checked).to.be.false
+        expect(poisGroup.checked).to.be.true
         expect(poisGroup.visibility).to.be.false
         expect(poisGroup.displayInLegend).to.be.true
 
@@ -1673,20 +1827,7 @@ describe('LayersAndGroupsCollection', function () {
     })
 
     it('Opacity', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const collection = getLayersAndGroupsCollection('montpellier');
 
         let collectionLayerOpacityChangedEvt = [];
         let collectionGroupOpacityChangedEvt = [];
@@ -1824,20 +1965,7 @@ describe('LayersAndGroupsCollection', function () {
     })
 
     it('WMS selected styles', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const collection = getLayersAndGroupsCollection('montpellier');
 
         const transports = collection.getGroupByName('datalayers');
         expect(transports).to.be.instanceOf(LayerGroupState)
@@ -1901,20 +2029,7 @@ describe('LayersAndGroupsCollection', function () {
     })
 
     it('Legend ON/OFF', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
-        expect(capabilities).to.not.be.undefined
-        expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
-        expect(config).to.not.be.undefined
-
-        const layers = new LayersConfig(config.layers);
-
-        const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
-        expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
-
-        const layersOrder = buildLayersOrder(config, rootCfg);
-
-        const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+        const collection = getLayersAndGroupsCollection('montpellier');
 
         const sousquartiers = collection.getLayerByName('SousQuartiers')
         expect(sousquartiers).to.be.instanceOf(LayerVectorState)
@@ -1938,7 +2053,7 @@ describe('LayersAndGroupsCollection', function () {
             sousquartiersSymbologyChangedEvt = evt
         }, 'layer.symbology.changed');
 
-        const legend = JSON.parse(readFileSync('./data/montpellier-legend.json', 'utf8'));
+        const legend = JSON.parse(readFileSync('./tests/js-units/data/montpellier-legend.json', 'utf8'));
         expect(legend).to.not.be.undefined
 
         // Set symbology

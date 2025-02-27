@@ -14,6 +14,7 @@ cache:
     - assets/node_modules/
 
 build:
+  image: ${REGISTRY_URL}/factory-ci-runner:fabric-ci
   stage: build
   script:
     - make build
@@ -36,16 +37,25 @@ build:
       - lizmap/www/assets/js/filter.js.map
       - lizmap/www/assets/js/map.js
       - lizmap/www/assets/js/map.js.map
+      - lizmap/www/assets/js/map-projects.js
+      - lizmap/www/assets/js/map-projects.js.map
       - lizmap/www/assets/js/switcher-layers-actions.js
       - lizmap/www/assets/js/switcher-layers-actions.js.map
       - lizmap/www/assets/js/timemanager.js
       - lizmap/www/assets/js/timemanager.js.map
       - lizmap/www/assets/js/view.js
       - lizmap/www/assets/js/view.js.map
+      - lizmap/www/assets/js/137.bundle.js
+      - lizmap/www/assets/js/137.bundle.js.map
+      - lizmap/www/assets/js/BufferOp.bundle.js
+      - lizmap/www/assets/js/BufferOp.bundle.js.map
+      - lizmap/www/assets/js/OLparser.bundle.js
+      - lizmap/www/assets/js/OLparser.bundle.js.map
   tags:
     - fabric
 
 tests:
+  image: ${REGISTRY_URL}/factory-ci-runner:fabric-ci
   stage: tests
   script:
     - make tests
@@ -62,6 +72,7 @@ tests:
     - fabric
 
 package:
+  image: ${REGISTRY_URL}/factory-ci-runner:fabric-ci
   stage: package
   script:
     - make clean ci_package
@@ -101,7 +112,7 @@ docker-image-unstable:
   except:
     - tags
   tags:
-    - infrav3
+    - factory-dind
 
 docker-image-release:
   stage: docker-image
@@ -117,9 +128,10 @@ docker-image-release:
   only:
     - tags
   tags:
-    - infrav3
+    - factory-dind
 
 deploy-package-unstable:
+  image: ${REGISTRY_URL}/factory-ci-runner:fabric-ci
   stage: deploy
   script:
     - make deploy_download
@@ -137,9 +149,10 @@ deploy-package-unstable:
     - fabric
 
 deploy-docker-unstable:
+  image: ${REGISTRY_URL}/factory-ci-runner:factory-ci
   stage: deploy
   script:
-    - $FACTORY_SCRIPTS/update-service lizmap
+    - update-service lizmap
   environment:
     name: snap
   dependencies:
@@ -150,9 +163,10 @@ deploy-docker-unstable:
   except:
     - tags
   tags:
-    - infrav3
+    - factory-dind
 
 deploy-quick-release:
+  image: ${REGISTRY_URL}/factory-ci-runner:fabric-ci
   stage: release
   script:
     - make saas_release DO_RELEASE=y
@@ -170,6 +184,7 @@ deploy-quick-release:
 
 
 deploy-release:
+  image: ${REGISTRY_URL}/factory-ci-runner:fabric-ci
   stage: release
   script:
     - make deploy_download_stable
@@ -196,7 +211,7 @@ docker-release:
   only:
     - tags
   tags:
-    - infrav3
+    - factory-dind
 
 tickets:
   stage: release

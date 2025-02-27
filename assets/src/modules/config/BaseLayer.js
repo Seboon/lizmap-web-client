@@ -31,6 +31,7 @@ export const BaseLayerTypes = createEnum({
     'WMTS': 'wmts',
     'WMS': 'wms',
     'Lizmap': 'lizmap',
+    'Google': 'google',
 });
 
 /**
@@ -309,6 +310,52 @@ export class BingBaseLayerConfig extends BaseLayerConfig {
 
 }
 
+const googleProperties = {
+    'title': { type: 'string' },
+    'mapType': { type: 'string' }
+}
+
+const googleOptionalProperties = {
+    'key': { type: 'string', nullable: true }
+}
+
+/**
+ * Class representing a Google base layer config
+ * @class
+ * @augments BaseLayerConfig
+ */
+export class GoogleBaseLayerConfig extends BaseLayerConfig {
+    /**
+     * Create a GOOGLE base layer config based on a config object
+     * @param {string} name           - the base layer name
+     * @param {object} cfg            - the lizmap config object for GOOGLE base layer
+     * @param {string} cfg.title      - the base layer title
+     * @param {string} cfg.mapType    - the base layer mapType
+     * @param {string} [cfg.key]      - the base layer key
+     */
+    constructor(name, cfg) {
+        if (!cfg || typeof cfg !== "object") {
+            throw new ValidationError('The cfg parameter is not an Object!');
+        }
+
+        if (Object.getOwnPropertyNames(cfg).length == 0) {
+            throw new ValidationError('The cfg parameter is empty!');
+        }
+
+        super(name, cfg, googleProperties, googleOptionalProperties)
+        this._type = BaseLayerTypes.Google;
+    }
+
+    /**
+     * The Google mapType
+     * @type {string}
+     */
+    get mapType() {
+        return this._mapType;
+    }
+
+}
+
 const wmtsProperties = {
     'title': { type: 'string' },
     'url': { type: 'string' },
@@ -320,7 +367,7 @@ const wmtsProperties = {
 }
 
 const wmtsOptionalProperties = {
-    'numZoomLevels': { type: 'number', default: 19 },
+    'numZoomLevels': { type: 'number', default: 19   },
     'key': { type: 'string', nullable: true }
 }
 
@@ -669,7 +716,7 @@ const defaultCompleteBaseLayersCfg = {
         "styles": "normal",
         "tileMatrixSet": "PM",
         "crs": "EPSG:3857",
-        "numZoomLevels": 20,
+        "numZoomLevels": 19,
         "attribution": {
             "title": "Institut national de l'information géographique et forestière",
             "url": "https://www.ign.fr/"
@@ -684,7 +731,7 @@ const defaultCompleteBaseLayersCfg = {
         "styles": "normal",
         "tileMatrixSet": "PM",
         "crs": "EPSG:3857",
-        "numZoomLevels": 22,
+        "numZoomLevels": 19,
         "attribution": {
             "title": "Institut national de l'information géographique et forestière",
             "url": "https://www.ign.fr/"
@@ -715,7 +762,7 @@ const defaultCompleteBaseLayersCfg = {
         "styles": "normal",
         "tileMatrixSet": "PM",
         "crs": "EPSG:3857",
-        "numZoomLevels": 20,
+        "numZoomLevels": 19,
         "attribution": {
             "title": "Institut national de l'information géographique et forestière",
             "url": "https://www.ign.fr/"
@@ -745,6 +792,18 @@ const QMSExternalLayer = {
         "imagerySet": "Aerial",
         "key": "",
     },
+    "google-streets": {
+        "type" :"google",
+        "title": "Google Streets",
+        "mapType": "roadmap",
+        "key":""
+    },
+    "google-satellite": {
+        "type" :"google",
+        "title": "Google Satellite",
+        "mapType": "satellite",
+        "key":""
+    }
 }
 
 /**
@@ -758,8 +817,9 @@ export class BaseLayersConfig {
      * @param {object} options                             - the lizmap config object for options
      * @param {LayersConfig} layers                        - the lizmap layers config
      * @param {LayerTreeGroupConfig} [baseLayersTreeGroup] - the layer tree group config which contains base layers
+     * @param {LayerTreeGroupConfig} [hiddenTreeGroup]     - the layer tree group config which contains hidden layers and in old config base layers
      */
-    constructor(cfg, options, layers, baseLayersTreeGroup) {
+    constructor(cfg, options, layers, baseLayersTreeGroup, hiddenTreeGroup) {
         if (!cfg || typeof cfg !== "object") {
             throw new ValidationError('The cfg parameter is not an Object!');
         }
@@ -802,6 +862,16 @@ export class BaseLayersConfig {
             }
         }
 
+        // Add base layers config from hidden tree group
+        if (hiddenTreeGroup && typeof hiddenTreeGroup.getChildren == "function") {
+            for (const layerTreeItem of hiddenTreeGroup.getChildren()) {
+                if ( !extendedCfg.hasOwnProperty(layerTreeItem.name) ) {
+                    continue;
+                }
+                extendedCfg[layerTreeItem.name].layerConfig = layerTreeItem.layerConfig;
+            }
+        }
+
         // Add base layers from tree and collect names
         let names = [];
         if (baseLayersTreeGroup) {
@@ -828,7 +898,20 @@ export class BaseLayersConfig {
                                 }
                                 // add the apikey to the configuration
                                 Object.assign(extendedCfg[layerTreeItem.name],{key:options["bingKey"]})
-                            } else {
+                            } else if (externalUrl && externalUrl.includes('google.com') && options["googleKey"]){
+                                if (externalUrl.includes('lyrs=m')) {
+                                    // roads
+                                    extendedCfg[layerTreeItem.name] = structuredClone(QMSExternalLayer["google-streets"])
+                                } else if (externalUrl.includes('lyrs=s')){
+                                    // fallback on satellite map
+                                    extendedCfg[layerTreeItem.name] = structuredClone(QMSExternalLayer["google-satellite"])
+                                } else {
+                                    extendedCfg[layerTreeItem.name] = structuredClone(QMSExternalLayer["google-streets"])
+                                }
+                                // add the apikey to the configuration
+                                Object.assign(extendedCfg[layerTreeItem.name],{key:options["googleKey"]})
+                            }
+                            else {
                                 // layer could be converted to XYZ or WMTS background layers
                                 extendedCfg[layerTreeItem.name] = structuredClone(layerTreeItem.layerConfig.externalAccess);
                             }
@@ -900,6 +983,52 @@ export class BaseLayersConfig {
             extendedCfg[layerCfg.name].layerConfig = layerCfg;
         }
 
+        // Add base layer as project default background color
+        // Get provided default background color index from options
+        const default_background_color_index = options.hasOwnProperty('default_background_color_index') ? options.default_background_color_index : -1;
+        if (isNaN(default_background_color_index)) {
+            throw new ValidationError('The default_background_color_index parameter is not a number!');
+        }
+        // Apply default background color if it is not already defined
+        if (names.indexOf('empty') == -1
+            && names.indexOf('project-background-color') == -1) {
+            let background_color_index = default_background_color_index;
+            // Calculate background color index if
+            // * it is not provided by options
+            // * baselayers and project-background-color have lizmap layer config
+            // * baselayers group is before project-background-color
+            if (background_color_index == -1
+                && layers.layerNames.indexOf('baselayers') !== -1
+                && layers.layerNames.indexOf('project-background-color') !== -1
+                && layers.layerNames.indexOf('baselayers') < layers.layerNames.indexOf('project-background-color')) {
+                const baselayersGroupIndex = layers.layerNames.indexOf('baselayers');
+                const global_background_color_index = layers.layerNames.indexOf('project-background-color');
+                // The background color index will be the number of layers before project-background-color in baselayers group
+                for (const [i, baselayerCfg] of layers.layerConfigs.entries()) {
+                    if (i <= baselayersGroupIndex) {
+                        continue;
+                    }
+                    if (i > global_background_color_index) {
+                        break;
+                    }
+                    if (baselayerCfg.type != 'group') {
+                        background_color_index += 1
+                    }
+                    if (baselayerCfg.name == 'project-background-color') {
+                        background_color_index += 1
+                    }
+                }
+            }
+            // Add base layer as project default background color
+            if (background_color_index !== -1) {
+                if (background_color_index < names.length) {
+                    names.splice(background_color_index, 0, 'project-background-color');
+                } else {
+                    names.push('project-background-color');
+                }
+            }
+        }
+
         // Define startup base layer based on names from tree
         this._startupBaselayer = null;
         if (names.length != 0) {
@@ -936,6 +1065,10 @@ export class BaseLayersConfig {
                     break;
                 case BaseLayerTypes.Bing:
                     this._configs.push(new BingBaseLayerConfig(key, blCfg));
+                    this._names.push(key);
+                    break;
+                case BaseLayerTypes.Google:
+                    this._configs.push(new GoogleBaseLayerConfig(key, blCfg));
                     this._names.push(key);
                     break;
                 case BaseLayerTypes.WMTS:

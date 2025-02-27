@@ -1,6 +1,10 @@
 <?php
 
+use Lizmap\Project\Project;
+use Lizmap\Project\ProjectFilesFinder;
+use Lizmap\Project\UnknownLizmapProjectException;
 use Lizmap\Request\RemoteStorageRequest;
+use Lizmap\Server\Server;
 
 /**
  * Displays a full featured map based on one Qgis project.
@@ -22,12 +26,12 @@ class lizMapCtrl extends jController
     /**
      * Used to pass project Object (no need to rebuild it).
      *
-     * @var \Lizmap\Project\Project
+     * @var Project
      */
     protected $projectObj;
 
     // forceHiddenProjectVisible: Used to override plugin configuration hideProject
-    // (helpfull for modules which maps are based on a hidden project)
+    // (helpful for modules which maps are based on a hidden project)
     protected $forceHiddenProjectVisible = false;
 
     /**
@@ -37,10 +41,10 @@ class lizMapCtrl extends jController
      */
     public function index()
     {
-        if ($this->param('theme')) {
-            jApp::config()->theme = $this->param('theme');
+        $theme = $this->param('theme');
+        if ($theme && preg_match('/^[a-zA-Z0-9\-_]+$/', $theme)) {
+            jApp::config()->theme = $theme;
         }
-        $ok = true;
 
         // Get the project
         $project = htmlspecialchars(strip_tags($this->param('project')));
@@ -66,7 +70,7 @@ class lizMapCtrl extends jController
         $rep->action = 'view~default:index';
 
         // Check server status
-        $server = new \Lizmap\Server\Server();
+        $server = new Server();
 
         // QGIS server version
         $requiredQgisVersion = jApp::config()->minimumRequiredVersion['qgisServer'];
@@ -103,7 +107,7 @@ class lizMapCtrl extends jController
                     return $rep;
                 }
                 $project = $lser->defaultProject;
-            } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+            } catch (UnknownLizmapProjectException $e) {
                 jMessage::add('The parameter project is mandatory!', 'error');
 
                 return $rep;
@@ -118,7 +122,7 @@ class lizMapCtrl extends jController
 
                 return $rep;
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             jMessage::add('The lizmap project '.strtoupper($project).' does not exist !', 'error');
 
             return $rep;
@@ -151,9 +155,9 @@ class lizMapCtrl extends jController
         }
 
         // the html response
-        /** @var jResponseHtml $rep */
+        /** @var AbstractLizmapHtmlResponse $rep */
         $rep = $this->getResponse('htmlmap');
-        $rep->addJSLink((jUrl::get('view~translate:index')).'?lang='.jApp::config()->locale);
+        $rep->addJSLink(jUrl::get('view~translate:index').'?lang='.jApp::config()->locale, array('defer' => ''));
 
         $this->repositoryKey = $lrep->getKey();
         $this->projectKey = $lproj->getKey();
@@ -163,9 +167,9 @@ class lizMapCtrl extends jController
         if ($lproj->needsGoogle()) {
             $googleKey = $lproj->getGoogleKey();
             if ($googleKey != '') {
-                $rep->addJSLink('https://maps.google.com/maps/api/js?v=3&key='.$googleKey);
+                $rep->addJSLink('https://maps.google.com/maps/api/js?v=3&key='.$googleKey, array('defer' => ''));
             } else {
-                $rep->addJSLink('https://maps.google.com/maps/api/js?v=3');
+                $rep->addJSLink('https://maps.google.com/maps/api/js?v=3', array('defer' => ''));
             }
         }
 
@@ -175,20 +179,21 @@ class lizMapCtrl extends jController
         if ($lproj->hasEditionLayersForCurrentUser()) {
             $www = jApp::urlJelixWWWPath();
             $rep->addAssets('jforms_html');
-            $rep->addJSLink($www.'jquery/include/jquery.include.js');
+            $rep->addJSLink($www.'jquery/include/jquery.include.js', array('defer' => ''));
             $rep->addAssets('jforms_imageupload');
             $rep->addAssets('jforms_datepicker_default');
             $rep->addAssets('jforms_datetimepicker_default');
             $rep->addAssets('jforms_htmleditor_ckdefault');
 
             // Add other js
-            $rep->addJSLink($bp.'assets/js/fileUpload/jquery.fileupload.js');
-            $rep->addJSLink($bp.'assets/js/bootstrapErrorDecoratorHtml.js');
+            $rep->addJSLink($bp.'assets/js/fileUpload/jquery.fileupload.js', array('defer' => ''));
+            $rep->addJSLink($bp.'assets/js/bootstrapErrorDecoratorHtml.js', array('defer' => ''));
         }
 
         // Add bottom dock js
-        $rep->addJSLink($bp.'assets/js/bottom-dock.js');
+        $rep->addJSLink($bp.'assets/js/bottom-dock.js', array('defer' => ''));
 
+        // TODO : refacto, quite the same URLs are declared in lizAjax.classic.php
         // Pass some configuration options to the web page through javascript var
         $lizUrls = array(
             'params' => array('repository' => $repository, 'project' => $project),
@@ -224,14 +229,18 @@ class lizMapCtrl extends jController
             $lizUrls['removeCache'] = jUrl::get('admin~maps:removeLayerCache');
         }
 
+        if (jAcl2::check('lizmap.admin.access') || jAcl2::check('lizmap.admin.server.information.view')) {
+            $lizUrls['repositoryAdmin'] = jUrl::getFull('admin~maps:index');
+        }
         $webDavProfile = RemoteStorageRequest::getProfile('webdav');
         if ($webDavProfile) {
             $lizUrls['webDavUrl'] = $webDavProfile['baseUri'];
             $lizUrls['resourceUrlReplacement']['webdav'] = 'dav/';
         }
 
-        $rep->addJSCode('var lizUrls = '.json_encode($lizUrls).';');
-        $rep->addJSCode('var lizProj4 = '.json_encode($lproj->getAllProj4()).';');
+        $rep->addJsVariable('lizUrls', $lizUrls);
+        $rep->addJsVariable('lizProj4', $lproj->getAllProj4());
+
         $rep->addStyle('#map', 'background-color:'.$lproj->getCanvasColor().';');
 
         // Get the WMS information
@@ -248,8 +257,8 @@ class lizMapCtrl extends jController
 
         // Add moment.js for timemanager
         if ($lproj->hasTimemanagerLayers()) {
-            $rep->addJSLink($bp.'assets/js/moment.js');
-            $rep->addJSLink($bp.'assets/js/filter.js');
+            $rep->addJSLink($bp.'assets/js/moment.js', array('defer' => ''));
+            $rep->addJSLink($bp.'assets/js/filter.js', array('defer' => ''));
             $filterConfigData = array(
                 'url' => jUrl::get(
                     'filter~service:index',
@@ -259,13 +268,13 @@ class lizMapCtrl extends jController
                     )
                 ),
             );
-            $rep->addJSCode('var filterConfigData = '.json_encode($filterConfigData));
+            $rep->addJsVariable('filterConfigData', $filterConfigData);
         }
 
-        // Add atlas.js for atlas feature and additionnal CSS for right-dock max-width
+        // Add atlas.js for atlas feature and additional CSS for right-dock max-width
         if ($lproj->hasAtlasEnabled()) {
             // Add JS
-            $rep->addJSLink($bp.'assets/js/atlas.js');
+            $rep->addJSLink($bp.'assets/js/atlas.js', array('defer' => ''));
 
             // Add CSS
             $atlasWidth = $lproj->getOption('atlasMaxWidth');
@@ -300,6 +309,9 @@ class lizMapCtrl extends jController
         // Add dockable js
         foreach (array_merge($assign['dockable'], $assign['minidockable'], $assign['bottomdockable'], $assign['rightdockable']) as $d) {
             if ($d->js != '') {
+                if (is_array($d->jsParams)) {
+                    $d->jsParams['defer'] = '';
+                }
                 $rep->addJsLink($d->js, $d->jsParams);
             }
         }
@@ -313,23 +325,32 @@ class lizMapCtrl extends jController
             }
         }
 
-        // Get additionnal JS and CSS from modules
+        // Get additional JS and CSS from modules
         $additions = jEvent::notify('getMapAdditions', array('repository' => $repository, 'project' => $project))->getResponse();
         foreach ($additions as $addition) {
             if (is_array($addition)) {
                 if (array_key_exists('js', $addition)) {
                     foreach ($addition['js'] as $js) {
-                        $rep->addJSLink($js);
+                        $rep->addJSLink($js, array('defer' => ''));
                     }
                 }
-                if (array_key_exists('jscode', $addition)) {
+                if (array_key_exists('jsvars', $addition) && is_array($addition['jsvars'])) {
+                    $rep->addJsVariables($addition['jsvars']);
+                } elseif (array_key_exists('jscode', $addition)) {
                     foreach ($addition['jscode'] as $jscode) {
                         $rep->addJSCode($jscode);
                     }
                 }
+
                 if (array_key_exists('css', $addition)) {
                     foreach ($addition['css'] as $css) {
                         $rep->addCssLink($css);
+                    }
+                }
+
+                if (array_key_exists('bodyattr', $addition)) {
+                    foreach ($addition['bodyattr'] as $bodyattr) {
+                        $rep->setBodyAttributes($bodyattr);
                     }
                 }
             }
@@ -345,12 +366,17 @@ class lizMapCtrl extends jController
             }
         }
 
+        if ($this->boolParam('skip_warnings_display') == true) {
+            $rep->setBodyAttributes(array('data-skip-warnings-display' => true));
+        }
+
+        $countUserJs = 0;
         // Override default theme by themes found in folder media/themes/...
         // Theme name can be 'default' and apply to all projects in a repository
         // or the project name and only apply to it
-        // Also if media/themes/default/css is found one directory above repositorie's one
+        // Also if media/themes/default/css is found one directory above repositories one
         // it will apply to all repositories
-        if ($lrep->allowUserDefinedThemes()) {
+        if ($lrep->allowUserDefinedThemes() && $this->boolParam('no_user_defined_js') != true) {
             $repositoryPath = $lrep->getPath();
             $cssArray = array('main', 'map', 'media');
             $themeArray = array('default', $project);
@@ -393,71 +419,33 @@ class lizMapCtrl extends jController
                 }
             }
 
-            // Add JS files found in media/js
-            $jsDirArray = array('default', $project);
-            foreach ($jsDirArray as $dir) {
-                $jsUrls = array();
-                $mjsUrls = array();
-                $cssUrls = array();
-                $items = array(
-                    'media/js/',
-                    '../media/js/',
-                );
-                foreach ($items as $item) {
-                    $jsPathRoot = realpath($repositoryPath.$item.$dir);
-                    if (is_dir($jsPathRoot)) {
-                        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($jsPathRoot)) as $filename) {
-                            $fileExtension = pathinfo($filename, PATHINFO_EXTENSION);
-                            if ($fileExtension == 'js' || $fileExtension == 'mjs' || $fileExtension == 'css') {
-                                $jsPath = realpath($filename);
-                                $jsRelPath = $item.$dir.str_replace($jsPathRoot, '', $jsPath);
-                                $url = 'view~media:getMedia';
-                                if ($fileExtension == 'css') {
-                                    $url = 'view~media:getCssFile';
-                                }
-                                $jsUrl = jUrl::get(
-                                    $url,
-                                    array(
-                                        'repository' => $lrep->getKey(),
-                                        'project' => $project,
-                                        'mtime' => filemtime($filename),
-                                        'path' => $jsRelPath,
-                                    )
-                                );
-                                if ($fileExtension == 'js') {
-                                    $jsUrls[] = $jsUrl;
-                                } elseif ($fileExtension == 'mjs') {
-                                    $mjsUrls[] = $jsUrl;
-                                } else {
-                                    $cssUrls[] = $jsUrl;
-                                }
-                            }
-                        }
-                    }
-                }
+            $fileFinder = new ProjectFilesFinder();
+            $allURLS = $fileFinder->listFileURLS($lproj);
 
-                // Add CSS, MJS and JS files ordered by name
-                sort($cssUrls);
-                foreach ($cssUrls as $cssUrl) {
-                    $rep->addCSSLink($cssUrl);
-                }
-                sort($jsUrls);
-                foreach ($jsUrls as $jsUrl) {
-                    // Use addHeadContent and not addJSLink to be sure it will be loaded after minified code
-                    $rep->addContent('<script type="text/javascript" src="'.$jsUrl.'" ></script>');
-                }
-                sort($mjsUrls);
-                foreach ($mjsUrls as $mjsUrl) {
-                    // Use addHeadContent and not addJSLink to be sure it will be loaded after minified code
-                    $rep->addContent('<script type="module" src="'.$mjsUrl.'" ></script>');
-                }
+            $cssUrls = $allURLS['css'];
+            $jsUrls = $allURLS['js'];
+            $mjsUrls = $allURLS['mjs'];
+            $countUserJs = count($jsUrls) + count($mjsUrls);
+            // Add CSS, MJS and JS files ordered by name
+            sort($cssUrls);
+            foreach ($cssUrls as $cssUrl) {
+                $rep->addCSSLink($cssUrl);
+            }
+            sort($jsUrls);
+            foreach ($jsUrls as $jsUrl) {
+                // Use addHeadContent and not addJSLink to be sure it will be loaded after minified code
+                $rep->addContent('<script type="text/javascript" defer src="'.$jsUrl.'" ></script>');
+            }
+            sort($mjsUrls);
+            foreach ($mjsUrls as $mjsUrl) {
+                // Use addHeadContent and not addJSLink to be sure it will be loaded after minified code
+                $rep->addContent('<script type="module" defer src="'.$mjsUrl.'" ></script>');
             }
         }
+        $rep->setBodyAttributes(array('data-lizmap-user-defined-js-count' => $countUserJs));
 
         // optionally hide some tools
         // header
-        $jsCode = '';
-        $mapMenuCss = '';
         $h = $this->intParam('h', 1);
         if ($h == 0
             || $lproj->getBooleanOption('hideHeader')
@@ -485,16 +473,7 @@ class lizMapCtrl extends jController
             || $lproj->getBooleanOption('hideLegend')
         ) {
             $l = 0;
-            // ~ $rep->addStyle('#dock', 'display:none;');
-            $jsCode .= "
-      $( document ).ready( function() {
-        lizMap.events.on({
-          'uicreated':function(evt){
-            $('li.switcher.active #button-switcher').click();
-          }
-        });
-      });
-      ";
+            $rep->setBodyAttributes(array('data-lizmap-hide-legend' => true));
         }
 
         // navbar
@@ -513,16 +492,6 @@ class lizMapCtrl extends jController
             $rep->addStyle('#overview-box', 'display:none !important;');
         }
 
-        // Apply interface modifications
-        if ($jsCode != '') {
-            $rep->addJSCode($jsCode);
-        }
-
-        // Hide groups checkboxes
-        if ($lproj->getBooleanOption('hideGroupCheckbox')) {
-            $rep->addStyle('#switcher-layers button[name="group"]', 'display:none !important;');
-        }
-
         // Add filter
         $filterParam = $this->param('filter');
         $filter = array();
@@ -535,7 +504,7 @@ class lizMapCtrl extends jController
                 }
             }
             if (count($filter) > 0) {
-                $rep->addJSCode('var lizLayerFilter = '.json_encode($filter).';');
+                $rep->addJsVariable('lizLayerFilter', $filter);
             }
         }
 
@@ -551,22 +520,36 @@ class lizMapCtrl extends jController
                 }
             }
             if (count($styles) > 0) {
-                $rep->addJSCode('var lizLayerStyles = '.json_encode($styles).';');
+                $rep->addJsVariable('lizLayerStyles', $styles);
             }
         }
 
-        // $assign['auth_url_return'] = jUrl::get('view~default:index');
-
         // switcher-layers-actions javascript
-        $rep->addJSLink($bp.'assets/js/switcher-layers-actions.js');
+        $rep->addJSLink($bp.'assets/js/switcher-layers-actions.js', array('defer' => ''));
 
         // Add Google Analytics ID
         $assign['googleAnalyticsID'] = '';
-        if ($lser->googleAnalyticsID != '' && preg_match('/^UA-\\d+-\\d+$/', $lser->googleAnalyticsID) == 1) {
+        if ($lser->googleAnalyticsID != '' && preg_match('/^UA-\d+-\d+$/', $lser->googleAnalyticsID) == 1) {
             $assign['googleAnalyticsID'] = $lser->googleAnalyticsID;
         }
 
+        if (jAcl2::check('lizmap.admin.access') || jAcl2::check('lizmap.admin.server.information.view')) {
+            if ($lproj->qgisLizmapPluginUpdateNeeded()) {
+                $rep->setBodyAttributes(array('data-lizmap-plugin-update-warning-url' => jUrl::get('admin~qgis_projects:index')));
+            } elseif ($lproj->projectCountCfgWarnings() >= 1) {
+                $rep->setBodyAttributes(array('data-lizmap-plugin-has-warnings-url' => jUrl::get('admin~qgis_projects:index')));
+            }
+            // add body attribute to tell if current user is admin
+            $rep->setBodyAttributes(array('data-lizmap-admin-user' => true));
+        }
+
         $rep->body->assign($assign);
+
+        $request_headers = jApp::coord()->request->headers();
+        $_SESSION['html_map_token'] = md5(json_encode(array(
+            'Host' => $request_headers['Host'],
+            'User-Agent' => $request_headers['User-Agent'],
+        )));
 
         // Log
         $eventParams = array(
@@ -604,7 +587,7 @@ class lizMapCtrl extends jController
         $items = jEvent::notify('mapBottomDockable', array('repository' => $repository, 'project' => $project))->getResponse();
         $assign['bottomdockable'] = mapDockItemsMerge($assign['bottomdockable'], $items);
 
-        $assign['rightdockable'] = array();
+        $assign['rightdockable'] = $lproj->getDefaultRightDockable();
         $items = jEvent::notify('mapRightDockable', array('repository' => $repository, 'project' => $project))->getResponse();
         $assign['rightdockable'] = mapDockItemsMerge($assign['rightdockable'], $items);
 

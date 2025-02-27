@@ -6,7 +6,7 @@
  * @license MPL-2.0
  */
 
-import { ValidationError } from './../Errors.js';
+import { ValidationError, ConversionError } from './../Errors.js';
 import { convertNumber } from './Converters.js';
 
 /**
@@ -36,6 +36,7 @@ export class Extent extends Array {
     }
 
     /**
+     * Get the x minimum value
      * @type {number}
      */
     get xmin() {
@@ -43,6 +44,7 @@ export class Extent extends Array {
     }
 
     /**
+     * Get the y minimum value
      * @type {number}
      */
     get ymin() {
@@ -50,6 +52,7 @@ export class Extent extends Array {
     }
 
     /**
+     * Get the x maximum value
      * @type {number}
      */
     get xmax() {
@@ -57,10 +60,22 @@ export class Extent extends Array {
     }
 
     /**
+     * Get the y maximum value
      * @type {number}
      */
     get ymax() {
         return this[3];
+    }
+
+    /**
+     * Get the center of the extent
+     * @type {number[]}
+     */
+    get center() {
+        return [
+            this.xmin + (this.xmax-this.xmin)/2,
+            this.ymin + (this.ymax-this.ymin)/2
+        ];
     }
 
     /**
@@ -76,4 +91,5 @@ export class Extent extends Array {
             && anOther[2] == this[2]
             && anOther[3] == this[3])
     }
+
 }

@@ -1,6 +1,5 @@
 #
 # expected variables in the CI environment
-# - FACTORY_SCRIPTS = path to scripts of the factory
 # - REGISTRY_URL = url of the docker registry
 
 STAGE=build
@@ -22,6 +21,7 @@ PATCH_VERSION=$(word 3,$(subst ., ,$(STABLE_VERSION)))
 
 SHORT_VERSION=$(MAJOR_VERSION).$(MINOR_VERSION)
 SHORT_VERSION_NAME=$(MAJOR_VERSION)_$(MINOR_VERSION)
+FULL_VERSION=$(SHORT_VERSION).$(PATCH_VERSION)
 DATE_VERSION=$(shell date +%Y-%m-%d)
 
 LATEST_RELEASE=$(shell git branch -a | grep -Po "(release_\\d+_\\d+)" | sort | tail -n1 | cut -d'_' -f 2,3)
@@ -79,7 +79,7 @@ FILES=lizmap CONTRIBUTING.md icon.png INSTALL.md license.txt README.md UPGRADE.m
 FORBIDDEN_CONFIG_FILES := installer.ini.php installer.bak.ini.php liveconfig.ini.php localframework.ini.php localurls.xml lizmapConfig.ini.php localconfig.ini.php profiles.ini.php
 EMPTY_DIRS := var/db var/log var/mails var/uploads var/sessions var/lizmap-theme-config/ var/themes/default
 
-.PHONY: debug build tests clean check-release check-registry check-factory stage package deploy_download deploy_download_stable saas_package saas_release
+.PHONY: debug build tests clean check-release check-registry stage package deploy_download deploy_download_stable saas_package saas_release
 .PHONY: docker-build docker-build-ci docker-tag docker-deliver docker-clean docker-clean-all docker-release docker-hub docker-run
 
 debug:
@@ -113,15 +113,15 @@ endif
 
 build: debug
 	composer update --working-dir=lizmap/ --prefer-dist --no-ansi --no-interaction --no-dev --no-suggest --no-progress
-	cd assets/ && npm install
-	cd assets/ && npm run build
+	npm install
+	npm run build
 
 tests: debug build
 	composer update --working-dir=tests/units/ --prefer-dist --no-ansi --no-interaction --no-dev --no-suggest --no-progress
-	cd tests/units/ && php vendor/bin/phpunit -v
+	cd tests/units/ && php vendor/bin/phpunit
 
 quicktests: debug
-	cd tests/units/ && php vendor/bin/phpunit -v
+	cd tests/units/ && php vendor/bin/phpunit
 
 clean:
 	rm -rf $(STAGE)
@@ -133,6 +133,7 @@ $(DIST): lizmap/www/assets/js/lizmap.js lizmap/vendor
 	cp -aR $(FILES) $(DIST)/
 	sed -i "s/\(<version date=\"\)\([^\"]*\)\(\"\)/\1$(DATE_VERSION)\3/" $(DIST)/lizmap/project.xml
 	sed -i "s/\(<version.*pre\)</\1\.$(COMMIT_NUMBER)</" $(DIST)/lizmap/project.xml
+	sed -i "s@commitSha=@commitSha=$(COMMITID)@g" $(DIST)/lizmap/app/system/mainconfig.ini.php
 	mkdir -p $(DIST)/temp/lizmap/
 	cp -a temp/.htaccess $(DIST)/temp/
 	cp -a temp/lizmap/.empty $(DIST)/temp/lizmap/
@@ -183,11 +184,6 @@ ifndef REGISTRY_URL
 	$(error REGISTRY_URL is undefined)
 endif
 
-check-factory:
-ifndef FACTORY_SCRIPTS
-	$(error FACTORY_SCRIPTS is undefined)
-endif
-
 stage: $(DIST)
 
 ci_package: $(ZIP_PACKAGE) $(GENERIC_PACKAGE_PATH) $(ZIP_DEMO_PACKAGE)
@@ -207,6 +203,12 @@ saas_deploy_snap:
 
 saas_release: check-release
 	saas_release_lizmap stable $(SAAS_LIZMAP_VERSION) $(GENERIC_PACKAGE_PATH)
+
+version-doc:
+	sed -i "s@COMMIT_ID@$(COMMITID)@g" docs/index.html
+	sed -i "s@VERSION@$(FULL_VERSION)@g" docs/index.html docs/phpdoc.xml
+	sed -i "s@DATE@$(DATE_VERSION)@g" docs/index.html
+	jq '.version = "$(FULL_VERSION)"' package.json > "$tmp" && mv "$tmp" package.json
 
 php-doc:
 	docker run --rm -v ${PWD}:/data phpdoc/phpdoc:3 -c docs/phpdoc.xml
@@ -245,22 +247,17 @@ docker-clean:
 docker-clean-all:
 	docker rmi -f $(shell docker images $(DOCKER_BUILDIMAGE) -q) || true
 
-docker-release: check-factory
-	cd docker && $(FACTORY_SCRIPTS)/release-image.sh $(DOCKER_RELEASE_PACKAGE_NAME)
-	cd docker && $(FACTORY_SCRIPTS)/push-to-docker-hub.sh --clean
+docker-release:
+	cd docker && release-image $(DOCKER_RELEASE_PACKAGE_NAME)
+	cd docker && push-to-docker-hub --clean
 
 docker-hub:
-	cd docker && $(FACTORY_SCRIPTS)/push-to-docker-hub.sh --clean
-
-php-cs-fixer-test:
-	php-cs-fixer fix --config=.php-cs-fixer.dist.php --allow-risky=yes --dry-run --diff
+	cd docker && push-to-docker-hub --clean
 
 php-cs-fixer-test-docker:
-	docker run --rm -w=/app -v ${PWD}:/app oskarstark/php-cs-fixer-ga:3.8.0 --allow-risky=yes --config=.php-cs-fixer.dist.php  --dry-run --diff
-
-php-cs-fixer-apply:
-	php-cs-fixer fix --config=.php-cs-fixer.dist.php --allow-risky=yes
+	# Version must match the one in the GitHub workflow and pre-commit
+	docker run --rm -w=/app -v ${PWD}:/app ghcr.io/php-cs-fixer/php-cs-fixer:3.69-php8.1 check --allow-risky=yes --diff
 
 php-cs-fixer-apply-docker:
-	docker run --rm -it -w=/app -v ${PWD}:/app oskarstark/php-cs-fixer-ga:3.8.0 --allow-risky=yes --config=.php-cs-fixer.dist.php
-
+	# Version must match the one in the GitHub workflow and pre-commit
+	docker run --rm -it -w=/app -v ${PWD}:/app ghcr.io/php-cs-fixer/php-cs-fixer:3.69-php8.1 fix --allow-risky=yes

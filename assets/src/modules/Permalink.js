@@ -23,6 +23,9 @@ export default class Permalink {
         this._hash = '';
         this._extent4326 = [0, 0, 0, 0, 0];
 
+        // Don't refresh hash when map is initialized
+        this._ignoreStartupMapEvents = true;
+
         // Change `checked`, `style` states based on URL fragment
         if (window.location.hash) {
             this._runPermalink(false);
@@ -77,16 +80,16 @@ export default class Permalink {
                 event.preventDefault();
                 const bname = document.querySelector('#geobookmark-form input[name="bname"]').value;
                 if (bname == '') {
-                    mAddMessage(lizDict['geobookmark.name.required'], 'error', true);
+                    lizMap.addMessage(lizDict['geobookmark.name.required'], 'danger', true);
                     return false;
                 }
                 const gbparams = {};
-                gbparams['project'] = lizUrls.params.project;
-                gbparams['repository'] = lizUrls.params.repository;
-                gbparams['hash'] = window.location.hash;
+                gbparams['project'] = globalThis['lizUrls'].params.project;
+                gbparams['repository'] = globalThis['lizUrls'].params.repository;
+                gbparams['hash'] = this._hash;
                 gbparams['name'] = bname;
                 gbparams['q'] = 'add';
-                fetch(lizUrls.geobookmark, {
+                fetch(globalThis['lizUrls'].geobookmark, {
                     method: "POST",
                     body: new URLSearchParams(gbparams)
                 }).then(response => {
@@ -97,12 +100,26 @@ export default class Permalink {
             });
         }
 
-        // Refresh bbox parameter on moveend
-        lizMap.map.events.on({
-            moveend: () => {
-                this._writeURLFragment();
-            }
+        // If geobookmark is the same than the hash there is
+        // no `hashchange` event. In this case we run permalink
+        document.querySelectorAll('.btn-geobookmark-run').forEach(button => {
+            button.addEventListener('click', event => {
+                if (decodeURIComponent(window.location.hash) === event.currentTarget.getAttribute('href')) {
+                    this._runPermalink();
+                }
+            });
         });
+
+        // Refresh hash parameters when map state changes
+        mainLizmap.state.map.addListener(
+            () => {
+                if (this._ignoreStartupMapEvents) {
+                    this._ignoreStartupMapEvents = false;
+                    return;
+                }
+                this._writeURLFragment();
+            }, ['map.state.changed']
+        );
 
         mainLizmap.state.rootMapGroup.addListener(
             () => this._writeURLFragment(),
@@ -136,11 +153,11 @@ export default class Permalink {
         var gbparams = {
             id: id,
             q: 'del',
-            repository: lizUrls.params.repository,
-            project: lizUrls.params.project
+            repository: globalThis['lizUrls'].params.repository,
+            project: globalThis['lizUrls'].params.project
         };
 
-        fetch(lizUrls.geobookmark + '?' + new URLSearchParams(gbparams)).then(response => {
+        fetch(globalThis['lizUrls'].geobookmark + '?' + new URLSearchParams(gbparams)).then(response => {
             return response.text();
         }).then( data => {
             this._setGeobookmarkContent(data);
@@ -158,7 +175,10 @@ export default class Permalink {
 
         this._hash = ''+window.location.hash;
 
-        const items = mainLizmap.state.layersAndGroupsCollection.layers.concat(mainLizmap.state.layersAndGroupsCollection.groups);
+        // items are layers then groups from leaf to root
+        const items = mainLizmap.state.layersAndGroupsCollection.layers.concat(
+            mainLizmap.state.layersAndGroupsCollection.groups.reverse() // reverse groups array to get from leaf to root
+        );
 
         const [extent4326, itemsInURL, stylesInURL, opacitiesInURL] = window.location.hash.substring(1).split('|').map(part => part.split(','));
 
@@ -199,11 +219,31 @@ export default class Permalink {
         const selectEmbedPermalink = document.getElementById('select-embed-permalink');
         const inputEmbedPermalink = document.getElementById('input-embed-permalink');
 
+        var searchParams = {
+            repository: globalThis['lizUrls'].params.repository,
+            project: globalThis['lizUrls'].params.project
+        };
+        if (this._hash === '') {
+            const urlParameters = (new URL(window.location)).searchParams;
+            if (urlParameters.has('bbox')) {
+                searchParams['bbox'] = urlParameters.get('bbox');
+            }
+            if (urlParameters.has('crs')) {
+                searchParams['crs'] = urlParameters.get('crs');
+            }
+        }
+
+        const permalinkValue = window.location.origin
+            + window.location.pathname
+            + '?'
+            + new URLSearchParams(searchParams)
+            + this._hash;
+
         if (inputSharePermalink) {
-            inputSharePermalink.value = window.location.href;
+            inputSharePermalink.value = permalinkValue;
         }
         if (permalink) {
-            permalink.href = window.location.href;
+            permalink.href = permalinkValue;
         }
         if (selectEmbedPermalink) {
             const iframeSize = selectEmbedPermalink.value;
@@ -254,7 +294,7 @@ export default class Permalink {
         for (const item of mainLizmap.state.rootMapGroup.findMapLayersAndGroups()) {
             if (item.checked){
                 itemsVisibility.push(encodeURIComponent(item.name));
-                itemsStyle.push(item.wmsSelectedStyleName);
+                itemsStyle.push(item.wmsSelectedStyleName ? encodeURIComponent(item.wmsSelectedStyleName) : item.wmsSelectedStyleName);
                 itemsOpacity.push(item.opacity);
             }
         }
@@ -274,8 +314,10 @@ export default class Permalink {
         // Saved new hash
         this._hash = '#'+hash;
         // Finally override URL fragment
-        this._ignoreHashChange = true;
-        window.location.hash = hash;
+        if (mainLizmap.initialConfig.options.automatic_permalink) {
+            this._ignoreHashChange = true;
+            window.location.hash = hash;
+        }
 
         this._refreshURLsInPermalinkComponent();
     }

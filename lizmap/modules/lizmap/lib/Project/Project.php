@@ -14,7 +14,12 @@
 namespace Lizmap\Project;
 
 use Lizmap\App;
+use Lizmap\Server\Server;
 
+/**
+ * @phpstan-import-type MapLayerDef from QgisProject
+ * @phpstan-import-type VectorLayerDef from QgisProject
+ */
 class Project
 {
     /**
@@ -257,36 +262,7 @@ class Project
      */
     protected function getLayersWithLabels()
     {
-        // Keep a list of layer ids for which to replace the code by labels
-        $layersWithLabeledFields = array();
-
-        // Attribute layers
-        foreach ($this->cfg->getAttributeLayers() as $key => $config) {
-            if ($config->hideLayer == 'True') {
-                continue;
-            }
-            $layersWithLabeledFields[] = $config->layerId;
-        }
-
-        // Dataviz layers
-        foreach ($this->cfg->getDatavizLayers() as $o => $config) {
-            $layerId = $config->layerId;
-            if (array_key_exists($layerId, $layersWithLabeledFields)) {
-                continue;
-            }
-            $layersWithLabeledFields[] = $config->layerId;
-        }
-
-        // Form filter layers
-        foreach ($this->cfg->getFormFilterLayers() as $o => $config) {
-            $layerId = $config->layerId;
-            if (array_key_exists($layerId, $layersWithLabeledFields)) {
-                continue;
-            }
-            $layersWithLabeledFields[] = $config->layerId;
-        }
-
-        return $layersWithLabeledFields;
+        return $this->cfg->getLayersWithLabels();
     }
 
     public function getQgisPath()
@@ -328,6 +304,16 @@ class Project
     }
 
     /**
+     * Get the last date saved in the QGIS file.
+     *
+     * @return string the last saved date contained in the QGS file
+     */
+    public function getLastSaveDateTime()
+    {
+        return $this->qgis->getLastSaveDateTime();
+    }
+
+    /**
      * Get the version of the Lizmap plugin
      * used by the project editor on QGIS Desktop.
      * Default to 3.1.8 if the CFG is too old.
@@ -357,6 +343,7 @@ class Project
         if (!is_null($pluginMetadata)) {
             return $pluginMetadata->lizmap_web_client_target_version;
         }
+
         // The CFG is very old, at least older than QGIS plugin 3.2
         // Same value as in lizmap/www/assets/js/map.js
         return 30200;
@@ -382,6 +369,11 @@ class Project
         return $this->qgis->getCustomProjectVariables();
     }
 
+    /**
+     * @param string $layerId
+     *
+     * @return null|MapLayerDef|VectorLayerDef
+     */
     public function getLayerDefinition($layerId)
     {
         return $this->qgis->getLayerDefinition($layerId);
@@ -834,7 +826,7 @@ class Project
         if ($attributeLayers) {
             $hasDisplayedLayer = !$onlyDisplayedLayers;
             if ($onlyDisplayedLayers) {
-                foreach ($attributeLayers as $key => $obj) {
+                foreach ($attributeLayers as $obj) {
                     if (!property_exists($obj, 'hideLayer')
                         || strtolower($obj->hideLayer) != 'true'
                     ) {
@@ -1009,7 +1001,7 @@ class Project
         if (property_exists($eLayer, 'acl') && $eLayer->acl) {
             // Check if configured groups white list and authenticated user
             // groups list intersects
-            $editionGroups = preg_split('/\\s*,\\s*/', $eLayer->acl);
+            $editionGroups = preg_split('/\s*,\s*/', $eLayer->acl);
             if ($isAdmin || ($editionGroups
                 && array_intersect($editionGroups, $userGroups))) {
                 // User group(s) correspond to the groups given for this edition layer
@@ -1093,6 +1085,14 @@ class Project
         }
 
         return $eLayers->{$layerName};
+    }
+
+    /**
+     * @return object
+     */
+    public function getTooltipLayers()
+    {
+        return $this->cfg->getTooltipLayers();
     }
 
     /**
@@ -1196,10 +1196,19 @@ class Project
      * Get login filters, get expressions for layers based on login filtered
      * config.
      *
+     * NOTE: We could delegate this completely to the lizmap_server plugin
+     * for all requests. The only request needed to have the SQL filter
+     * is the WFS GetFeature request, if the layer is a PostgreSQL layer.
+     * It this particular case, we could use a similar approach
+     * that the one use with qgisVectorLayer::requestPolygonFilter
+     * which calls the server plugin with SERVICE=Lizmap&REQUEST=GetSubsetString
+     *
      * @param string[] $layers  : layers' name list
      * @param bool     $edition : get login filters for edition
      *
-     * @return array
+     * @return array Array containing layers names as key and filter configuration
+     *               and SQL filters as values. Array might be empty if no filter
+     *               is configured for the layer.
      */
     public function getLoginFilters($layers, $edition = false)
     {
@@ -1230,28 +1239,105 @@ class Project
 
             // attribute to filter
             $attribute = $loginFilteredConfig->filterAttribute;
+            // profile for db connection
+            $profile = null;
+
+            // get QGIS layer
+            /** @var null|\qgisVectorLayer $qgisLayer The QGIS vector layer instance */
+            $qgisLayer = $this->qgis->getLayer($layerByTypeName->id, $this);
+
+            // get datasource profile
+            if ($qgisLayer) {
+                $profile = $qgisLayer->getDatasourceProfile();
+            }
+
+            $cnx = $this->appContext->getDbConnection($profile ? $profile : '');
+            // Quoted attribute with double-quotes
+            $quotedField = $cnx->encloseName($attribute);
+
+            // Get QGIS vector layer provider
+            $provider = 'unknown';
+            if ($qgisLayer) {
+                $provider = $qgisLayer->getProvider();
+            }
 
             // default no user connected
-            $filter = "\"{$attribute}\" = 'all'";
+            $filter = "{$quotedField} = 'all'";
+
+            // For PostgreSQL layers, allow multiple values in the filter field
+            // E.g. "groupe_a,other_group"
+            if ($provider == 'postgres'
+                && property_exists($loginFilteredConfig, 'allow_multiple_acl_values')
+                && $loginFilteredConfig->allow_multiple_acl_values
+            ) {
+                $filter .= " OR {$quotedField} LIKE 'all,%'";
+                $filter .= " OR {$quotedField} LIKE '%,all'";
+                $filter .= " OR {$quotedField} LIKE '%,all,%'";
+            }
 
             // A user is connected
             if ($this->appContext->userIsConnected()) {
+                // Get the user
                 $user = $this->appContext->getUserSession();
                 $login = $user->login;
+
+                // List of values for expression
+                $values = array();
                 if (property_exists($loginFilteredConfig, 'filterPrivate')
                     && $this->optionToBoolean($loginFilteredConfig->filterPrivate)
                 ) {
-                    $filter = "\"{$attribute}\" IN ( '".$login."' , 'all' )";
+                    // If filter is private use user_login
+                    $values[] = $login;
                 } else {
+                    // Else use user groups
                     $userGroups = $this->appContext->aclUserPublicGroupsId();
-                    $flatGroups = implode("' , '", $userGroups);
-                    $filter = "\"{$attribute}\" IN ( '".$flatGroups."' , 'all' )";
+                    $values = $userGroups;
                 }
+
+                // Add all to values
+                $values[] = 'all';
+                $allValuesFilters = array();
+
+                // For each value (group, all, login, etc.), create a filter
+                // combining all the possibility: equality & LIKE
+                foreach ($values as $value) {
+                    $valueFilters = array();
+                    // Quote the value with single quotes
+                    $quotedValue = $cnx->quote($value);
+
+                    // equality
+                    $valueFilters[] = "{$quotedField} = {$quotedValue}";
+
+                    // For PostgreSQL layers, allow multiple values in the filter field
+                    // E.g. "groupe_a,other_group"
+                    if ($provider == 'postgres'
+                        && property_exists($loginFilteredConfig, 'allow_multiple_acl_values')
+                        && $loginFilteredConfig->allow_multiple_acl_values
+                    ) {
+                        // begins with value & comma
+                        $quotedLikeValue = $cnx->quote("{$value},%");
+                        $valueFilters[] = "{$quotedField} LIKE {$quotedLikeValue}";
+
+                        // ends with comma & value
+                        $quotedLikeValue = $cnx->quote("%,{$value}");
+                        $valueFilters[] = "{$quotedField} LIKE {$quotedLikeValue}";
+
+                        // value between two commas
+                        $quotedLikeValue = $cnx->quote("%,{$value},%");
+                        $valueFilters[] = "{$quotedField} LIKE {$quotedLikeValue}";
+                    }
+
+                    // Build the filter for this value
+                    $allValuesFilters[] = implode(' OR ', $valueFilters);
+                }
+
+                // Build filter for all values
+                $filter = implode(' OR ', $allValuesFilters);
             }
 
             $filters[$layerName] = array_merge(
                 (array) $loginFilteredConfig,
-                array('filter' => $filter, 'layername' => $lName)
+                array('filter' => '( '.$filter.' )', 'layername' => $lName)
             );
         }
 
@@ -1313,12 +1399,12 @@ class Project
      * and we are not in an editing context we return null
      * to tell there is no filter in this context.
      *
-     * @param string $layerName        : the layer name
-     * @param bool   $editing_context: we are in editing context
+     * @param string $layerName      : the layer name
+     * @param bool   $editingContext : we are in editing context
      *
      * @return null|array the configuration for the polygon filter the given layer
      */
-    public function getLayerPolygonFilterConfig($layerName, $editing_context = false)
+    public function getLayerPolygonFilterConfig($layerName, $editingContext = false)
     {
         if (!$this->hasPolygonFilteredLayers()) {
             return null;
@@ -1353,11 +1439,27 @@ class Project
         // If the polygon filter is configured for editing only
         // and we are not in an editing context
         // No need to return the filter config
-        if (!$editing_context && $layer_config['filter_mode'] == 'editing_only') {
+        if (!$editingContext && $layer_config['filter_mode'] == 'editing_only') {
             return null;
         }
 
         return $layer_config;
+    }
+
+    /**
+     * @param object $object   The configuration
+     * @param string $property String about the property to request
+     * @param mixed  $default  Default returned if the property is not found
+     *
+     * @return mixed
+     */
+    private function getPropertyOrDefault(object $object, string $property, $default = null)
+    {
+        if (property_exists($object, $property)) {
+            return $object->{$property};
+        }
+
+        return $default;
     }
 
     private function optionToBoolean($configString)
@@ -1450,16 +1552,13 @@ class Project
             $plotConfig['only_show_child'] = $config->only_show_child;
         }
         // Since LWC 3.7
-        $plotConfig['trigger_filter'] = true;
-        if (property_exists($config, 'trigger_filter')) {
-            $plotConfig['trigger_filter'] = $config->trigger_filter;
-        }
+        $plotConfig['trigger_filter'] = $this->getPropertyOrDefault($config, 'trigger_filter', true);
 
-        $abstract = $layer->abstract;
-        if (property_exists($config, 'description')) {
-            $abstract = trim($config->description);
+        $plotConfig['abstract'] = trim($layer->abstract);
+        $description = trim($this->getPropertyOrDefault($config, 'description', ''));
+        if ($description !== '') {
+            $plotConfig['abstract'] = $description;
         }
-        $plotConfig['abstract'] = trim($abstract);
 
         $props = array(
             'display_legend' => true,
@@ -1630,13 +1729,11 @@ class Project
     }
 
     /**
-     * @param \SimpleXMLElement $xml
-     *
      * @return int[]
      */
     protected function readLayersOrder(QgisProject $xml)
     {
-        return $this->qgis->readLayersOrder($xml, $this->getLayers());
+        return $xml->readLayersOrder($this->cfg->getLayers());
     }
 
     /**
@@ -1883,7 +1980,7 @@ class Project
         // Add printTemplates to the config
         $configJson->printTemplates = array();
         // Get server metadata to check atlasprint plugin
-        $server = new \Lizmap\Server\Server();
+        $server = new Server();
         $serverMetadata = $server->getMetadata();
         $serverPlugins = $serverMetadata['qgis_server_info']['plugins'];
         foreach ($this->printCapabilities as $printTemplate) {
@@ -1910,40 +2007,43 @@ class Project
             if ($obj->type == 'layer') {
                 // Get layer definition extracted from XML
                 $layerDef = $this->getLayerDefinition($obj->id);
-                // Add layer type
-                $obj->layerType = $layerDef['type'];
-                // add webDav fields as layer property
-                if ($layerDef && array_key_exists('webDavFields', $layerDef)) {
-                    $obj->webDavFields = $layerDef['webDavFields'];
-                }
-                // Extract layer datasource parameters only for raster/wms
-                if ($layerDef['type'] == 'raster' && $layerDef['provider'] == 'wms') {
-                    // source xyz: $layerDatasource['type'] == 'xyz'
-                    // source wmts: stripos($layerDatasource['url'], 'wmts')
-                    // source wms : else
-                    parse_str($layerDef['datasource'], $layerDatasource);
-                    // Do not provide external access data if the datasource contains
-                    // authentication parameters
-                    if (!array_key_exists('password', $layerDatasource)
-                        && !array_key_exists('authcfg', $layerDatasource)) {
-                        // Add wmts type if type is not already defined (it is for xyz)
-                        // and the url contains wmts and the CRS is EPSG:3857
-                        if (!array_key_exists('type', $layerDatasource)
-                            && stripos($layerDatasource['url'], 'service=wmts')) {
-                            $layerDatasource['type'] = 'wmts';
-                        }
-                        // Add crs if type is xyz
-                        if (array_key_exists('type', $layerDatasource)
-                            && $layerDatasource['type'] == 'xyz'
-                            && !array_key_exists('crs', $layerDatasource)) {
-                            $layerDatasource['crs'] = 'EPSG:3857';
-                        }
-                        // if the layer datasource contains type and crs EPSG:3857
-                        // external access can be provided
-                        if (array_key_exists('type', $layerDatasource)
-                            && $layerDatasource['crs'] == 'EPSG:3857') {
-                            $obj->externalWmsToggle = 'True';
-                            $obj->externalAccess = $layerDatasource;
+                // Layer can be not found in XML
+                if ($layerDef) {
+                    // Add layer type
+                    $obj->layerType = $layerDef['type'];
+                    // add webDav fields as layer property
+                    if (array_key_exists('webDavFields', $layerDef)) {
+                        $obj->webDavFields = $layerDef['webDavFields'];
+                    }
+                    // Extract layer datasource parameters only for raster/wms
+                    if ($layerDef['type'] == 'raster' && $layerDef['provider'] == 'wms') {
+                        // source xyz: $layerDatasource['type'] == 'xyz'
+                        // source wmts: stripos($layerDatasource['url'], 'wmts')
+                        // source wms : else
+                        parse_str($layerDef['datasource'], $layerDatasource);
+                        // Do not provide external access data if the datasource contains
+                        // authentication parameters
+                        if (!array_key_exists('password', $layerDatasource)
+                            && !array_key_exists('authcfg', $layerDatasource)) {
+                            // Add wmts type if type is not already defined (it is for xyz)
+                            // and the url contains wmts and the CRS is EPSG:3857
+                            if (!array_key_exists('type', $layerDatasource)
+                                && stripos($layerDatasource['url'], 'service=wmts')) {
+                                $layerDatasource['type'] = 'wmts';
+                            }
+                            // Add crs if type is xyz
+                            if (array_key_exists('type', $layerDatasource)
+                                && $layerDatasource['type'] == 'xyz'
+                                && !array_key_exists('crs', $layerDatasource)) {
+                                $layerDatasource['crs'] = 'EPSG:3857';
+                            }
+                            // if the layer datasource contains type and crs EPSG:3857
+                            // external access can be provided
+                            if (array_key_exists('type', $layerDatasource)
+                                && $layerDatasource['crs'] == 'EPSG:3857') {
+                                $obj->externalWmsToggle = 'True';
+                                $obj->externalAccess = $layerDatasource;
+                            }
                         }
                     }
                 }
@@ -2082,9 +2182,9 @@ class Project
     }
 
     /**
-     * @throws \jExceptionSelector
-     *
      * @return \lizmapMapDockItem[]
+     *
+     * @throws \jExceptionSelector
      */
     public function getDefaultDockable()
     {
@@ -2103,7 +2203,10 @@ class Project
                 'projects',
                 $this->appContext->getLocale('view~default.repository.list.title'),
                 $projectsTpl->fetch('view~map_projects'),
-                0
+                0,
+                null,
+                $bp.'assets/js/map-projects.js',
+                array('defer' => '')
             );
         }
 
@@ -2154,7 +2257,17 @@ class Project
                 $tpl->fetch('view~map_edition'),
                 3,
                 $jwp.'design/jform.css',
-                $bp.'assets/js/edition.js'
+                $bp.'assets/js/edition.js',
+                array('defer' => '')
+            );
+        }
+
+        if ($this->getOption('popupLocation') === 'dock') {
+            $dockable[] = new \lizmapMapDockItem(
+                'popupcontent',
+                'Popup',
+                '<div class="menu-content"><div class="lizmapPopupContent"><h4>'.$this->appContext->getLocale('view~dictionnary.popup.msg.start').'</h4></div></div>',
+                4
             );
         }
 
@@ -2162,15 +2275,24 @@ class Project
     }
 
     /**
+     * @return \lizmapMapDockItem[]
+     *
      * @throws \jException
      * @throws \jExceptionSelector
-     *
-     * @return \lizmapMapDockItem[]
      */
     public function getDefaultMiniDockable()
     {
         $dockable = array();
         $bp = $this->appContext->appConfig()->urlengine['basePath'];
+
+        if ($this->getOption('popupLocation') === 'mini-dock') {
+            $dockable[] = new \lizmapMapDockItem(
+                'popupcontent',
+                'Popup',
+                '<div class="menu-content"><div class="lizmapPopupContent"><h4>'.$this->appContext->getLocale('view~dictionnary.popup.msg.start').'</h4></div></div>',
+                0
+            );
+        }
 
         if ($this->hasAttributeLayers()) {
             // Add layer-export attribute to lizmap-selection-tool component if allowed
@@ -2181,7 +2303,8 @@ class Project
                 '<lizmap-selection-tool '.$layerExport.'></lizmap-selection-tool>',
                 1,
                 '',
-                $bp.'assets/js/attributeTable.js'
+                $bp.'assets/js/attributeTable.js',
+                array('defer' => '')
             );
             $dock->icon = '<span class="icon-white icon-star" style="margin-left:2px; margin-top:2px;"></span>';
             $dockable[] = $dock;
@@ -2248,7 +2371,8 @@ class Project
                 $tpl->fetch('view~map_timemanager'),
                 7,
                 '',
-                $bp.'assets/js/timemanager.js'
+                $bp.'assets/js/timemanager.js',
+                array('defer' => '')
             );
         }
 
@@ -2304,9 +2428,9 @@ class Project
     }
 
     /**
-     * @throws \jExceptionSelector
-     *
      * @return \lizmapMapDockItem[]
+     *
+     * @throws \jExceptionSelector
      */
     public function getDefaultBottomDockable()
     {
@@ -2322,7 +2446,29 @@ class Project
                 array('view~map_attributeLayers', $assign),
                 1,
                 '',
-                $bp.'assets/js/attributeTable.js'
+                $bp.'assets/js/attributeTable.js',
+                array('defer' => '')
+            );
+        }
+
+        return $dockable;
+    }
+
+    /**
+     * @return \lizmapMapDockItem[]
+     *
+     * @throws \jExceptionSelector
+     */
+    public function getDefaultRightDockable()
+    {
+        $dockable = array();
+
+        if ($this->getOption('popupLocation') === 'right-dock') {
+            $dockable[] = new \lizmapMapDockItem(
+                'popupcontent',
+                'Popup',
+                '<div class="menu-content"><div class="lizmapPopupContent"><h4>'.$this->appContext->getLocale('view~dictionnary.popup.msg.start').'</h4></div></div>',
+                0
             );
         }
 
@@ -2357,6 +2503,65 @@ class Project
         }
 
         return false;
+    }
+
+    /**
+     * Project needs an update on plugin side.
+     * The check is done only if the QGIS file has been edited recently.
+     *
+     * @return bool true if the plugin needs to be updated
+     */
+    public function qgisLizmapPluginUpdateNeeded()
+    {
+        return $this->getMetadata()->qgisLizmapPluginUpdateNeeded();
+    }
+
+    /**
+     * Project warnings in the CFG file.
+     *
+     * @return null|mixed
+     */
+    public function getProjectCfgWarnings()
+    {
+        // Before plugin 4.0.0, it was a array of errors :
+        // e.g ["ogc_not_valid", "invalid_field_type"] → 2
+        // Starting from 4.0.0, it's an object : with properties for each error type having value as error count :
+        // e.g  {"ogc_not_valid": 1, "invalid_field_type": 3} → 4
+        return $this->cfg->getProjectCfgWarnings();
+    }
+
+    /**
+     * Project warnings counts in the CFG file.
+     *
+     * @see getProjectCfgWarnings() for data structure
+     *
+     * @return int
+     */
+    public function projectCountCfgWarnings()
+    {
+        $warnings = $this->getProjectCfgWarnings();
+        if (is_array($warnings)) {
+            return count($warnings);
+        }
+
+        return array_sum((array) $warnings);
+    }
+
+    /**
+     * Project warnings in the CFG file.
+     *
+     * @see getProjectCfgWarnings() for data structure
+     *
+     * @return mixed List of warnings in the project and their counts
+     */
+    public function projectCfgWarnings()
+    {
+        $warnings = $this->getProjectCfgWarnings();
+        if (is_array($warnings)) {
+            return array_fill_keys($warnings, '≥1');
+        }
+
+        return $warnings;
     }
 
     /**

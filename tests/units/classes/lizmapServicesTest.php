@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
  */
 class lizmapServicesTest extends TestCase
 {
-    public function getContactEmail()
+    public static function getContactEmail()
     {
         return array(
             array('', ''),
@@ -24,7 +24,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $email_test
      * @param mixed $expected_email
      */
-    public function testAdminContactEmail($email_test, $expected_email)
+    public function testAdminContactEmail($email_test, $expected_email): void
     {
         $ini_tab = array('hideSensitiveServicesProperties' => '0',
             'services' => array(
@@ -43,7 +43,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $email_test
      * @param mixed $expected_email
      */
-    public function testAdminSenderEmail($email_test, $expected_email)
+    public function testAdminSenderEmail($email_test, $expected_email): void
     {
         $ini_tab = array('hideSensitiveServicesProperties' => '0',
             'services' => array(
@@ -64,7 +64,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getAllowUserAccountRequestsData()
+    public static function getAllowUserAccountRequestsData()
     {
         return array(
             array(false, '', true, false),
@@ -83,7 +83,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $isUsingLdap
      * @param mixed $expectedResult
      */
-    public function testAllowUserAccountRequests($allowValue, $senderEmail, $isUsingLdap, $expectedResult)
+    public function testAllowUserAccountRequests($allowValue, $senderEmail, $isUsingLdap, $expectedResult): void
     {
         $ini_tab = array(
             'mailer' => array(
@@ -97,7 +97,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getHideSensitivePropertiesData()
+    public static function getHideSensitivePropertiesData()
     {
         return array(
             array(true, true),
@@ -111,7 +111,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $testValue
      * @param mixed $expectedReturnValue
      */
-    public function testHideSensitiveProperties($testValue, $expectedReturnValue)
+    public function testHideSensitiveProperties($testValue, $expectedReturnValue): void
     {
         $ini_tab = array(
             'hideSensitiveServicesProperties' => $testValue,
@@ -122,7 +122,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getRootRepositoriesData()
+    public static function getRootRepositoriesData()
     {
         $path = realpath(__DIR__.'/../../../');
 
@@ -144,7 +144,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $testVarPathValue
      * @param mixed $expectedReturnValue
      */
-    public function testRootRepositories($testIniValue, $testVarPathValue, $expectedReturnValue)
+    public function testRootRepositories($testIniValue, $testVarPathValue, $expectedReturnValue): void
     {
         $ini_tab = array(
             'services' => array(
@@ -156,7 +156,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getModifyGlobalData()
+    public static function getModifyGlobalData()
     {
         $testModify1 = array(
             'jcommunity' => array('registrationEnabled' => 'off'),
@@ -198,7 +198,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $changedValue
      * @param mixed $expectedReturnValue
      */
-    public function testModifyGlobal($globalConfig, $newConfig, $changedProperty, $changedValue, $expectedReturnValue)
+    public function testModifyGlobal($globalConfig, $newConfig, $changedProperty, $changedValue, $expectedReturnValue): void
     {
         $testLizmapServices = new LizmapServices(array(), (object) $globalConfig, false, '', null);
         $this->assertEquals($expectedReturnValue, $testLizmapServices->modify($newConfig));
@@ -208,7 +208,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getModifyLocalData()
+    public static function getModifyLocalData()
     {
         $testModify1 = array(
             'services' => array(
@@ -251,7 +251,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $changedValue
      * @param mixed $expectedReturnValue
      */
-    public function testModifyLocal($localConfig, $newConfig, $changedProperty, $changedValue, $expectedReturnValue)
+    public function testModifyLocal($localConfig, $newConfig, $changedProperty, $changedValue, $expectedReturnValue): void
     {
         $testLizmapServices = new LizmapServices($localConfig, (object) array(), false, '', null);
         $this->assertEquals($expectedReturnValue, $testLizmapServices->modify($newConfig));
@@ -261,7 +261,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getSaveIntoIniData()
+    public static function getSaveIntoIniData()
     {
         $ini1 = array(
             'appName' => 'Lizmap',
@@ -305,7 +305,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $section_name
      * @param mixed $hide
      */
-    public function testSaveIntoIni($dataModification, $expectedIniValues, $expectedLiveIniValues, $section_name, $hide)
+    public function testSaveIntoIni($dataModification, $expectedIniValues, $expectedLiveIniValues, $section_name, $hide): void
     {
         $iniPath = __DIR__.'/../tmp/local.ini.php';
         $liveIniPath = __DIR__.'/../tmp/live.ini.php';
@@ -355,7 +355,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices);
     }
 
-    public function getRepoData()
+    public static function getRepoData()
     {
         $repo1 = array(
             'repository:test' => array(
@@ -394,7 +394,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $key
      * @param mixed $expectedReturnValue
      */
-    public function testGetLizmapRepository($repoInfos, $key, $expectedReturnValue)
+    public function testGetLizmapRepository($repoInfos, $key, $expectedReturnValue): void
     {
         $testLizmapServices = new lizmapServices($repoInfos, (object) array(), true, '', null);
         $repo = $testLizmapServices->getLizmapRepository($key);
@@ -424,7 +424,7 @@ class lizmapServicesTest extends TestCase
         unset($testLizmapServices, $repo);
     }
 
-    public function getMetricsEnabled()
+    public static function getMetricsEnabled()
     {
         return array(
             array(null, false),
@@ -443,7 +443,7 @@ class lizmapServicesTest extends TestCase
      * @param mixed $testValue
      * @param mixed $expectedValue
      */
-    public function testGetMetricsEnabled($testValue, $expectedValue)
+    public function testGetMetricsEnabled($testValue, $expectedValue): void
     {
         $ini_tab = array('hideSensitiveServicesProperties' => '0',
             'services' => array(

@@ -11,6 +11,7 @@ import { LayerConfig } from './../config/Layer.js';
 import { AttributionConfig } from './../config/Attribution.js'
 import { LayerStyleConfig, LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig } from './../config/LayerTree.js';
 import { MapItemState, MapGroupState, MapLayerState } from './MapLayer.js';
+import { ExternalLayerTreeGroupState } from './ExternalLayerTree.js';
 import { getDefaultLayerIcon, LayerIconSymbology, LayerSymbolsSymbology, LayerGroupSymbology, SymbolIconSymbology, BaseIconSymbology, BaseSymbolsSymbology } from './Symbology.js';
 import { convertBoolean } from './../utils/Converters.js';
 
@@ -50,6 +51,7 @@ export class LayerTreeItemState extends EventDispatcher {
             mapItemState.addListener(this.dispatch.bind(this), 'layer.load.status.changed');
             mapItemState.addListener(this.dispatch.bind(this), 'layer.style.changed');
             mapItemState.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+            mapItemState.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
             mapItemState.addListener(this.dispatch.bind(this), 'layer.selection.changed');
             mapItemState.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
             mapItemState.addListener(this.dispatch.bind(this), 'layer.filter.changed');
@@ -283,6 +285,7 @@ export class LayerTreeGroupState extends LayerTreeItemState {
                 group.addListener(this.dispatch.bind(this), 'layer.load.status.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.style.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                group.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.filter.changed');
@@ -302,6 +305,7 @@ export class LayerTreeGroupState extends LayerTreeItemState {
                 layer.addListener(this.dispatch.bind(this), 'layer.load.status.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.style.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                layer.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.filter.changed');
@@ -350,8 +354,28 @@ export class LayerTreeGroupState extends LayerTreeItemState {
     }
 
     /**
+     * Propagate throught tree item the new checked state
+     * @param {boolean} val The new checked state
+     * @returns {boolean} the new checked state
+     */
+    propagateCheckedState(val) {
+        for (const item of this._items) {
+            if (item.type == 'group') {
+                item.propagateCheckedState(val);
+            } else {
+                item.checked = val;
+            }
+            if (item.checked && this.mutuallyExclusive) {
+                break;
+            }
+        }
+        this.checked = val;
+        return this.checked;
+    }
+
+    /**
      * Find layer names
-     * @returns {string[]} The layer names of all tree layers
+     * @returns {string[]} List of layer names
      */
     findTreeLayerNames() {
         let names = []
@@ -367,7 +391,7 @@ export class LayerTreeGroupState extends LayerTreeItemState {
 
     /**
      * Find layer items
-     * @returns {LayerTreeLayerState[]} The tree layer states of all tree layers
+     * @returns {LayerTreeLayerState[]}  List of tree layers (not tree groups)
      */
     findTreeLayers() {
         let items = []
@@ -383,7 +407,7 @@ export class LayerTreeGroupState extends LayerTreeItemState {
 
     /**
      * Find layer and group items
-     * @returns {LayerTreeLayerState[]} All tThe tree layer and tree group states
+     * @returns {LayerTreeLayerState[]} List of tree layers and tree groups
      */
     findTreeLayersAndGroups() {
         let items = []
@@ -430,6 +454,15 @@ export class LayerTreeLayerState extends LayerTreeItemState {
         // set default icon
         this._icon = getDefaultLayerIcon(this.layerConfig);
     }
+
+    /**
+     * vector layer is loaded in a single layer ImageLayer or not
+     * @type {boolean}
+     */
+    get singleWMSLayer(){
+        return this._mapItemState.singleWMSLayer;
+    }
+
 
     /**
      * Vector layer has selected features
@@ -563,5 +596,67 @@ export class LayerTreeLayerState extends LayerTreeItemState {
                 yield symbol;
             }
         }
+    }
+}
+
+/**
+ * Class representing a layer tree group as tree root
+ * @class
+ * @augments LayerTreeGroupState
+ */
+export class TreeRootState extends LayerTreeGroupState {
+
+    /**
+     * Instantiate a root layer tree group
+     * @param {MapGroupState} mapGroupState - the map layer group state
+     */
+    constructor(mapGroupState) {
+        super(mapGroupState);
+
+        mapGroupState.addListener(
+            evt => {
+                const extGroup = mapGroupState.children[0];
+                if (evt.name != extGroup.name)
+                    return;
+                const extTreeGroup = new ExternalLayerTreeGroupState(extGroup);
+                this._items.unshift(extTreeGroup);
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ol-layer.added');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ol-layer.removed');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ext-group.expanded.changed');
+
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ext-group.wmsTitle.changed');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ext-group.visibility.changed');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ol-layer.wmsTitle.changed');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ol-layer.icon.changed');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ol-layer.opacity.changed');
+                extTreeGroup.addListener(this.dispatch.bind(this), 'ol-layer.visibility.changed');
+            }, ['ext-group.added']
+        );
+
+        mapGroupState.addListener(
+            evt => {
+                const groups = this._items
+                    .map((item, index) => {return {'name': item.name, 'type': item.type,'index':index}})
+                    .filter((item) => item.type == 'ext-group' && item.name == evt.name);
+                if (groups.length == 0) {
+                    return;
+                }
+                const extTreeGroup = this._items.at(groups[0].index);
+                this._items.splice(groups[0].index, 1);
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ol-layer.added');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ol-layer.removed');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ext-group.expanded.changed');
+
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ext-group.wmsTitle.changed');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ext-group.visibility.changed');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ol-layer.wmsTitle.changed');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ol-layer.icon.changed');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ol-layer.opacity.changed');
+                extTreeGroup.removeListener(this.dispatch.bind(this), 'ol-layer.visibility.changed');
+            }, ['ext-group.removed']
+        );
+
+        mapGroupState.addListener(this.dispatch.bind(this), 'ext-group.added');
+        mapGroupState.addListener(this.dispatch.bind(this), 'ext-group.removed');
     }
 }

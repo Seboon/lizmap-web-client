@@ -9,7 +9,7 @@
 import EventDispatcher from './../../utils/EventDispatcher.js';
 import { LayerConfig } from './../config/Layer.js';
 import { AttributionConfig } from './../config/Attribution.js'
-import { BaseLayerTypes, BaseLayersConfig, BaseLayerConfig, EmptyBaseLayerConfig, XyzBaseLayerConfig, BingBaseLayerConfig, WmtsBaseLayerConfig, WmsBaseLayerConfig } from './../config/BaseLayer.js';
+import { BaseLayerTypes, BaseLayersConfig, BaseLayerConfig, EmptyBaseLayerConfig, XyzBaseLayerConfig, BingBaseLayerConfig, GoogleBaseLayerConfig, WmtsBaseLayerConfig, WmsBaseLayerConfig } from './../config/BaseLayer.js';
 import { LayerVectorState, LayerRasterState, LayerGroupState, LayersAndGroupsCollection } from './Layer.js'
 import { MapLayerLoadStatus } from './MapLayer.js';
 
@@ -31,6 +31,22 @@ export class BaseLayerState extends EventDispatcher {
         this._baseLayerConfig = baseLayerCfg;
         this._itemState = itemState;
         this._loadStatus = MapLayerLoadStatus.Undefined;
+        this._singleWMSLayer = false;
+    }
+
+    /**
+     * Set if the base layer is loaded in a single WMS Layer or not
+     * @param {boolean} val - New single WMS Layer value
+     */
+    set singleWMSLayer(val){
+        this._singleWMSLayer = val;
+    }
+    /**
+     * The base layer is loaded in a single WMS Layer or not
+     * @type {boolean}
+     */
+    get singleWMSLayer(){
+        return this._singleWMSLayer;
     }
 
     /**
@@ -252,6 +268,33 @@ export class BingBaseLayerState extends BaseLayerState {
 }
 
 /**
+ * Class representing a Google base layer state
+ * @class
+ * @augments BaseLayerState
+ */
+export class GoogleBaseLayerState extends BaseLayerState {
+    /**
+     * Create a base layers google state based on the google base layer config
+     * @param {GoogleBaseLayerConfig} baseLayerCfg - the lizmap google base layer config object
+     * @param {LayerRasterState}     [itemState]  - the lizmap google layer layer state
+     */
+    constructor(baseLayerCfg, itemState = null ) {
+        if (baseLayerCfg.type !== BaseLayerTypes.Google) {
+            throw new TypeError('Not an `' + BaseLayerTypes.Google + '` base layer config. Get `' + baseLayerCfg.type + '` type for `' + baseLayerCfg.name + '` base layer!');
+        }
+        super(baseLayerCfg, itemState)
+    }
+
+    /**
+     * The google mapType
+     * @type {string}
+     */
+    get mapType() {
+        return this._baseLayerConfig.mapType;
+    }
+}
+
+/**
  * Class representing an WMTS base layer state
  * @class
  * @augments BaseLayerState
@@ -404,7 +447,7 @@ export class BaseLayersState extends EventDispatcher {
         for (const blConfig of baseLayersCfg.getBaseLayerConfigs()) {
             let itemState = null;
             if (blConfig.hasLayerConfig) {
-                itemState = lgCollection.getLayerOrGroupByName(blConfig.name);
+                itemState = lgCollection.findLayerOrGroupByName(blConfig.name);
             }
             switch(blConfig.type) {
                 case BaseLayerTypes.Empty:
@@ -415,6 +458,9 @@ export class BaseLayersState extends EventDispatcher {
                     break;
                 case BaseLayerTypes.Bing:
                     this._baseLayersMap.set(blConfig.name, new BingBaseLayerState(blConfig, itemState));
+                    break;
+                case BaseLayerTypes.Google:
+                    this._baseLayersMap.set(blConfig.name, new GoogleBaseLayerState(blConfig, itemState));
                     break;
                 case BaseLayerTypes.WMTS:
                     this._baseLayersMap.set(blConfig.name, new WmtsBaseLayerState(blConfig, itemState));

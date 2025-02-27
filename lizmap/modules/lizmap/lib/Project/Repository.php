@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Manage and give access to lizmap configuration.
  *
@@ -11,6 +12,8 @@
  */
 
 namespace Lizmap\Project;
+
+use Lizmap\App\AppContextInterface;
 
 class Repository
 {
@@ -75,11 +78,11 @@ class Repository
      *
      * Do not call it directly. Prefer to call `lizmapServices::getLizmapRepository()` instead.
      *
-     * @param string                          $key        the name of the repository
-     * @param array                           $data       the repository data
-     * @param string                          $varPath    the configuration files folder path
-     * @param \lizmapServices                 $services
-     * @param \Lizmap\App\AppContextInterface $appContext
+     * @param string              $key        the name of the repository
+     * @param array               $data       the repository data
+     * @param string              $varPath    the configuration files folder path
+     * @param \lizmapServices     $services
+     * @param AppContextInterface $appContext
      */
     public function __construct($key, $data, $varPath, $services, $appContext)
     {
@@ -140,7 +143,7 @@ class Repository
     /**
      * Return the value of the Access-Control-Allow-Origin HTTP header.
      *
-     * @param $referer
+     * @param $referer The referer
      *
      * @return string the value of the ACAO header. If empty, the header should not be set.
      */
@@ -152,7 +155,7 @@ class Repository
         }
 
         if (is_string($origins)) {
-            $origins = preg_split('/\\s*,\\s*/', $origins);
+            $origins = preg_split('/\s*,\s*/', $origins);
         }
 
         $refParts = parse_url($referer);
@@ -358,9 +361,11 @@ class Repository
     /**
      * Get the repository projects metadata.
      *
+     * @param bool $checkAcl If the ACL must be checked, according to the current user, default to true
+     *
      * @return ProjectMetadata[]
      */
-    public function getProjectsMetadata()
+    public function getProjectsMetadata($checkAcl = true)
     {
         $data = array();
         $dir = $this->getPath();
@@ -387,9 +392,68 @@ class Repository
                             $keepReference = false;
                             $proj = $this->getProject(substr($qgsFile, 0, -4), $keepReference);
                             // Get the project metadata and add it to the returned object
-                            // only if the authenticated user can access the project
-                            if ($proj != null && $proj->checkAcl()) {
+                            // only if the authenticated user can access the project (or if checkACL is disabled)
+                            if ($proj != null) {
+                                if ($checkAcl && !$proj->checkAcl()) {
+                                    continue;
+                                }
                                 $data[] = $proj->getMetadata();
+                            }
+                        } catch (UnknownLizmapProjectException $e) {
+                            $this->appContext->logException($e, 'error');
+                        } catch (\Exception $e) {
+                            $this->appContext->logException($e, 'error');
+                        }
+                    }
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Get the repository projects main data.
+     *
+     * @return ProjectMainData[]
+     */
+    public function getProjectsMainData()
+    {
+        $data = array();
+        $dir = $this->getPath();
+
+        if (is_dir($dir)) {
+            if ($dh = opendir($dir)) {
+                $cfgFiles = array();
+                $qgsFiles = array();
+                while (($file = readdir($dh)) !== false) {
+                    if (substr($file, -3) == 'cfg') {
+                        $cfgFiles[] = $file;
+                    }
+                    if (substr($file, -3) == 'qgs') {
+                        $qgsFiles[] = $file;
+                    }
+                }
+                closedir($dh);
+
+                $requiredTargetLwcVersion = \jApp::config()->minimumRequiredVersion['lizmapWebClientTargetVersion'];
+                foreach ($qgsFiles as $qgsFile) {
+                    $proj = null;
+                    if (in_array($qgsFile.'.cfg', $cfgFiles)) {
+                        try {
+                            // Get project main data
+                            $proj = new ProjectMainData(
+                                $this->getKey(),
+                                substr($qgsFile, 0, -4),
+                                $this->getPath().$qgsFile,
+                                $requiredTargetLwcVersion,
+                                $this->appContext
+                            );
+                            // $this->getProject(substr($qgsFile, 0, -4), $keepReference);
+                            // Get the project metadata and add it to the returned object
+                            // only if the authenticated user can access the project
+                            if ($proj != null && $proj->getAcl()) {
+                                $data[] = $proj;
                             }
                         } catch (UnknownLizmapProjectException $e) {
                             $this->appContext->logException($e, 'error');

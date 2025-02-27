@@ -2,12 +2,15 @@
 
 namespace Lizmap\Commands;
 
+use Jelix\FakeServerConf\ApacheMod;
+use Jelix\Scripts\ModuleCommandAbstract;
+use Lizmap\CliHelpers\WMTSCache;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class WMTSSeed extends \Jelix\Scripts\ModuleCommandAbstract
+class WMTSSeed extends ModuleCommandAbstract
 {
     protected function configure()
     {
@@ -25,7 +28,6 @@ class WMTSSeed extends \Jelix\Scripts\ModuleCommandAbstract
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'will not generate the cache, only output statistics')
             ->addOption('bbox', null, InputOption::VALUE_REQUIRED, 'bounding box to restrict generation (4 comma separated values)')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'force cache generation even if cache exists')
-
         ;
     }
 
@@ -33,11 +35,11 @@ class WMTSSeed extends \Jelix\Scripts\ModuleCommandAbstract
     {
         $req = new \jClassicRequest();
 
-        $fakeServer = new \Jelix\FakeServerConf\ApacheMod(\jApp::wwwPath(), '/index.php');
+        $fakeServer = new ApacheMod(\jApp::wwwPath(), '/index.php');
         $fakeServer->setHttpRequest($req->getServerURI());
-        $tileMatrixMin = $input->getArgument('TileMatrixMin');
-        $tileMatrixMax = $input->getArgument('TileMatrixMax');
-        if (!(filter_var($tileMatrixMin, FILTER_VALIDATE_INT) && filter_var($tileMatrixMax, FILTER_VALIDATE_INT))) {
+        $tileMatrixMin = filter_var($input->getArgument('TileMatrixMin'), FILTER_VALIDATE_INT);
+        $tileMatrixMax = filter_var($input->getArgument('TileMatrixMax'), FILTER_VALIDATE_INT);
+        if (($tileMatrixMin === false) || ($tileMatrixMax === false)) {
             $output->writeln('<error>TileMatrixMin and TileMatrixMax must be of type int</error>');
 
             return 1;
@@ -47,7 +49,7 @@ class WMTSSeed extends \Jelix\Scripts\ModuleCommandAbstract
 
             return 1;
         }
-        $WMTSCache = new \Lizmap\CliHelpers\WMTSCache(function ($str) use ($output) {$output->writeln($str); });
+        $WMTSCache = new WMTSCache(function ($str) use ($output): void {$output->writeln($str); });
 
         return $WMTSCache->seed(
             $input->getArgument('repository'),

@@ -147,20 +147,26 @@ cache_file_umask=
 [jcache:qgisprojects]
 enabled=1
 ttl=0
-driver=file
+driver=redis_ext
+host=redis
+port=6379
+db=1
 
-;driver=redis_ext
-;host=redis
-;port=6379
-;db=1
+[jcache:acl2db]
+enabled=1
+ttl=0
+driver=redis_ext
+host=redis
+port=6379
+db=2
 
-;[jcache:acl2db]
-;enabled=1
-;driver=redis_ext
-;host=redis
-;port=6379
-;db=2
-;ttl=0
+[jcache:requests]
+enabled=1
+ttl=0
+driver=redis_ext
+host=redis
+port=6379
+db=0
 
 [webdav:default]
 baseUri=http://webdav/

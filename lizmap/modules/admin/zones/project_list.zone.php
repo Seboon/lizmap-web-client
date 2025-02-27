@@ -1,5 +1,9 @@
 <?php
 
+use Jelix\Core\Infos\AppInfos;
+use Lizmap\Project\ProjectMetadata;
+use Lizmap\Server\Server;
+
 /**
  * Construct a list of Lizmap projects.
  *
@@ -34,23 +38,35 @@ class project_listZone extends jZone
         // Loop for each repository and find projects
         $hasInspectionData = false;
         $hasSomeProjectsNotDisplayed = false;
+
+        // Project ACL are checked
+        // But there is an exception for users with lizmap.admin.access or lizmap.admin.server.information.view
+        $serverInfoAccess = (jAcl2::check('lizmap.admin.access') || jAcl2::check('lizmap.admin.server.information.view'));
+
         foreach ($repositories as $r) {
             $lizmapRepository = lizmap::getRepository($r);
             if (!jAcl2::check('lizmap.repositories.view', $r)) {
-                continue;
+                if (!$serverInfoAccess) {
+                    continue;
+                }
             }
             $lizmapViewItem = new lizmapMainViewItem($r, $lizmapRepository->getLabel());
-            $metadata = $lizmapRepository->getProjectsMetadata();
+            $metadata = $lizmapRepository->getProjectsMetadata(false);
             foreach ($metadata as $projectMetadata) {
+                $hasProjectAcl = false;
                 // Do not add the project if the authenticated user
-                // has no access to it
+                // has no access to it (except for an admin)
                 if (!$projectMetadata->getAcl()) {
-                    continue;
+                    if (!$serverInfoAccess) {
+                        continue;
+                    }
+                    $hasProjectAcl = true;
                 }
 
                 // Get the projects data needed for the administration list table
-                /** @var Lizmap\Project\ProjectMetadata $projectItem */
+                /** @var ProjectMetadata $projectItem */
                 $projectItem = $this->getProjectListItem($inspectionDirectoryPath, $projectMetadata);
+                $projectItem['acl_no_access'] = $hasProjectAcl;
 
                 // If one of the projects has inspection data, set the boolean for the whole table
                 if ($projectItem['has_inspection_data']) {
@@ -65,9 +81,14 @@ class project_listZone extends jZone
             }
             $maps[$r] = $lizmapViewItem;
         }
-        $lizmapTargetVersionInt = \jApp::config()->minimumRequiredVersion['lizmapWebClientTargetVersion'];
-        $humanLizmapTargetVersion = substr($lizmapTargetVersionInt, 0, 1);
-        $humanLizmapTargetVersion .= '.'.ltrim(substr($lizmapTargetVersionInt, 2, 1), '');
+        $lizmapTargetVersionInt = jApp::config()->minimumRequiredVersion['lizmapWebClientTargetVersion'];
+        $humanLizmapTargetVersion = substr($lizmapTargetVersionInt, 0, 1);  // Major
+        $humanLizmapTargetVersion .= '.'.ltrim(substr($lizmapTargetVersionInt, 2, 1), ''); // Minor
+
+        $lizmapDesktopInt = jApp::config()->minimumRequiredVersion['lizmapDesktopPlugin'];
+        $lizmapDesktopRecommended = substr($lizmapDesktopInt, 0, 1);  // Major
+        $lizmapDesktopRecommended .= '.'.ltrim(substr($lizmapDesktopInt, 2, 1), '');  // Minor
+        $lizmapDesktopRecommended .= '.'.ltrim(substr($lizmapDesktopInt, 3, 2), '');  // Bugfix
 
         $this->_tpl->assign('mapItems', $maps);
         $this->_tpl->assign('hasInspectionData', $hasInspectionData);
@@ -75,7 +96,7 @@ class project_listZone extends jZone
 
         // Add an warning message when some projects cannot be displayed in LWC
         if ($hasSomeProjectsNotDisplayed) {
-            \jMessage::add(
+            jMessage::add(
                 jLocale::get(
                     'admin~admin.project.error.some.projects.not.displayed',
                     array(jLocale::get('admin~admin.project.modal.title'))
@@ -85,7 +106,7 @@ class project_listZone extends jZone
         }
 
         // Get the server metadata
-        $server = new \Lizmap\Server\Server();
+        $server = new Server();
         $data = $server->getMetadata();
         $serverVersions = array(
             'qgis_server_version' => null,
@@ -106,8 +127,7 @@ class project_listZone extends jZone
             $serverVersions['qgis_server_version_old'] = $this->qgisMajMinHumanVersion($qgisServerVersionInt - $oldQgisVersionDelta - 2);
             $serverVersions['qgis_server_version_next'] = $this->qgisMajMinHumanVersion($qgisServerVersionInt + 2);
             // Lizmap server plugin
-            $lizmapVersion = $data['info']['version'];
-            $serverVersions['lizmap_plugin_server_version'] = $lizmapVersion;
+            $serverVersions['lizmap_plugin_server_version'] = $data['info']['version'];
         }
         $this->_tpl->assign('serverVersions', $serverVersions);
 
@@ -130,9 +150,10 @@ class project_listZone extends jZone
         }
         $this->_tpl->assign('qgisServerOk', $statusQgisServer);
 
-        $lizmapInfo = \Jelix\Core\Infos\AppInfos::load();
+        $lizmapInfo = AppInfos::load();
         $this->_tpl->assign('lizmapVersion', $lizmapInfo->version);
         $this->_tpl->assign('oldQgisVersionDiff', $oldQgisVersionDelta);
+        $this->_tpl->assign('lizmapDesktopRecommended', $lizmapDesktopRecommended);
         // Add the application base path to let the template load the CSS and JS assets
         $basePath = jApp::urlBasePath();
         $this->_tpl->assign('basePath', $basePath);
@@ -142,13 +163,19 @@ class project_listZone extends jZone
      * Get the QGIS project properties which must be displayed
      * in the administration project list table.
      *
-     * @param string                         $inspectionDirectoryPath The path where the inspection files are stored
-     * @param Lizmap\Project\ProjectMetadata $projectMetadata         The QGIS project metadata instance
+     * @param string          $inspectionDirectoryPath The path where the inspection files are stored
+     * @param ProjectMetadata $projectMetadata         The QGIS project metadata instance
      *
      * @return array The QGIS project properties
      */
     private function getProjectListItem($inspectionDirectoryPath, $projectMetadata)
     {
+        $rootRepositories = lizmap::getServices()->getRootRepositories();
+        $repository = lizmap::getRepository($projectMetadata->getRepository())->getOriginalPath();
+        if ($rootRepositories != '' && strpos($repository, $rootRepositories) === 0) {
+            $repository = basename($repository);
+        }
+
         // Build the project properties table
         $projectItem = array(
             'id' => $projectMetadata->getId(),
@@ -160,9 +187,17 @@ class project_listZone extends jZone
                 'view~map:index',
                 array('repository' => $projectMetadata->getRepository(), 'project' => $projectMetadata->getId())
             ),
+            'url_repository' => jUrl::get(
+                'view~default:index',
+                array('repository' => $projectMetadata->getRepository())
+            ),
+            'repository_id' => $repository,
+            'cfg_warnings_count' => $projectMetadata->countProjectCfgWarnings(),
+            'cfg_warnings' => $projectMetadata->projectCfgWarnings(),
             'lizmap_web_client_target_version' => $projectMetadata->getLizmapWebClientTargetVersion(),
             // convert int to string orderable
             'lizmap_plugin_version' => $this->pluginIntVersionToSortableString($projectMetadata->getLizmapPluginVersion()),
+            'lizmap_plugin_update' => $projectMetadata->qgisLizmapPluginUpdateNeeded(),
             'file_time' => $projectMetadata->getFileTime(),
             'layer_count' => $projectMetadata->getLayerCount(),
             'acl_groups' => $projectMetadata->getAclGroups(),
@@ -253,7 +288,7 @@ class project_listZone extends jZone
                 );
             }
         } catch (Exception $e) {
-            \jLog::logEx($e, 'error');
+            jLog::logEx($e, 'error');
 
             return $inspectionData;
         }
@@ -306,6 +341,10 @@ class project_listZone extends jZone
      */
     private function pluginIntVersionToSortableString(string $intVersion): string
     {
+        if ($intVersion == 'master' || $intVersion == 'dev') {
+            return '00.00.00';
+        }
+
         // in some old plugin the version is already human readable
         if (strpos($intVersion, '.') != false) {
             list($majorVersion, $minorVersion, $patchVersion) = explode('.', $intVersion);

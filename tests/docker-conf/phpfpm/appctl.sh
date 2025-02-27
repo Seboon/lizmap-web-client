@@ -112,6 +112,10 @@ function composerInstall() {
 
 }
 
+function composerRun() {
+    composer --working-dir=$ROOTDIR/tests/units/ run $*
+}
+
 function composerUpdate() {
     composer update --prefer-dist --no-progress --no-ansi --no-interaction --working-dir=$APPDIR
     chown -R $APP_USER:$APP_GROUP $APPDIR/vendor $APPDIR/composer.lock
@@ -165,26 +169,26 @@ function launch() {
       composerInstall
     fi
 
-    if [ ! -d "$ROOTDIR/assets/node_modules/" ]; then
+    if [ ! -d "$ROOTDIR/node_modules/" ]; then
       (
-        cd "$ROOTDIR/assets/";
-        npm install
+        cd "$ROOTDIR/";
+        su $APP_USER -c "npm install"
       )
     fi
 
-    cd "$ROOTDIR/assets/";
+    cd "$ROOTDIR/";
     if [[ -z "${CYPRESS_CI}" ]]; then
       (
-        npm run build
+        su $APP_USER -c "npm run build"
       )
     else
       (
-        npm run watch
+        su $APP_USER -c "npm run watch"
       )
     fi
 
     if [ ! -d $APPDIR/lizmap-modules/lizmapdemo ]; then
-        $APPDIR/install/demo.sh install --no-installer
+        su $APP_USER -c "$APPDIR/install/demo.sh install --no-installer"
     fi
 
     launchInstaller
@@ -218,11 +222,13 @@ case $COMMAND in
     script)
         launchScript ${*:2};;
     console)
-        launchConsole ${*:2};;    
+        launchConsole ${*:2};;
     rights)
         setRights;;
     composer_install)
         composerInstall;;
+    composer_run)
+        composerRun ${*:2};;
     composer_update)
         composerUpdate;;
     unittests)

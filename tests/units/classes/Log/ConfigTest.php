@@ -19,7 +19,7 @@ class ConfigTest extends TestCase
         $this->context = new ContextForTests();
     }
 
-    public function getTestModifyData()
+    public static function getTestModifyData()
     {
         $data1 = array(
             'general' => array(
@@ -57,14 +57,14 @@ class ConfigTest extends TestCase
      * @param mixed $newData
      * @param mixed $expectedReturnValue
      */
-    public function testModify($data, $newData, $expectedReturnValue)
+    public function testModify($data, $newData, $expectedReturnValue): void
     {
         $testLizmapLogConfig = new ConfigForTests($data, $this->context, null);
         $this->assertEquals($expectedReturnValue, $testLizmapLogConfig->modifyForTests($newData));
         unset($testLizmapLogConfig);
     }
 
-    public function getTestSaveData()
+    public static function getTestSaveData()
     {
         $data = array(
             'general' => array(
@@ -100,7 +100,7 @@ class ConfigTest extends TestCase
      * @param mixed $changedValue
      * @param mixed $expectedReturnValue
      */
-    public function testSave($data, $expectedData, $changedProp, $changedValue, $expectedReturnValue)
+    public function testSave($data, $expectedData, $changedProp, $changedValue, $expectedReturnValue): void
     {
         $iniFile = __DIR__.'/../../tmp/logConfig.ini.php';
         file_put_contents($iniFile, '');
@@ -118,7 +118,7 @@ class ConfigTest extends TestCase
         unlink($iniFile);
     }
 
-    public function getTestGetLogItemListData()
+    public static function getTestGetLogItemListData()
     {
         $data1 = array(
             'general' => array(),
@@ -156,14 +156,14 @@ class ConfigTest extends TestCase
      * @param mixed $data
      * @param mixed $expectedList
      */
-    public function testGetLogItemList($data, $expectedList)
+    public function testGetLogItemList($data, $expectedList): void
     {
         $testLizmapLogConfig = new Log\Config($data, $this->context, null);
         $list = $testLizmapLogConfig->getLogItemList();
         $this->assertEquals($expectedList, $list);
     }
 
-    public function getTestGetLogItemData()
+    public static function getTestGetLogItemData()
     {
         $data = array(
             'general' => array(),
@@ -196,7 +196,7 @@ class ConfigTest extends TestCase
      * @param mixed $key
      * @param mixed $valid
      */
-    public function testGetLogItem($data, $key, $valid)
+    public function testGetLogItem($data, $key, $valid): void
     {
         $testLizmapLogConfig = new Log\Config($data, $this->context, null);
         $item = $testLizmapLogConfig->getLogItem($key);

@@ -1,4 +1,4 @@
-name: "⏰ End2end"
+name: "⏰ End2end scheduler"
 on:
   workflow_dispatch:
   schedule:
@@ -16,14 +16,14 @@ jobs:
           event-type: run-e2e-branches
           client-payload: '{"branch": "master"}'
 
-      - name: Branch 3.7
+      - name: Branch 3.9
         uses: peter-evans/repository-dispatch@v3
         with:
           event-type: run-e2e-branches
-          client-payload: '{"branch": "release_3_7"}'
+          client-payload: '{"branch": "release_3_9"}'
 
-      - name: Branch 3.6
+      - name: Branch 3.8
         uses: peter-evans/repository-dispatch@v3
         with:
           event-type: run-e2e-branches
-          client-payload: '{"branch": "release_3_6"}'
+          client-payload: '{"branch": "release_3_8"}'

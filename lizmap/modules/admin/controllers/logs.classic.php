@@ -1,4 +1,7 @@
 <?php
+
+use Lizmap\App\FileTools;
+
 /**
  * Lizmap administration : logs.
  *
@@ -45,18 +48,22 @@ class logsCtrl extends jController
         $conditions = jDao::createConditions();
         $detailNumber = $dao->countBy($conditions);
 
-        // Get last error log
-        $logPath = jApp::logPath('lizmap-admin.log');
+        // Number of lines for logs
+        $maxLinesToFetch = 200;
+
+        // Get last admin log
+        $lizmapLogPath = jApp::logPath('lizmap-admin.log');
+        $lizmapLog = FileTools::tail($lizmapLogPath, $maxLinesToFetch);
+        $lizmapLogTextArea = $this->logLinesDisplayTextArea($lizmapLog);
+
+        $errorLogDisplay = !lizmap::getServices()->hideSensitiveProperties();
+        $errorLogPath = jApp::logPath('errors.log');
         $errorLog = '';
-        $lines = 50;
-        if (is_file($logPath)) {
-            // Only display content if the file is small to avoid memory issues
-            if (filesize($logPath) > 512000) {
-                $errorLog = 'toobig';
-            } else {
-                $errorLog = trim(implode('', array_slice(file($logPath), -$lines)));
-                $errorLog = htmlentities($errorLog);
-            }
+        $errorLogTextArea = '';
+        if ($errorLogDisplay) {
+            // Get last error log
+            $errorLog = FileTools::tail($errorLogPath, $maxLinesToFetch);
+            $errorLogTextArea = $this->logLinesDisplayTextArea($errorLog);
         }
 
         // Display content via templates
@@ -64,13 +71,47 @@ class logsCtrl extends jController
         $assign = array(
             'counterNumber' => $counterNumber,
             'detailNumber' => $detailNumber,
+            'lizmapLog' => $lizmapLog,
+            'lizmapLogBaseName' => basename($lizmapLogPath),
+            'lizmapLogTextArea' => $lizmapLogTextArea,
+            'errorLogDisplay' => $errorLogDisplay,
             'errorLog' => $errorLog,
+            'errorLogBaseName' => basename($errorLogPath),
+            'errorLogTextArea' => $errorLogTextArea,
         );
         $tpl->assign($assign);
         $rep->body->assign('MAIN', $tpl->fetch('logs_view'));
         $rep->body->assign('selectedMenuItem', 'lizmap_logs');
 
         return $rep;
+    }
+
+    /**
+     * Compute the height of the text area to use by default.
+     *
+     * @param string $log the log content
+     *
+     * @return int the number of lines for the text area
+     */
+    private function logLinesDisplayTextArea($log)
+    {
+        $maxLinesTextArea = 30;
+        $minLinesTextArea = 10;
+
+        $numberLines = substr_count($log, "\n");
+
+        if ($numberLines < $minLinesTextArea) {
+            // Log file < 10
+            return $minLinesTextArea;
+        }
+
+        if ($numberLines < $maxLinesTextArea) {
+            // 10 <= log file < 30
+            return $numberLines;
+        }
+
+        // log file >= 30
+        return $maxLinesTextArea;
     }
 
     /**

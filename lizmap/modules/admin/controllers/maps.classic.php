@@ -1,4 +1,9 @@
 <?php
+
+use Jelix\FileUtilities\Path;
+use Lizmap\Project\UnknownLizmapProjectException;
+use Lizmap\Request\Proxy;
+
 /**
  * Lizmap administration.
  *
@@ -368,6 +373,9 @@ class mapsCtrl extends jController
         /** @var jResponseRedirect $rep */
         $rep = $this->getResponse('redirect');
         $rep->action = 'admin~maps:index';
+        if ($lizmapRep) {
+            $rep->anchor = $lizmapRep->getKey();
+        }
 
         return $rep;
     }
@@ -415,6 +423,9 @@ class mapsCtrl extends jController
             /** @var jResponseRedirect $rep */
             $rep = $this->getResponse('redirect');
             $rep->action = 'admin~maps:index';
+            if (!$new) {
+                $rep->anchor = $repository;
+            }
 
             return $rep;
         }
@@ -452,9 +463,9 @@ class mapsCtrl extends jController
             }
             $rootRepositories = $services->getRootRepositories();
             if ($rootRepositories != '') {
-                $fullPath = \Jelix\FileUtilities\Path::normalizePath(
+                $fullPath = Path::normalizePath(
                     $npath,
-                    \Jelix\FileUtilities\Path::NORM_ADD_TRAILING_SLASH
+                    Path::NORM_ADD_TRAILING_SLASH
                 );
                 if ($lizmapRep) {
                     $lizmapRepPath = $lizmapRep->getPath();
@@ -592,7 +603,7 @@ class mapsCtrl extends jController
             /** @var jResponseRedirect $rep */
             $rep = $this->getResponse('redirect');
             // undefined form : redirect
-            $rep->action = 'admin~config:index';
+            $rep->action = 'admin~maps:index';
 
             return $rep;
         }
@@ -601,6 +612,7 @@ class mapsCtrl extends jController
         $rep = $this->getResponse('redirect');
         // Redirect to the index
         $rep->action = 'admin~maps:index';
+        $rep->anchor = $repository;
 
         return $rep;
     }
@@ -644,7 +656,7 @@ class mapsCtrl extends jController
     public function removeCache()
     {
         $repository = $this->param('repository');
-        $repoKey = \Lizmap\Request\Proxy::clearCache(lizmap::getRepository($repository));
+        $repoKey = Proxy::clearCache(lizmap::getRepository($repository));
         if ($repoKey) {
             jMessage::add(jLocale::get('admin~admin.cache.repository.removed', array($repoKey)));
         }
@@ -694,12 +706,12 @@ class mapsCtrl extends jController
             $lproj->clearCache();
 
             // Remove the cache for the layer
-            \Lizmap\Request\Proxy::clearLayerCache($repository, $project, $layer);
+            Proxy::clearLayerCache($repository, $project, $layer);
 
             jMessage::add(jLocale::get('admin~admin.cache.layer.removed', array($layer)));
 
             return $rep;
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             jLog::logEx($e, 'error');
             jMessage::add('The lizmap project '.$project.' does not exist !', 'error');
 

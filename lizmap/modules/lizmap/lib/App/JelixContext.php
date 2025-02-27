@@ -1,4 +1,5 @@
 <?php
+
 /**
  * app context informations inside a Jelix environment.
  *
@@ -321,17 +322,14 @@ class JelixContext implements AppContextInterface
         return \jDao::createRecord($dao, $profile);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function createJelixForm($formSel, $formId = null)
     {
         return \jForms::create($formSel, $formId);
     }
 
-    public function getUrl($selector)
+    public function getUrl($selector, $params = array())
     {
-        return \jUrl::get($selector);
+        return \jUrl::get($selector, $params);
     }
 
     public function getFullUrl($selector, $params = array())

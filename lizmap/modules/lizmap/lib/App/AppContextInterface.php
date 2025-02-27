@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Interface for app context informations.
  *
@@ -11,6 +12,8 @@
  */
 
 namespace Lizmap\App;
+
+use Lizmap\Project\Project;
 
 /**
  * Interface that will be implemented to get Jelix infos so
@@ -269,8 +272,9 @@ interface AppContextInterface
      * Returns the URL corresponding to the Jelix Selector.
      *
      * @param string $selector The Jelix selector
+     * @param mixed  $params   action params
      */
-    public function getUrl($selector);
+    public function getUrl($selector, $params = array());
 
     /**
      * Returns the absolute Url.
@@ -309,7 +313,7 @@ interface AppContextInterface
     /**
      * Calls the lizmapTiler::getTileCapabilities method.
      *
-     * @param \Lizmap\Project\Project $project
+     * @param Project $project
      */
     public function getTileCaps($project);
 }

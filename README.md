@@ -1,4 +1,4 @@
-# [![logo](icon.png "3Liz")][3liz]Lizmap Web Application 3.8.0-pre
+# [![logo](icon.png "3Liz")][3liz]Lizmap Web Application 3.10.0-pre
 
 [![Unit tests 🎳](https://github.com/3liz/lizmap-web-client/actions/workflows/tests.yml/badge.svg)](https://github.com/3liz/lizmap-web-client/actions/workflows/tests.yml)
 [![Lint](https://github.com/3liz/lizmap-web-client/actions/workflows/lint.yml/badge.svg)](https://github.com/3liz/lizmap-web-client/actions/workflows/lint.yml)
@@ -8,7 +8,7 @@
 Lizmap web application, by 3LIZ.
 
     begin       : 2011-11-01
-    copyright   : (C) 2011-2023 by 3liz
+    copyright   : (C) 2011-2025 by 3liz
     authors     : René-Luc D'Hont and Michaël Douchin
     email       : info@3liz.com
     website     : http://www.3liz.com
@@ -46,7 +46,7 @@ web-browsers etc.
 * Layer tree
   * Enable and disable layers and groups
   * Change layer opacity
-  * Layer Popup 
+  * Layer Popup
 
 ## Documentation and customization
 

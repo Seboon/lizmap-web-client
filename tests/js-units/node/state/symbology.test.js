@@ -2,8 +2,9 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { ValidationError } from '../../../../assets/src/modules/Errors.js';
-import { base64png, base64pngNullData, BaseIconSymbology, LayerIconSymbology, SymbolIconSymbology, SymbolRuleSymbology, BaseSymbolsSymbology, LayerSymbolsSymbology, LayerGroupSymbology, buildLayerSymbology } from '../../../../assets/src/modules/state/Symbology.js';
+import { ValidationError } from 'assets/src/modules/Errors.js';
+import { base64png, base64pngNullData } from 'assets/src/modules/state/SymbologyIcons.js';
+import { BaseIconSymbology, LayerIconSymbology, SymbolIconSymbology, SymbolRuleSymbology, BaseSymbolsSymbology, LayerSymbolsSymbology, LayerGroupSymbology, buildLayerSymbology } from 'assets/src/modules/state/Symbology.js';
 
 describe('BaseIconSymbology', function () {
     it('Simple', function () {
@@ -14,6 +15,7 @@ describe('BaseIconSymbology', function () {
         expect(icon).to.be.instanceOf(BaseIconSymbology)
         expect(icon.icon).to.have.string(base64png)
         expect(icon.title).to.be.eq('category 1')
+        expect(icon.type).to.be.eq('icon')
     })
 
     it('Null data icon', function () {
@@ -25,6 +27,7 @@ describe('BaseIconSymbology', function () {
         expect(icon.icon).to.have.string(base64pngNullData)
         expect(icon.icon).to.be.eq(base64png+base64pngNullData)
         expect(icon.title).to.be.eq('Null data')
+        expect(icon.type).to.be.eq('icon')
     })
 
     it('ValidationError', function () {
@@ -34,7 +37,7 @@ describe('BaseIconSymbology', function () {
             })
         } catch(error) {
             expect(error.name).to.be.eq('ValidationError')
-            expect(error.message).to.be.eq('The cfg object has not enough properties compared to required!\n- The cfg properties: icon\n- The required properties: icon,title')
+            expect(error.message).to.be.eq('The properties: `title` are required in the cfg object!')
             expect(error).to.be.instanceOf(ValidationError)
         }
     })
@@ -53,6 +56,7 @@ describe('LayerIconSymbology', function () {
         expect(icon.icon).to.have.string(base64png)
         expect(icon.title).to.be.eq('layer_legend_single_symbol')
         expect(icon.name).to.be.eq('layer_legend_single_symbol')
+        expect(icon.type).to.be.eq('layer')
     })
 
     it('Failing type', function () {
@@ -96,6 +100,7 @@ describe('SymbolIconSymbology', function () {
             .that.be.instanceOf(SymbolIconSymbology)
         expect(icon.icon).to.have.string(base64png)
         expect(icon.title).to.be.eq('category 1')
+        expect(icon.type).to.be.eq('icon')
         expect(icon.ruleKey).to.be.eq('0')
         expect(icon.checked).to.be.true
     })
@@ -113,28 +118,29 @@ describe('SymbolIconSymbology', function () {
         expect(icon.icon).to.have.string(base64png)
         expect(icon.icon).to.have.string(base64pngNullData)
         expect(icon.title).to.be.eq('1:25000')
+        expect(icon.type).to.be.eq('icon')
         expect(icon.ruleKey).to.be.eq('{1a0c9345-0ffd-4743-bf78-82ca39f64d40}')
         expect(icon.checked).to.be.true
     })
 
     it('Event', function () {
-        it('Valid', function () {
-            const icon = new SymbolIconSymbology({
-                "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q9YelkMRC7Zl+I\/LMKyC2AxBGPYIq8uYcLmIVDBEDLp79y5jsO0jkgwiKfphlpBkwyigPgAATTcaN5pMVDUAAAAASUVORK5CYII=",
-                "title":"category 1",
-                "ruleKey":"0",
-                "checked":true
-            })
-            expect(icon).to.be.instanceOf(SymbolIconSymbology)
-            let symbologyChangedEvt = null;
-            icon.addListener(evt => {
-                symbologyChangedEvt = evt
-            }, 'symbol.checked.changed');
-            expect(symbologyChangedEvt).to.not.be.null
-            expect(symbologyChangedEvt.title).to.be.eq('category 1')
-            expect(symbologyChangedEvt.ruleKey).to.be.eq('0')
-            expect(symbologyChangedEvt.checked).to.be.true
+        const icon = new SymbolIconSymbology({
+            "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q9YelkMRC7Zl+I\/LMKyC2AxBGPYIq8uYcLmIVDBEDLp79y5jsO0jkgwiKfphlpBkwyigPgAATTcaN5pMVDUAAAAASUVORK5CYII=",
+            "title":"category 1",
+            "ruleKey":"0",
+            "checked":true
         })
+        expect(icon).to.be.instanceOf(SymbolIconSymbology)
+        expect(icon.checked).to.be.true
+        let symbologyChangedEvt = null;
+        icon.addListener(evt => {
+            symbologyChangedEvt = evt
+        }, 'symbol.checked.changed');
+        icon.checked = false
+        expect(symbologyChangedEvt).to.not.be.null
+        expect(symbologyChangedEvt.title).to.be.eq('category 1')
+        expect(symbologyChangedEvt.ruleKey).to.be.eq('0')
+        expect(symbologyChangedEvt.checked).to.be.false
     })
 
     it('Failing required properties', function () {
@@ -165,6 +171,7 @@ describe('SymbolRuleSymbology', function () {
             .that.be.instanceOf(SymbolRuleSymbology)
         expect(icon.icon).to.have.string(base64png)
         expect(icon.title).to.be.eq('category 1')
+        expect(icon.type).to.be.eq('rule')
         expect(icon.ruleKey).to.be.eq('0')
         expect(icon.checked).to.be.true
         expect(icon.minScaleDenominator).to.be.eq(-1)
@@ -187,6 +194,7 @@ describe('SymbolRuleSymbology', function () {
             .to.have.string(base64png)
             .that.have.string(base64pngNullData)
         expect(icon.title).to.be.eq('1:25000')
+        expect(icon.type).to.be.eq('rule')
         expect(icon.ruleKey).to.be.eq('{1a0c9345-0ffd-4743-bf78-82ca39f64d40}')
         expect(icon.checked).to.be.true
         expect(icon.minScaleDenominator).to.be.eq(-1)
@@ -243,6 +251,8 @@ describe('BaseSymbolsSymbology', function () {
         })
         expect(symbols).to.be.instanceOf(BaseSymbolsSymbology)
         expect(symbols.title).to.be.eq('hide_at_startup')
+        expect(symbols.type).to.be.eq('layer')
+        expect(symbols.expanded).to.be.false
         expect(symbols.childrenCount).to.be.eq(2)
         expect(symbols.children).to.be.an('array').that.have.lengthOf(2)
 
@@ -253,6 +263,33 @@ describe('BaseSymbolsSymbology', function () {
         const symbolsGetChildren = symbols.getChildren()
         expect(symbolsGetChildren.next().value).to.be.instanceOf(BaseIconSymbology).that.be.eq(symbolsChildren[0])
         expect(symbolsGetChildren.next().value).to.be.instanceOf(BaseIconSymbology).that.be.eq(symbolsChildren[1])
+    })
+
+    it('Event', function () {
+        const symbols = new BaseSymbolsSymbology({
+            "symbols":[{
+                "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q9YelkMRC7Zl+I\/LMKyC2AxBGPYIq8uYcLmIVDBEDLp79y5jsO0jkgwiKfphlpBkwyigPgAATTcaN5pMVDUAAAAASUVORK5CYII=",
+                "title":"category 1"
+            },{
+                "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q4Q2HkUV9Lf+j8swrIJYDYGCd\/7WWF3GhMtFpIIhYtDdu3cZ3\/lbk2QQSdEPs4QkG0YB9QEAMC8aMZ0a06cAAAAASUVORK5CYII=",
+                "title":"category 2"
+            }],
+            "title":"hide_at_startup",
+            "type":"layer"
+        })
+        expect(symbols).to.be.instanceOf(BaseSymbolsSymbology)
+        expect(symbols.expanded).to.be.false
+
+        let expandedChangedEvt = null;
+        symbols.addListener(evt => {
+            expandedChangedEvt = evt
+        }, 'symbol.expanded.changed');
+        symbols.expanded = true;
+
+        expect(expandedChangedEvt).to.not.be.null
+        expect(expandedChangedEvt.title).to.be.eq('hide_at_startup')
+        expect(expandedChangedEvt.symbolType).to.be.eq('layer')
+        expect(expandedChangedEvt.expanded).to.be.true
     })
 
     it('Failing required properties', function () {
@@ -292,6 +329,8 @@ describe('LayerSymbolsSymbology', function () {
         expect(symbology).to.be.instanceOf(LayerSymbolsSymbology)
         expect(symbology.title).to.be.eq('layer_legend_categorized')
         expect(symbology.name).to.be.eq('layer_legend_categorized')
+        expect(symbology.type).to.be.eq('layer')
+        expect(symbology.expanded).to.be.false
         expect(symbology.legendOn).to.be.true
         expect(symbology.childrenCount).to.be.eq(2)
         expect(symbology.children).to.be.an('array').that.have.lengthOf(2)
@@ -336,7 +375,7 @@ describe('LayerSymbolsSymbology', function () {
     })
 
     it('RuleRenderer', function () {
-        const legend = JSON.parse(readFileSync('./data/quickosm-road-legend.json', 'utf8'));
+        const legend = JSON.parse(readFileSync('./tests/js-units/data/quickosm-road-legend.json', 'utf8'));
         expect(legend).to.not.be.undefined
         expect(legend.nodes).to.be.an('array').that.have.length(1)
 
@@ -345,6 +384,8 @@ describe('LayerSymbolsSymbology', function () {
         expect(symbology).to.be.instanceOf(LayerSymbolsSymbology)
         expect(symbology.title).to.be.eq('road')
         expect(symbology.name).to.be.eq('road')
+        expect(symbology.type).to.be.eq('layer')
+        expect(symbology.expanded).to.be.false
         expect(symbology.legendOn).to.be.true
         expect(symbology.childrenCount).to.be.eq(3)
         expect(symbology.children).to.be.an('array').that.have.length(3)
@@ -355,10 +396,12 @@ describe('LayerSymbolsSymbology', function () {
             .that.be.instanceOf(SymbolIconSymbology)
             .that.be.instanceOf(SymbolRuleSymbology)
         expect(symbologyChildren[0].title).to.be.eq('1:25000')
+        expect(symbologyChildren[0].type).to.be.eq('rule')
         expect(symbologyChildren[0].minScaleDenominator).to.be.eq(1)
         expect(symbologyChildren[0].maxScaleDenominator).to.be.eq(25000)
         expect(symbologyChildren[0].checked).to.be.true
         expect(symbologyChildren[0].legendOn).to.be.true
+        expect(symbologyChildren[0].expanded).to.be.false
         expect(symbologyChildren[0].childrenCount).to.be.eq(10)
         expect(symbologyChildren[0].children).to.be.an('array').that.have.length(10)
         const symbologyChildrenFirstChildren = symbologyChildren[0].children
@@ -367,12 +410,14 @@ describe('LayerSymbolsSymbology', function () {
             .that.be.instanceOf(SymbolIconSymbology)
             .that.be.instanceOf(SymbolRuleSymbology)
         expect(symbologyChildrenFirstChildren[0].title).to.be.eq('Motorway Link')
+        expect(symbologyChildrenFirstChildren[0].type).to.be.eq('rule')
         expect(symbologyChildrenFirstChildren[0].minScaleDenominator).to.be.eq(-1)
         expect(symbologyChildrenFirstChildren[0].maxScaleDenominator).to.be.eq(-1)
         expect(symbologyChildrenFirstChildren[0].checked).to.be.true
         expect(symbologyChildrenFirstChildren[0].parentRule).to.not.be.null
         expect(symbologyChildrenFirstChildren[0].parentRule.legendOn).to.be.true
         expect(symbologyChildrenFirstChildren[0].legendOn).to.be.true
+        expect(symbologyChildrenFirstChildren[0].expanded).to.be.false
         expect(symbologyChildrenFirstChildren[0].childrenCount).to.be.eq(0)
         expect(symbologyChildrenFirstChildren[0].children).to.be.an('array').that.have.length(0)
         expect(symbologyChildren[1])
@@ -380,10 +425,12 @@ describe('LayerSymbolsSymbology', function () {
             .that.be.instanceOf(SymbolIconSymbology)
             .that.be.instanceOf(SymbolRuleSymbology)
         expect(symbologyChildren[1].title).to.be.eq('25k to 50k')
+        expect(symbologyChildren[1].type).to.be.eq('rule')
         expect(symbologyChildren[1].minScaleDenominator).to.be.eq(25001)
         expect(symbologyChildren[1].maxScaleDenominator).to.be.eq(50000)
         expect(symbologyChildren[1].checked).to.be.true
         expect(symbologyChildren[1].legendOn).to.be.true
+        expect(symbologyChildren[1].expanded).to.be.false
         expect(symbologyChildren[1].childrenCount).to.be.eq(1)
         expect(symbologyChildren[1].children).to.be.an('array').that.have.length(1)
         expect(symbologyChildren[2])
@@ -391,10 +438,12 @@ describe('LayerSymbolsSymbology', function () {
             .that.be.instanceOf(SymbolIconSymbology)
             .that.be.instanceOf(SymbolRuleSymbology)
         expect(symbologyChildren[2].title).to.be.eq('50k +')
+        expect(symbologyChildren[2].type).to.be.eq('rule')
         expect(symbologyChildren[2].minScaleDenominator).to.be.eq(50001)
         expect(symbologyChildren[2].maxScaleDenominator).to.be.eq(10000000)
         expect(symbologyChildren[2].checked).to.be.true
         expect(symbologyChildren[2].legendOn).to.be.true
+        expect(symbologyChildren[2].expanded).to.be.false
         expect(symbologyChildren[2].childrenCount).to.be.eq(3)
         expect(symbologyChildren[2].children).to.be.an('array').that.have.length(3)
 
@@ -441,6 +490,9 @@ describe('LayerSymbolsSymbology', function () {
         expect(symbologyChildren[1].legendOn).to.be.true
         expect(symbologyChildren[2].legendOn).to.be.true
         expect(symbology.legendOn).to.be.true
+        // No legend parameter because every legend is ON
+        expect(symbology.wmsParameters('road').LEGEND_ON).to.be.undefined
+        expect(symbology.wmsParameters('road').LEGEND_OFF).to.be.undefined
         expect(symbology.wmsParameters('road')).to.be.an('object').that.be.deep.eq({})
 
         symbologyChildrenFirstChildren[0].checked = false
@@ -539,6 +591,57 @@ describe('LayerSymbolsSymbology', function () {
         .and.to.not.contains("{a9fac601-7bc7-4150-9783-19d7827b2ef8}")
     })
 
+    it('RuleRenderer mixed', function () {
+        // It is a RuleRenderer with only one rule in the QGIS User interface
+        const symbology = new LayerSymbolsSymbology({
+            "symbols": [
+                {
+                    "icon": "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAASklEQVQ4jWNgGAWEACM2QWVl5f/4NN29exdDH4YAIUNwGcaCS+GdO3e2YBNXUVHxwSbORIztxIBRgwgDnLGGK3ZwAaolyFFAGAAAD9sQzpjSF7wAAAAASUVORK5CYII=",
+                    "title": "Covoiturage",
+                    "ruleKey": "{8457ada1-6ca6-4fc0-b47b-7597a8084cbf}",
+                    "checked": true,
+                    "parentRuleKey": "{c335718f-d733-41bf-bccd-d85f5f37f135}",
+                    "expression": " \"dess_regul\" = 'st1' "
+                },
+                {
+                    "icon": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAADElEQVQImWNgIB0AAAA0AAEjQ4N1AAAAAElFTkSuQmCC",
+                    "title": ""
+                }
+            ],
+            "title": "Arrêts star't",
+            "type": "layer",
+            "name": "arrets_start",
+            "layerName": "Arrêts star't"
+        })
+        expect(symbology).to.be.instanceOf(BaseSymbolsSymbology)
+        expect(symbology).to.be.instanceOf(LayerSymbolsSymbology)
+        expect(symbology.title).to.be.eq('Arrêts star\'t')
+        expect(symbology.name).to.be.eq('arrets_start')
+        expect(symbology.type).to.be.eq('layer')
+        expect(symbology.expanded).to.be.false
+        expect(symbology.legendOn).to.be.true
+        // Only 1 available children like in QGIS User Interface
+        expect(symbology.childrenCount).to.be.eq(1)
+        expect(symbology.children).to.be.an('array').that.have.lengthOf(1)
+        // No legend parameter because every legend is ON or OFF
+        expect(symbology.wmsParameters('arrets_start').LEGEND_ON).to.be.undefined
+        expect(symbology.wmsParameters('arrets_start').LEGEND_OFF).to.be.undefined
+        expect(symbology.wmsParameters('arrets_start')).to.be.an('object').that.be.deep.eq({})
+
+        // We found 2 private icons like in the JSON
+        expect(symbology._icons).to.be.an('array').that.have.lengthOf(2)
+        // The first is the available child
+        expect(symbology._icons[0].ruleKey).to.be.eq('{8457ada1-6ca6-4fc0-b47b-7597a8084cbf}')
+        expect(symbology._icons[0].title).to.be.eq('Covoiturage')
+        expect(symbology._icons[0].parentRuleKey).to.be.eq('{c335718f-d733-41bf-bccd-d85f5f37f135}')
+        expect(symbology._icons[0].parentRule).to.be.null
+        // The second is the unavailable child
+        expect(symbology._icons[1].ruleKey).to.be.eq('')
+        expect(symbology._icons[1].title).to.be.eq('')
+        expect(symbology._icons[1].parentRuleKey).to.be.eq('')
+        expect(symbology._icons[1].parentRule).to.be.null
+    })
+
     it('Failing required properties', function () {
         try {
             new LayerSymbolsSymbology({
@@ -601,6 +704,7 @@ describe('LayerGroupSymbology', function () {
         expect(symbology).to.be.instanceOf(LayerGroupSymbology)
         expect(symbology.title).to.be.eq('legend_option_test')
         expect(symbology.name).to.be.eq('legend_option_test')
+        expect(symbology.type).to.be.eq('group')
         expect(symbology.childrenCount).to.be.eq(3)
         expect(symbology.children).to.be.an('array').that.have.lengthOf(3)
 
@@ -614,6 +718,62 @@ describe('LayerGroupSymbology', function () {
         expect(symbologyGetChildren.next().value).to.be.instanceOf(BaseSymbolsSymbology).that.be.eq(symbologyChildren[1])
         expect(symbologyGetChildren.next().value).to.be.instanceOf(BaseSymbolsSymbology).that.be.eq(symbologyChildren[2])
     })
+
+    it('Event', function () {
+        const symbology = new LayerGroupSymbology({
+            "nodes":[{
+                "symbols":[{
+                    "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q9YelkMRC7Zl+I\/LMKyC2AxBGPYIq8uYcLmIVDBEDLp79y5jsO0jkgwiKfphlpBkwyigPgAATTcaN5pMVDUAAAAASUVORK5CYII=",
+                    "title":"category 1"
+                },{
+                    "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q4Q2HkUV9Lf+j8swrIJYDYGCd\/7WWF3GhMtFpIIhYtDdu3cZ3\/lbk2QQSdEPs4QkG0YB9QEAMC8aMZ0a06cAAAAASUVORK5CYII=",
+                    "title":"category 2"
+                }],
+                "title":"expand_at_startup",
+                "type":"layer"
+            },{
+                "symbols":[{
+                    "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q9YelkMRC7Zl+I\/LMKyC2AxBGPYIq8uYcLmIVDBEDLp79y5jsO0jkgwiKfphlpBkwyigPgAATTcaN5pMVDUAAAAASUVORK5CYII=",
+                    "title":"category 1"
+                },{
+                    "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q4Q2HkUV9Lf+j8swrIJYDYGCd\/7WWF3GhMtFpIIhYtDdu3cZ3\/lbk2QQSdEPs4QkG0YB9QEAMC8aMZ0a06cAAAAASUVORK5CYII=",
+                    "title":"category 2"
+                }],
+                "title":"disabled",
+                "type":"layer"
+            },{
+                "symbols":[{
+                    "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q9YelkMRC7Zl+I\/LMKyC2AxBGPYIq8uYcLmIVDBEDLp79y5jsO0jkgwiKfphlpBkwyigPgAATTcaN5pMVDUAAAAASUVORK5CYII=",
+                    "title":"category 1"
+                },{
+                    "icon":"iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAAU0lEQVQ4jWNgGAV0A4z4JJWVlf8j8+\/evYtTPQs+Q4Q2HkUV9Lf+j8swrIJYDYGCd\/7WWF3GhMtFpIIhYtDdu3cZ3\/lbk2QQSdEPs4QkG0YB9QEAMC8aMZ0a06cAAAAASUVORK5CYII=",
+                    "title":"category 2"
+                }],
+                "title":"hide_at_startup",
+                "type":"layer"
+            }],
+            "type":"group",
+            "name":"legend_option_test",
+            "title":"legend_option_test"
+        })
+        expect(symbology).to.be.instanceOf(LayerGroupSymbology)
+        expect(symbology.childrenCount).to.be.eq(3)
+
+        let expandedChangedEvt = null;
+        symbology.addListener(evt => {
+            expandedChangedEvt = evt
+        }, 'symbol.expanded.changed');
+
+        const symbologyChildren = symbology.children
+        expect(symbologyChildren[1].expanded).to.be.false
+        symbologyChildren[1].expanded = true;
+
+        expect(expandedChangedEvt).to.not.be.null
+        expect(expandedChangedEvt.title).to.be.eq('disabled')
+        expect(expandedChangedEvt.symbolType).to.be.eq('layer')
+        expect(expandedChangedEvt.expanded).to.be.true
+    })
+
 
     it('Failing type', function () {
         try {
@@ -679,6 +839,7 @@ describe('buildLayerSymbology', function () {
         expect(icon.icon).to.have.string(base64png)
         expect(icon.title).to.be.eq('layer_legend_single_symbol')
         expect(icon.name).to.be.eq('layer_legend_single_symbol')
+        expect(icon.type).to.be.eq('layer')
     })
 
     it('LayerSymbolsSymbology', function () {
@@ -702,6 +863,8 @@ describe('buildLayerSymbology', function () {
         expect(symbology).to.be.instanceOf(LayerSymbolsSymbology)
         expect(symbology.title).to.be.eq('layer_legend_categorized')
         expect(symbology.name).to.be.eq('layer_legend_categorized')
+        expect(symbology.type).to.be.eq('layer')
+        expect(symbology.expanded).to.be.false
         expect(symbology.childrenCount).to.be.eq(2)
         expect(symbology.children).to.be.an('array').that.have.lengthOf(2)
 
@@ -754,6 +917,7 @@ describe('buildLayerSymbology', function () {
         expect(symbology).to.be.instanceOf(LayerGroupSymbology)
         expect(symbology.title).to.be.eq('legend_option_test')
         expect(symbology.name).to.be.eq('legend_option_test')
+        expect(symbology.type).to.be.eq('group')
         expect(symbology.childrenCount).to.be.eq(3)
         expect(symbology.children).to.be.an('array').that.have.lengthOf(3)
 

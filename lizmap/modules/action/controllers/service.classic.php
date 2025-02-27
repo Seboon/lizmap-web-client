@@ -1,4 +1,7 @@
 <?php
+
+use Lizmap\Project\UnknownLizmapProjectException;
+
 /**
  * PHP proxy to execute action request.
  *
@@ -42,7 +45,7 @@ class serviceCtrl extends jController
 
                 return $this->error($errors);
             }
-        } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+        } catch (UnknownLizmapProjectException $e) {
             $errors = array(
                 'title' => 'Wrong repository and project !',
                 'detail' => 'The lizmap project '.strtoupper($project).' does not exist !',
@@ -54,7 +57,7 @@ class serviceCtrl extends jController
         // Redirect if the user has no right to access this repository
         if (!$lizmapProject->checkAcl()) {
             $errors = array(
-                'title' => 'Access forbiden',
+                'title' => 'Access forbidden',
                 'detail' => jLocale::get('view~default.repository.access.denied'),
             );
 
@@ -78,7 +81,7 @@ class serviceCtrl extends jController
         if (!$action) {
             $errors = array(
                 'title' => 'Action unknown',
-                'detail' => 'The action named '.$actionName.' does not exist in the config file for this layer: '.$layerId .' !',
+                'detail' => 'The action named '.$actionName.' does not exist in the config file for this layer: '.$layerId.' !',
             );
 
             return $this->error($errors);
@@ -102,7 +105,6 @@ class serviceCtrl extends jController
 
             return $this->error($errors);
         }
-
 
         // Check the layer does exists in the given project
         // If we find a layer, we override the PostgreSQL database connexion
@@ -140,16 +142,16 @@ class serviceCtrl extends jController
         // Check also the map center and extent (must be valid WKT)
         $wktParameters = array('wkt', 'mapCenter', 'mapExtent');
         $wkt = $mapCenter = $mapExtent = '';
-        foreach($wktParameters as $paramName) {
+        foreach ($wktParameters as $paramName) {
             $value = trim($this->param($paramName, ''));
             ${$paramName} = $value;
-            if (!empty($value) && \lizmapWkt::check($value)) {
-                $geom = \lizmapWkt::parse($value);
+            if (!empty($value) && lizmapWkt::check($value)) {
+                $geom = lizmapWkt::parse($value);
                 if ($geom === null) {
                     ${$paramName} = '';
                     $errors = array(
-                        'title' => 'This given parameter ' . $value . ' is invalid !',
-                        'detail' => 'Please check the value of the ' . $value . ' parameter is either empty or valid.',
+                        'title' => 'This given parameter '.$value.' is invalid !',
+                        'detail' => 'Please check the value of the '.$value.' parameter is either empty or valid.',
                     );
 
                     return $this->error($errors);
@@ -195,16 +197,21 @@ class serviceCtrl extends jController
         $sql = "SELECT lizmap_get_data('";
         $sql .= json_encode($action_params);
         $sql .= "') AS data";
+
         try {
             $res = $cnx->query($sql);
             foreach ($res as $r) {
                 $data = json_decode($r->data);
             }
         } catch (Exception $e) {
-            jLog::log('Error in project '.$repository. '/'.$project.', layer '.$layerId.', while running the query : '.$sql, 'lizmapadmin');
+            jLog::log(
+                'Error in project '.$repository.'/'.$project.', layer '.$layerId.', '.
+                'while running the action with the PostgreSQL query : '.$sql.' → '.$e->getMessage(),
+                'lizmapadmin'
+            );
             $errors = array(
-                'title' => 'An error occurred while running the PostgreSQL query !',
-                'detail' => $e->getMessage(),
+                'title' => 'An error occurred while processing the request',
+                'detail' => 'Please contact the GIS administrator to look to the administrator logs.',
             );
 
             return $this->error($errors);

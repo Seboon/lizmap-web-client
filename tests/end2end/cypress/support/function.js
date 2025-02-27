@@ -1,3 +1,7 @@
+/**
+ * To do transform a buffer to base64
+ * @param buffer
+ */
 export function arrayBufferToBase64(buffer) {
     var binary = '';
     var bytes = new Uint8Array(buffer);
@@ -6,15 +10,31 @@ export function arrayBufferToBase64(buffer) {
         binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
-};
+}
 
-export function serverMetadata() {
+/**
+ * Remove all logs from "errors.logs" using docker
+ */
+export function rmErrorsLog() {
+    cy.exec('./../lizmap-ctl docker-exec rm -f /srv/lzm/lizmap/var/log/errors.log', {failOnNonZeroExit: false})
+}
 
-     return cy.request ({
-        url: 'index.php/view/app/metadata',
-        headers: {
-            authorization: 'Basic YWRtaW46YWRtaW4=',
-        },
-        failOnStatusCode: false,
-    })
+/**
+ * Clear errors log using docker
+ */
+export function clearErrorsLog() {
+    cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/errors.log')
+}
+
+
+// export function rmLizmapAdminLog() {
+//     //
+//     cy.exec('./../lizmap-ctl docker-exec rm -f /srv/lzm/lizmap/var/log/lizmap-admin.log', {failOnNonZeroExit: false})
+// }
+
+/**
+ * Clear Lizmap admin log using docker
+ */
+export function clearLizmapAdminLog() {
+    cy.exec('./../lizmap-ctl docker-exec truncate -s 0 /srv/lzm/lizmap/var/log/lizmap-admin.log')
 }

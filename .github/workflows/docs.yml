@@ -12,6 +12,9 @@ on:
       - release_3_*
   workflow_dispatch:
 
+env:
+  NODE_VERSION: "21"
+
 permissions:
   id-token: write
   pages: write
@@ -25,29 +28,44 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: "Setup Node ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ github.workspace }}/package.json
+
+      - name: Change tokens about versions
+        run: |
+          make version-doc
+          echo "FULL_VERSION=${FULL_VERSION}" >> $GITHUB_ENV
 
       - name: Building JS docs
-        run: make js-doc
+        run: |
+          make js-doc
 
-      - uses: actions/upload-artifact@master
+      - name: Upload JS artifacts
+        uses: actions/upload-artifact@master
         with:
           name: js
-          path: docs/js/assets/1.0.0/
+          path: docs/js/assets/${{ env.FULL_VERSION }}
 
   phpdoc:
     name: "🐘 PHP-Doc"
-    if: github.repository == '3liz/lizmap-web-client' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
 
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Change tokens about versions
+        run: make version-doc
+
       - name: Building PHP docs
         run: make php-doc
 
-      - uses: actions/upload-artifact@master
+      - name: Upload PHP artifacts
+        uses: actions/upload-artifact@master
         with:
           name: php
           path: docs/php
@@ -62,23 +80,28 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@master
+      - name: Change tokens about versions
+        run: make version-doc
+
+      - name: Download PHP artifacts
+        uses: actions/download-artifact@master
         with:
           name: php
           path: docs/php/
 
-      - uses: actions/download-artifact@master
+      - name: Download JS artifacts
+        uses: actions/download-artifact@master
         with:
           name: js
           path: docs/js/
 
-      - name: Upload artifact
+      - name: Upload all docs artifacts
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -108,6 +131,6 @@ jobs:
         run: |
           echo "
             ### Published ! :rocket:
-          
+
             [Visit the doc](https://docs.3liz.org/lizmap-web-client/)
           " >> $GITHUB_STEP_SUMMARY

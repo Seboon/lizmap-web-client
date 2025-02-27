@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Manage OGC request.
  *
@@ -13,6 +14,7 @@
 namespace Lizmap\Request;
 
 use Lizmap\Project\Project;
+use Lizmap\Project\UnknownLizmapProjectException;
 
 /**
  * @see https://en.wikipedia.org/wiki/Web_Map_Service.
@@ -84,9 +86,9 @@ class WMSRequest extends OGCRequest
                 $lname = trim($b[0]);
                 $lfilter = trim($b[1]);
                 if (array_key_exists($lname, $loginFilters)) {
-                    $loginFilters[$lname]['filter'] .= ' AND '.$lfilter;
+                    $loginFilters[$lname]['filter'] .= ' AND ( '.$lfilter.' )';
                 } else {
-                    $loginFilters[$lname] = array('filter' => $lfilter, 'layername' => $lname);
+                    $loginFilters[$lname] = array('filter' => '( '.$lfilter.' )', 'layername' => $lname);
                 }
             }
         }
@@ -169,10 +171,8 @@ class WMSRequest extends OGCRequest
             if (!preg_match('@Service>.*?Max'.$d.'.*?</Service@si', $data)) {
                 $matches = array();
                 if (preg_match('@Service>(.*?)</Service@si', $data, $matches)) {
-                    if (count($matches) > 1) {
-                        $sUpdate = $matches[1].'<Max'.$d.'>3000</Max'.$d.">\n ";
-                        $data = str_replace($matches[1], $sUpdate, $data);
-                    }
+                    $sUpdate = $matches[1].'<Max'.$d.'>3000</Max'.$d.">\n ";
+                    $data = str_replace($matches[1], $sUpdate, $data);
                 }
             }
         }
@@ -367,7 +367,7 @@ class WMSRequest extends OGCRequest
                 $singleLayerParams['styles'] = $style;
 
                 // Perform the request
-                $singleRequest = \Lizmap\Request\Proxy::build($this->project, $singleLayerParams);
+                $singleRequest = Proxy::build($this->project, $singleLayerParams);
                 $result = $singleRequest->process();
                 if ($result->code != 200) {
                     // The request failed
@@ -450,7 +450,7 @@ class WMSRequest extends OGCRequest
             $querystring = Proxy::constructUrl($externalWMSLayerParams, $this->services, $url);
 
             // Query external WMS layers
-            list($data, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($querystring);
+            list($data, $mime, $code) = Proxy::getRemoteData($querystring);
 
             $rep .= $this->gfiGmlToHtml($data, $configLayer);
         }
@@ -468,6 +468,9 @@ class WMSRequest extends OGCRequest
         $this->params['with_maptip'] = 'true';
         // Always request geometry to QGIS server so we can decide if to use it later
         $this->params['with_geometry'] = 'true';
+        // Starting from LWC 3.9, we need to request the maptip with Bootstrap 5
+        // TODO, remove later when the lizmapWebClientTargetVersion=30800 because all projects will be migrated.
+        $this->params['CSS_FRAMEWORK'] = 'BOOTSTRAP5';
 
         // Get remote data
         $response = $this->request(true);
@@ -682,6 +685,7 @@ class WMSRequest extends OGCRequest
         }
         $layerFeaturesCounter = 0;
         $allFeatureAttributes = array();
+        $allFeatureToolbars = array();
 
         foreach ($layer->Feature as $feature) {
             $id = (string) $feature['id'];
@@ -699,6 +703,8 @@ class WMSRequest extends OGCRequest
             ++$layerFeaturesCounter;
 
             // Hidden input containing layer id and feature id
+            // TODO Deprecated, it will be removed later
+            // Use data-attributes in the parent div instead
             $hiddenFeatureId = '<input type="hidden" value="'.$layerId.'.'.$id.'" class="lizmap-popup-layer-feature-id"/>'.PHP_EOL;
 
             $popupFeatureContent = $this->getViewTpl('view~popupDefaultContent', $layerName, $layerId, $layerTitle, array(
@@ -757,7 +763,11 @@ class WMSRequest extends OGCRequest
                         'maxy' => 'bbox-maxy',
                     );
                     if ($feature->BoundingBox) {
-                        $hiddenGeometry .= '<input type="hidden" value="'.$attribute['value'].'" class="lizmap-popup-layer-feature-geometry"/>'.PHP_EOL;
+                        // Fix geometry by adding space between geometry type and Z, M or ZM
+                        $geom = \lizmapWkt::fix($attribute['value']);
+                        // Insert geometry as an hidden input
+                        $hiddenGeometry .= '<input type="hidden" value="'.$geom.'" class="lizmap-popup-layer-feature-geometry"/>'.PHP_EOL;
+                        // Insert bounding box data as hidden inputs
                         $bbox = $feature->BoundingBox[0];
                         foreach ($props as $prop => $class) {
                             $hiddenGeometry .= '<input type="hidden" value="'.$bbox[$prop].'" class="lizmap-popup-layer-feature-'.$class.'"/>'.PHP_EOL;
@@ -771,8 +781,16 @@ class WMSRequest extends OGCRequest
             // edition can be restricted on current feature
             $qgisLayer = $this->project->getLayer($layerId);
 
+            // get wfs name
             /** @var \qgisVectorLayer $qgisLayer */
-            $editableFeatures = $qgisLayer->editableFeatures();
+            $typename = $qgisLayer->getWfsTypeName();
+
+            // additional WFS parameter for features filtering
+            $wfsParams = array(
+                'FEATUREID' => $typename.'.'.$id,
+            );
+
+            $editableFeatures = $qgisLayer->editableFeatures($wfsParams);
             $editionRestricted = '';
             if (array_key_exists('status', $editableFeatures) && $editableFeatures['status'] === 'restricted') {
                 $editionRestricted = 'edition-restricted="true"';
@@ -798,6 +816,7 @@ class WMSRequest extends OGCRequest
                 }
                 if ($configLayer->popupSource == 'auto') {
                     $allFeatureAttributes[] = $feature->Attribute;
+                    $allFeatureToolbars[] = $featureToolbar;
                 }
             }
 
@@ -807,10 +826,12 @@ class WMSRequest extends OGCRequest
             ));
         } // loop features
 
-        // Build hidden table containing all features
-        if (count($allFeatureAttributes) > 0) {
+        // Build hidden table containing all features when there are more than one
+        if (count($allFeatureAttributes) > 1) {
             $content[] = $this->getViewTpl('view~popup_all_features_table', $layerName, $layerId, $layerTitle, array(
                 'allFeatureAttributes' => array_reverse($allFeatureAttributes),
+                'remoteStorageProfile' => $remoteStorageProfile,
+                'allFeatureToolbars' => array_reverse($allFeatureToolbars),
             ));
         }
 
@@ -969,7 +990,7 @@ class WMSRequest extends OGCRequest
 
                     return array('error', 'text/plain');
                 }
-            } catch (\Lizmap\Project\UnknownLizmapProjectException $e) {
+            } catch (UnknownLizmapProjectException $e) {
                 \jLog::logEx($e, 'error');
                 \jMessage::add('The lizmap project '.strtoupper($project).' does not exist !', 'ProjectNotDefined');
 
@@ -1129,8 +1150,8 @@ class WMSRequest extends OGCRequest
         $original = imagecreatefromstring($data);
 
         // crop parameters
-        $newWidth = (int) ($originalParams['width']); // px
-        $newHeight = (int) ($originalParams['height']); // px
+        $newWidth = (int) $originalParams['width']; // px
+        $newHeight = (int) $originalParams['height']; // px
         $positionX = (int) ($xFactor * $originalParams['width']) + $metatileBuffer; // left translation of 30px
         $positionY = (int) ($yFactor * $originalParams['height']) + $metatileBuffer; // top translation of 20px
 
@@ -1209,11 +1230,7 @@ class WMSRequest extends OGCRequest
 
         // Read config file for the current project
         $layername = $params['layers'];
-        $configLayers = $lproj->getLayers();
-        $configLayer = null;
-        if (property_exists($configLayers, $layername)) {
-            $configLayer = $configLayers->{$layername};
-        }
+        $configLayer = $lproj->findLayerByAnyName($layername);
 
         list($repository, $project) = $this->getVProfileInfos($configLayer, $repository, $project);
 

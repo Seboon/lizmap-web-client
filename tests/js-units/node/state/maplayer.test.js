@@ -2,14 +2,15 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { ValidationError, ConversionError } from '../../../../assets/src/modules/Errors.js';
-import { LayersConfig } from '../../../../assets/src/modules/config/Layer.js';
-import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerTreeGroupConfig, buildLayerTreeConfig } from '../../../../assets/src/modules/config/LayerTree.js';
-import { buildLayersOrder } from '../../../../assets/src/modules/config/LayersOrder.js';
-import { LayerIconSymbology, LayerSymbolsSymbology, SymbolIconSymbology } from '../../../../assets/src/modules/state/Symbology.js';
-import { LayerGroupState, LayerVectorState, LayersAndGroupsCollection } from '../../../../assets/src/modules/state/Layer.js';
+import { ValidationError, ConversionError } from 'assets/src/modules/Errors.js';
+import { LayersConfig } from 'assets/src/modules/config/Layer.js';
+import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerTreeGroupConfig, buildLayerTreeConfig } from 'assets/src/modules/config/LayerTree.js';
+import { buildLayersOrder } from 'assets/src/modules/config/LayersOrder.js';
+import { LayerIconSymbology, LayerSymbolsSymbology, SymbolIconSymbology } from 'assets/src/modules/state/Symbology.js';
+import { LayerGroupState, LayerVectorState, LayersAndGroupsCollection } from 'assets/src/modules/state/Layer.js';
+import { OptionsConfig } from 'assets/src/modules/config/Options.js';
 
-import { MapLayerLoadStatus, MapGroupState, MapLayerState } from '../../../../assets/src/modules/state/MapLayer.js';
+import { MapLayerLoadStatus, MapGroupState, MapLayerState, MapRootState } from 'assets/src/modules/state/MapLayer.js';
 
 /**
  * Returns the root MapGroupState for the project
@@ -20,26 +21,31 @@ import { MapLayerLoadStatus, MapGroupState, MapLayerState } from '../../../../as
  *
  * @param {String} name - The project name
  *
- * @return {MapGroupState}
+ * @return {MapRootState}
  **/
 function getRootMapGroupState(name) {
-    const capabilities = JSON.parse(readFileSync('./data/'+ name +'-capabilities.json', 'utf8'));
+    const capabilities = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-capabilities.json', 'utf8'));
     expect(capabilities).to.not.be.undefined
     expect(capabilities.Capability).to.not.be.undefined
-    const config = JSON.parse(readFileSync('./data/'+ name +'-config.json', 'utf8'));
+    const config = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-config.json', 'utf8'));
     expect(config).to.not.be.undefined
 
     const layers = new LayersConfig(config.layers);
 
-    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+    let invalid = [];
+    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+    expect(invalid).to.have.length(0);;
     expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
 
     const layersOrder = buildLayersOrder(config, rootCfg);
 
-    const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+    const options = new OptionsConfig(config.options);
+    const collection = new LayersAndGroupsCollection(rootCfg, layersOrder, options.hideGroupCheckbox);
 
-    const root = new MapGroupState(collection.root);
+    const root = new MapRootState(collection.root);
     expect(root).to.be.instanceOf(MapGroupState)
+    expect(root).to.be.instanceOf(MapRootState)
     return root;
 }
 
@@ -244,7 +250,7 @@ describe('MapGroupState', function () {
         expect(root).to.be.instanceOf(MapGroupState);
 
         // map layer count and order
-        expect(root.findMapLayers().length).to.be.eq(5); 
+        expect(root.findMapLayers().length).to.be.eq(5);
 
         // map layer exploded count
         expect(root.countExplodedMapLayers()).to.be.eq(7);
@@ -869,7 +875,7 @@ describe('MapGroupState', function () {
         const root = getRootMapGroupState('montpellier');
         expect(root).to.be.instanceOf(MapGroupState)
 
-        const legend = JSON.parse(readFileSync('./data/montpellier-legend.json', 'utf8'));
+        const legend = JSON.parse(readFileSync('./tests/js-units/data/montpellier-legend.json', 'utf8'));
         expect(legend).to.not.be.undefined
 
         let rootLayerSymbologyChangedEvt = null;
@@ -1922,7 +1928,7 @@ describe('MapGroupState', function () {
         expect(fond.itemState.groupAsLayer).to.be.true
         expect(fond.itemState.childrenCount).to.be.eq(2)
         expect(fond.itemState.children[0].isInGroupAsLayer).to.be.true
-        expect(fond.itemState.children[0].checked).to.be.false
+        expect(fond.itemState.children[0].checked).to.be.true
         expect(fond.itemState.children[0].visibility).to.be.true
         expect(fond.itemState.children[0]).to.be.instanceOf(LayerGroupState)
         expect(fond.itemState.children[0].childrenCount).to.be.eq(12)
@@ -2021,5 +2027,69 @@ describe('MapGroupState', function () {
         expect(fondGroupVisibilityChangedEvt).to.have.length(0)
         expect(rootLayerVisibilityChangedEvt).to.have.length(0)
         expect(rootGroupVisibilityChangedEvt).to.have.length(0)
+
+        // WMS Parameters
+        expect(fond.wmsName).to.be.eq('Fond')
+        expect(fond.wmsSelectedStyleName).to.be.eq('')
+        expect(fond.wmsStyles).to.be.instanceOf(Array)
+        expect(fond.wmsStyles).to.have.length(1)
+        expect(fond.wmsStyles[0].wmsName).to.be.eq('')
+        expect(fond.wmsStyles[0].wmsTitle).to.be.eq('')
+        expect(fond.wmsParameters).to.be.deep.eq({
+            'LAYERS': 'Fond',
+            'STYLES': '',
+            'FORMAT': 'image/png',
+            'DPI': 96
+        })
+
+        // Try get an unknown layer
+        try {
+            fond.wmsSelectedStyleName = 'default'
+        } catch (error) {
+            expect(error.name).to.be.eq('TypeError')
+            expect(error.message).to.be.eq('Cannot assign an unknown WMS style name! `default` is not in the layer `Fond` WMS styles!')
+            expect(error).to.be.instanceOf(TypeError)
+        }
+    })
+})
+
+describe('MapRootState', function () {
+    it('createExternalGroup', function () {
+        const root = getRootMapGroupState('montpellier');
+        expect(root.childrenCount).to.be.eq(4)
+
+        // Create external group
+        const extGroup = root.createExternalGroup('test');
+        expect(extGroup.name).to.be.eq('test')
+
+        // The external group has been added
+        expect(root.childrenCount).to.be.eq(5)
+        expect(root.children[0]).to.be.eq(extGroup)
+
+        // Try to create with the same name
+        try {
+            root.createExternalGroup('test');
+        } catch (error) {
+            expect(error.name).to.be.eq('RangeError')
+            expect(error.message).to.be.eq('The group name `test` is already used by an external group child!')
+            expect(error).to.be.instanceOf(RangeError)
+        }
+    })
+
+    it('removeExternalGroup', function () {
+        const root = getRootMapGroupState('montpellier');
+        expect(root.childrenCount).to.be.eq(4)
+
+        // Create external group
+        const extGroup = root.createExternalGroup('test');
+        expect(extGroup.name).to.be.eq('test')
+        expect(root.childrenCount).to.be.eq(5)
+
+        // Try to remove with unknown name
+        expect(root.removeExternalGroup('unknown')).to.be.undefined
+
+        // Remove external group
+        expect(root.removeExternalGroup('test')).to.be.eq(extGroup);
+        expect(root.childrenCount).to.be.eq(4)
     })
 })

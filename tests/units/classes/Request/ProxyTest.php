@@ -12,7 +12,7 @@ class ProxyTest extends TestCase
         Request\Proxy::setAppContext($appContext);
     }
 
-    public function getBuildData()
+    public static function getBuildData()
     {
         $requestXmlWMS = '  <getcapabilities service="wms"></getcapabilities>';
         $requestXmlWFS = '  <getcapabilities service="wfs"></getcapabilities>';
@@ -39,7 +39,7 @@ class ProxyTest extends TestCase
     /**
      * @dataProvider getBuildData
      */
-    public function testBuild($params, $requestXml, $expectedClass)
+    public function testBuild($params, $requestXml, $expectedClass): void
     {
         $project = new ProjectForOGCForTests();
         $requestObj = Request\Proxy::build($project, $params, $requestXml);
@@ -50,7 +50,7 @@ class ProxyTest extends TestCase
         }
     }
 
-    public function getNormalizeParamsData()
+    public static function getNormalizeParamsData()
     {
         $paramsNormal = array(
             'service' => 'WMS',
@@ -82,17 +82,17 @@ class ProxyTest extends TestCase
             array($paramsBbox, $expectedBbox),
         );
     }
-    
+
     /**
      * @dataProvider getNormalizeParamsData
      */
-    public function testNormalizeParams($params, $expectedData)
+    public function testNormalizeParams($params, $expectedData): void
     {
         $data = Request\Proxy::normalizeParams($params);
         $this->assertEquals($expectedData, $data);
     }
 
-    public function getConstructUrlData()
+    public static function getConstructUrlData()
     {
         $paramsNormal = array(
             'service' => 'WMS',
@@ -116,7 +116,7 @@ class ProxyTest extends TestCase
     /**
      * @dataProvider getConstructUrlData
      */
-    public function testConstructUrl($params, $expectedUrl, $url)
+    public function testConstructUrl($params, $expectedUrl, $url): void
     {
         $services = (object)array(
             'wmsServerURL' => 'https://localhost'
@@ -125,7 +125,7 @@ class ProxyTest extends TestCase
         $this->assertEquals($expectedUrl, $result);
     }
 
-    public function getBuildOptionsData()
+    public static function getBuildOptionsData()
     {
         $optionsStr = 'proxyHttp';
         $options = array(
@@ -166,7 +166,7 @@ class ProxyTest extends TestCase
     /**
      * @dataProvider getBuildOptionsData
      */
-    public function testBuildOptions($options, $method, $debug, $expectedResult)
+    public function testBuildOptions($options, $method, $debug, $expectedResult): void
     {
         $services = (object)array(
             'proxyHttpBackend' => 'proxy',
@@ -177,7 +177,7 @@ class ProxyTest extends TestCase
         $this->assertEquals($expectedResult, $result);
     }
 
-    public function getBuildHeadersData()
+    public static function getBuildHeadersData()
     {
         $options1 = array(
             'method' => 'get',
@@ -230,19 +230,23 @@ class ProxyTest extends TestCase
     /**
      * @dataProvider getBuildHeadersData
      */
-    public function testBuildHeaders($options, $expectedHeaders, $expectedBody, $expectedUrl = null)
+    public function testBuildHeaders($options, $expectedHeaders, $expectedBody, $expectedUrl = null): void
     {
         $url = 'http://localhost?test=test';
         ProxyForTests::setServices((object)array('wmsServerURL' => 'http://localhost', 'wmsServerHeaders' => array()));
         list($url, $result) = ProxyForTests::buildHeadersForTests($url, $options);
-        $this->assertEquals($expectedHeaders, $result['headers']);
+        foreach ($expectedHeaders as $header => $value) {
+            $this->assertArrayHasKey($header, $result['headers']);
+            $this->assertEquals($value, $result['headers'][$header]);
+        }
+        $this->assertArrayHasKey('X-Request-Id', $result['headers']);
         $this->assertEquals($expectedBody, $result['body']);
         if ($expectedUrl) {
             $this->assertEquals($expectedUrl, $url);
         }
     }
 
-    public function getUserHttpHeadersData()
+    public static function getUserHttpHeadersData()
     {
         return array(
             array(false, null, null, '', ''),
@@ -254,7 +258,7 @@ class ProxyTest extends TestCase
     /**
      * @dataProvider getUserHttpHeadersData
      */
-    public function testUserHttpHeader($connected, $userSession, $userGroups, $expectedUser, $expectedGroups)
+    public function testUserHttpHeader($connected, $userSession, $userGroups, $expectedUser, $expectedGroups): void
     {
         $contextResult = array(
             'userIsConnected' => $connected,

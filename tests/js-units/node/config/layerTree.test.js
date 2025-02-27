@@ -2,9 +2,9 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { Extent } from '../../../../assets/src/modules/utils/Extent.js';
-import { LayersConfig } from '../../../../assets/src/modules/config/Layer.js';
-import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerStyleConfig, LayerTreeItemConfig, LayerTreeGroupConfig, LayerTreeLayerConfig, buildLayerTreeConfig } from '../../../../assets/src/modules/config/LayerTree.js';
+import { Extent } from 'assets/src/modules/utils/Extent.js';
+import { LayersConfig } from 'assets/src/modules/config/Layer.js';
+import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerStyleConfig, LayerTreeItemConfig, LayerTreeGroupConfig, LayerTreeLayerConfig, buildLayerTreeConfig } from 'assets/src/modules/config/LayerTree.js';
 
 describe('LayerGeographicBoundingBoxConfig', function () {
     it('Valid', function () {
@@ -168,15 +168,18 @@ describe('LayerTreeItemConfig', function () {
 
 describe('buildLayerTreeConfig', function () {
     it('Montpellier', function () {
-        const capabilities = JSON.parse(readFileSync('./data/montpellier-capabilities.json', 'utf8'));
+        const capabilities = JSON.parse(readFileSync('./tests/js-units/data/montpellier-capabilities.json', 'utf8'));
         expect(capabilities).to.not.be.undefined
         expect(capabilities.Capability).to.not.be.undefined
-        const config = JSON.parse(readFileSync('./data/montpellier-config.json', 'utf8'));
+        const config = JSON.parse(readFileSync('./tests/js-units/data/montpellier-config.json', 'utf8'));
         expect(config).to.not.be.undefined
 
         const layers = new LayersConfig(config.layers);
 
-        const root = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+        let invalid = [];
+        const root = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+        expect(invalid).to.have.length(0);
         expect(root).to.be.instanceOf(LayerTreeGroupConfig)
         expect(root.name).to.be.eq('root')
         expect(root.type).to.be.eq('group')
@@ -293,15 +296,18 @@ describe('buildLayerTreeConfig', function () {
     })
 
     it('Backgrounds', function () {
-      const capabilities = JSON.parse(readFileSync('./data/backgrounds-capabilities.json', 'utf8'));
+      const capabilities = JSON.parse(readFileSync('./tests/js-units/data/backgrounds-capabilities.json', 'utf8'));
       expect(capabilities).to.not.be.undefined
       expect(capabilities.Capability).to.not.be.undefined
-      const config = JSON.parse(readFileSync('./data/backgrounds-config.json', 'utf8'));
+      const config = JSON.parse(readFileSync('./tests/js-units/data/backgrounds-config.json', 'utf8'));
       expect(config).to.not.be.undefined
 
       const layers = new LayersConfig(config.layers);
 
-      const root = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+      let invalid = [];
+      const root = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+      expect(invalid).to.have.length(0);
       expect(root).to.be.instanceOf(LayerTreeGroupConfig)
       expect(root.name).to.be.eq('root')
       expect(root.type).to.be.eq('group')
@@ -436,9 +442,9 @@ describe('buildLayerTreeConfig', function () {
 
       const wmts = baselayersGetChildren.next().value;
       expect(wmts.type).to.be.eq('layer')
-      expect(wmts.name).to.be.eq('=== WM[T]S are on demo.lizmap.com ===')
+      expect(wmts.name).to.be.eq('=== WM[T]S are on liz.lizmap.com ===')
       expect(wmts.layerConfig.type).to.be.eq('group')
-      expect(wmts.wmsName).to.be.eq('WM_T_S_are_on_demo_lizmap_com')
+      expect(wmts.wmsName).to.be.eq('WM_T_S_are_on_liz_lizmap_com')
       expect(wmts.wmsStyles).to.have.length(1)
       expect(wmts.wmsStyles[0].wmsName).to.be.eq('')
       expect(wmts.wmsStyles[0].wmsTitle).to.be.eq('Default')
@@ -447,7 +453,7 @@ describe('buildLayerTreeConfig', function () {
       expect(wmtsSingle.type).to.be.eq('layer')
       expect(wmtsSingle.name).to.be.eq('WMTS single external')
       expect(wmtsSingle.layerConfig.type).to.be.eq('layer')
-      expect(wmtsSingle.wmsName).to.be.eq('WMTS_demo_lizmap_com_communes')
+      expect(wmtsSingle.wmsName).to.be.eq('WMTS_liz_lizmap_com_communes')
       expect(wmtsSingle.wmsStyles).to.have.length(1)
       expect(wmtsSingle.wmsStyles[0].wmsName).to.be.eq('default')
       expect(wmtsSingle.wmsStyles[0].wmsTitle).to.be.eq('default')

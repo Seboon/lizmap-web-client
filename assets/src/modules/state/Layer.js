@@ -44,7 +44,8 @@ export class LayerItemState extends EventDispatcher {
         this._geographicBoundingBox = null;
         this._minScaleDenominator = null;
         this._maxScaleDenominator = null;
-        this._checked = this._parentGroup == null ? true : false;
+        // prop checked is inherited from Lizmap configuration. If checkboxes are hidden for groups then they are checked by default
+        this._checked = this._parentGroup == null ? true : this._layerTreeItemCfg.layerConfig.toggled;
         this._visibility =  this._parentGroup == null ? true : null;
         this._opacity = 1;
         this._inGroupAsLayer = (this._parentGroup !== null
@@ -357,7 +358,28 @@ export class LayerItemState extends EventDispatcher {
                         self.calculateVisibility();
                     }
                 }, 'symbol.checked.changed');
+
+                symbol.addListener(evt => {
+                    self.dispatch({
+                        type: 'layer.symbol.expanded.changed',
+                        name: self.name,
+                        title: evt.title,
+                        symbolType: evt.symbolType,
+                        expanded: evt.expanded,
+                    });
+                }, 'symbol.expanded.changed');
             }
+        } else if (this.symbology instanceof LayerGroupSymbology) {
+            const self = this;
+            this.symbology.addListener(evt => {
+                self.dispatch({
+                    type: 'layer.symbol.expanded.changed',
+                    name: self.name,
+                    title: evt.title,
+                    symbolType: evt.symbolType,
+                    expanded: evt.expanded,
+                });
+            }, 'symbol.expanded.changed');
         }
         this.dispatch({
             type: this.mapType + '.symbology.changed',
@@ -1155,10 +1177,15 @@ export class LayerGroupState extends LayerItemState {
      * Creating a layer group state
      * @param {LayerTreeGroupConfig} layerTreeGroupCfg - the layer item config
      * @param {number[]}             layersOrder       - the layers order
-     * @param {LayerGroupState}     [parentMapGroup]  - the parent layer group
+     * @param {boolean}              hideGroupCheckbox - the option instance from lizMap configuration
+     * @param {LayerGroupState}     [parentMapGroup]   - the hideGroupCheckbox option instance from lizMap configuration
      */
-    constructor(layerTreeGroupCfg, layersOrder, parentMapGroup) {
+    constructor(layerTreeGroupCfg, layersOrder, hideGroupCheckbox, parentMapGroup) {
         super('group', layerTreeGroupCfg, parentMapGroup);
+        // if checkboxes are hidden for groups then they are checked by default
+        if (hideGroupCheckbox) {
+            this._checked = true;
+        }
         this._items = [];
         this._layerOrder = -1;
         for (const layerTreeItem of layerTreeGroupCfg.getChildren()) {
@@ -1170,7 +1197,7 @@ export class LayerGroupState extends LayerItemState {
             // Group as group
             if (layerTreeItem instanceof LayerTreeGroupConfig) {
                 // Build group
-                const group = new LayerGroupState(layerTreeItem, layersOrder, this);
+                const group = new LayerGroupState(layerTreeItem, layersOrder, hideGroupCheckbox, this);
                 group.addListener(this.dispatch.bind(this), 'group.visibility.changed');
                 group.addListener(this.dispatch.bind(this), 'group.symbology.changed');
                 group.addListener(this.dispatch.bind(this), 'group.opacity.changed');
@@ -1179,16 +1206,13 @@ export class LayerGroupState extends LayerItemState {
                 group.addListener(this.dispatch.bind(this), 'layer.opacity.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.style.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                group.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.filter.changed');
                 group.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
                 this._items.push(group);
-                // Group is checked if one child is checked
-                if (group.checked) {
-                    this._checked = true;
-                }
-            } else {
+            } else if (cfg.type != 'group') {
                 // layer with geometry is vector layer
                 let layer = null;
                 if (cfg.geometryType != null) {
@@ -1201,16 +1225,16 @@ export class LayerGroupState extends LayerItemState {
                 layer.addListener(this.dispatch.bind(this), 'layer.opacity.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.style.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+                layer.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.selection.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.filter.changed');
                 layer.addListener(this.dispatch.bind(this), 'layer.filter.token.changed');
                 this._items.push(layer);
-                // Group is checked if one child is checked
-                if (layer.checked) {
-                    this._checked = true;
-                }
             }
+        }
+        if (this.groupAsLayer && this.layerConfig) {
+            this._checked = this.layerConfig.toggled;
         }
         for (const child of this.getChildren()) {
             child.calculateVisibility();
@@ -1384,10 +1408,11 @@ export class LayersAndGroupsCollection extends EventDispatcher {
      * Creating the collection of layers and groups state
      * @param {LayerTreeGroupConfig} layerTreeGroupCfg - the layer item config
      * @param {number[]}             layersOrder       - the layers order
+     * @param {boolean}              hideGroupCheckbox - the hideGroupCheckbox option instance from lizMap configuration
      */
-    constructor(layerTreeGroupCfg, layersOrder) {
+    constructor(layerTreeGroupCfg, layersOrder, hideGroupCheckbox) {
         super();
-        this._root = new LayerGroupState(layerTreeGroupCfg, layersOrder);
+        this._root = new LayerGroupState(layerTreeGroupCfg, layersOrder, hideGroupCheckbox);
 
         this._layersMap = new Map(this._root.findLayers().map(l => [l.name, l]));
         this._groupsMap = new Map(this._root.findGroups().map(g => [g.name, g]));
@@ -1401,6 +1426,7 @@ export class LayersAndGroupsCollection extends EventDispatcher {
         this._root.addListener(this.dispatch.bind(this), 'layer.opacity.changed');
         this._root.addListener(this.dispatch.bind(this), 'layer.style.changed');
         this._root.addListener(this.dispatch.bind(this), 'layer.symbol.checked.changed');
+        this._root.addListener(this.dispatch.bind(this), 'layer.symbol.expanded.changed');
         this._root.addListener(this.dispatch.bind(this), 'layer.selection.changed');
         this._root.addListener(this.dispatch.bind(this), 'layer.selection.token.changed');
         this._root.addListener(this.dispatch.bind(this), 'layer.filter.changed');
@@ -1549,12 +1575,11 @@ export class LayersAndGroupsCollection extends EventDispatcher {
     }
 
     /**
-     * Get a layer or group state by name
+     * Find a layer or group state by name
      * @param {string} name the name
-     * @returns {LayerVectorState|LayerRasterState|LayerGroupState} The layer or group state associated to the name
-     * @throws {RangeError} The name is unknown
+     * @returns {LayerVectorState|LayerRasterState|LayerGroupState|null} The layer or group state associated to the name or null
      */
-    getLayerOrGroupByName(name) {
+    findLayerOrGroupByName(name) {
         const layer = this._layersMap.get(name);
         if (layer !== undefined) {
             return layer;
@@ -1563,17 +1588,29 @@ export class LayersAndGroupsCollection extends EventDispatcher {
         if (group !== undefined) {
             return group;
         }
+        return null;
+    }
+
+    /**
+     * Get a layer or group state by name
+     * @param {string} name the name
+     * @returns {LayerVectorState|LayerRasterState|LayerGroupState} The layer or group state associated to the name
+     * @throws {RangeError} The name is unknown
+     */
+    getLayerOrGroupByName(name) {
+        const lg = this.findLayerOrGroupByName(name);
+        if (lg !== null) {
+            return lg;
+        }
         throw new RangeError('The name `'+ name +'` is unknown!');
     }
 
-
     /**
-     * Get a layer or group state by WMS Name
+     * Find a layer or group state by WMS Name
      * @param {string} wmsName the WMS Name
-     * @returns {LayerVectorState|LayerRasterState|LayerGroupState} The layer or group state associated to the WMS Name
-     * @throws {RangeError} The WMS Name is unknown
+     * @returns {LayerVectorState|LayerRasterState|LayerGroupState|null} The layer or group state associated to the WMS Name or null
      */
-    getLayerOrGroupByWmsName(wmsName) {
+    findLayerOrGroupByWmsName(wmsName) {
         for (const layer of this.getLayers()) {
             if (layer.wmsName === wmsName) {
                 return layer;
@@ -1583,6 +1620,20 @@ export class LayersAndGroupsCollection extends EventDispatcher {
             if (group.wmsName === wmsName) {
                 return group;
             }
+        }
+        return null;
+    }
+
+    /**
+     * Get a layer or group state by WMS Name
+     * @param {string} wmsName the WMS Name
+     * @returns {LayerVectorState|LayerRasterState|LayerGroupState} The layer or group state associated to the WMS Name
+     * @throws {RangeError} The WMS Name is unknown
+     */
+    getLayerOrGroupByWmsName(wmsName) {
+        const lg = this.findLayerOrGroupByWmsName(wmsName);
+        if (lg !== null) {
+            return lg;
         }
         throw new RangeError('The WMS Name `'+ wmsName +'` is unknown!');
     }

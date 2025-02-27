@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Create and set jForms controls based on QGIS form edit type.
  *
@@ -12,6 +13,7 @@
 
 namespace Lizmap\Form;
 
+use Jelix\FileUtilities\Path;
 use Lizmap\App;
 
 class QgisFormControl
@@ -194,12 +196,11 @@ class QgisFormControl
      * Create an jForms control object based on a qgis edit widget.
      * And add it to the passed form.
      *
-     * @param string                    $ref          name of the control
-     * @param QgisFormControlProperties $properties
-     * @param \jDbFieldProperties       $prop         Jelix object with field properties (datatype, required, etc.)
-     * @param array|object|string       $aliasXml     simplexml object corresponding to the QGIS alias for this field
-     * @param null|string               $defaultValue the QGIS expression of the default value
-     * @param null|array                $constraints  the QGIS constraints
+     * @param string                         $ref          name of the control
+     * @param null|QgisFormControlProperties $properties
+     * @param \jDbFieldProperties            $prop         Jelix object with field properties (datatype, required, etc.)
+     * @param null|string                    $defaultValue the QGIS expression of the default value
+     * @param null|array                     $constraints  the QGIS constraints
      */
     public function __construct($ref, $properties, $prop, $defaultValue, $constraints, App\AppContextInterface $appContext)
     {
@@ -270,12 +271,20 @@ class QgisFormControl
                         // use precision as stepValue (will override untrustable step Value)
                         $this->ctrl->setAttribute('stepValue', pow(10, -intval($precision)));
                     }
+                } elseif (!$properties || !$properties->useHtml()) {
+                    // we don't want HTML into this input
+                    $this->ctrl->datatype->addFacet('filterHtml', true);
+                } elseif ($properties->useHtml()) {
+                    // html is accepted, but will be sanitized
+                    $this->ctrl->datatype = new \jDatatypeHtml();
                 }
 
                 break;
 
             case 'time':
                 $this->ctrl = new \jFormsControlInput($this->ref);
+                // we don't want HTML into this input
+                $this->ctrl->datatype->addFacet('filterHtml', true);
 
                 break;
 
@@ -308,12 +317,27 @@ class QgisFormControl
                     if ($this->fieldDataType === 'boolean' && $prop->notNull) {
                         $this->reworkBooleanControl($markup);
                     }
+                } elseif ($markup == 'textarea') {
+                    if ($properties && $properties->useHtml()) {
+                        // html is accepted, but will be sanitized
+                        $this->ctrl->datatype = new \jDatatypeHtml();
+                    } else {
+                        // we don't want HTML into this input
+                        $this->ctrl->datatype->addFacet('filterHtml', true);
+                    }
                 }
 
                 break;
 
             default:
                 $this->ctrl = new \jFormsControlInput($this->ref);
+                if ($properties && $properties->useHtml()) {
+                    // html is accepted, but will be sanitized
+                    $this->ctrl->datatype = new \jDatatypeHtml();
+                } else {
+                    // we don't want HTML into this input
+                    $this->ctrl->datatype->addFacet('filterHtml', true);
+                }
 
                 break;
         }
@@ -770,9 +794,9 @@ class QgisFormControl
 
         // Else use given root, but only if it is a child or brother of the repository path
         if (!empty($alternatePath)) {
-            $fullPath = \Jelix\FileUtilities\Path::normalizePath(
+            $fullPath = Path::normalizePath(
                 $repPath.$alternatePath,
-                \Jelix\FileUtilities\Path::NORM_ADD_TRAILING_SLASH
+                Path::NORM_ADD_TRAILING_SLASH
             );
             $parentPath = realpath($repPath.'../');
             if (strpos($fullPath, $repPath) === 0

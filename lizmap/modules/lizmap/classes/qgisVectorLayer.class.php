@@ -1,14 +1,23 @@
 <?php
+
 /**
  * Give access to qgis mapLayer configuration.
  *
  * @author    3liz
- * @copyright 2013-2019 3liz
+ * @copyright 2013-2023 3liz
  *
  * @see      http://3liz.com
  *
  * @license Mozilla Public License : http://www.mozilla.org/MPL/
  */
+
+use GuzzleHttp\Psr7\StreamWrapper as Psr7StreamWrapper;
+use Jelix\IniFile\IniModifier;
+use JsonMachine\Items as JsonMachineItems;
+use Lizmap\Project\Project;
+use Lizmap\Request\Proxy;
+use Lizmap\Request\WFSRequest;
+
 class qgisVectorLayer extends qgisMapLayer
 {
     // layer type
@@ -66,8 +75,8 @@ class qgisVectorLayer extends qgisMapLayer
     /**
      * constructor.
      *
-     * @param \Lizmap\Project\Project|qgisProject $project
-     * @param array                               $propLayer list of properties values
+     * @param Project|qgisProject $project
+     * @param array               $propLayer list of properties values
      */
     public function __construct($project, $propLayer)
     {
@@ -208,7 +217,7 @@ class qgisVectorLayer extends qgisMapLayer
         );
         $parameters = array(
             'dbname', 'service', 'host', 'port', 'user', 'password',
-            'sslmode', 'key', 'estimatedmetadata', 'selectatid',
+            'sslmode', 'authcfg', 'key', 'estimatedmetadata', 'selectatid',
             'srid', 'type', 'checkPrimaryKeyUnicity',
             'table', 'geocol', 'sql', 'schema', 'tablename',
         );
@@ -233,9 +242,9 @@ class qgisVectorLayer extends qgisMapLayer
      * @param bool $setSearchPathFromLayer If true, the layer schema is used to set the search_path.
      *                                     Default to True to keep the same behavior as did the previous version of this method.
      *
-     * @throws jException
-     *
      * @return null|string null if there is an issue or no connection parameters
+     *
+     * @throws jException
      */
     public function getDatasourceProfile($timeout = 30, $setSearchPathFromLayer = true)
     {
@@ -278,6 +287,23 @@ class qgisVectorLayer extends qgisMapLayer
                 );
                 if (!empty($dtParams->sslmode)) {
                     $jdbParams['sslmode'] = $dtParams->sslmode;
+                }
+                // When the QGIS authentication config is used to authenticate a layer,
+                // it requires to have set up "jdb::profile" to align with the login credentials set in QGIS "authcfg"
+                if (!empty($dtParams->authcfg)) {
+                    $jdbParams['authcfg'] = $dtParams->authcfg;
+                    // retrieving user/password from the corresponding jdb::profile in profiles.ini.php.
+                    $ini = new IniModifier(jApp::varConfigPath('profiles.ini.php'));
+                    $profiles = $ini->getSectionList();
+                    foreach ($profiles as $profile) {
+                        if ($profile == 'jdb:'.$dtParams->authcfg) {
+                            $options = $ini->getValues($profile);
+                            $jdbParams['user'] = $options['user'];
+                            $jdbParams['password'] = $options['password'];
+
+                            break;
+                        }
+                    }
                 }
             }
             if (!empty($dtParams->schema) && $setSearchPathFromLayer) {
@@ -324,9 +350,9 @@ class qgisVectorLayer extends qgisMapLayer
     }
 
     /**
-     * @throws jException
-     *
      * @return jDbConnection
+     *
+     * @throws jException
      */
     public function getDatasourceConnection()
     {
@@ -416,7 +442,7 @@ class qgisVectorLayer extends qgisMapLayer
             }
 
             // Detect geometry column
-            if (in_array(strtolower($prop->type), $this->geometryDatatypeMap)) {
+            if ($dtParams->geocol && in_array(strtolower($prop->type), $this->geometryDatatypeMap) && $fieldName == $dtParams->geocol) {
                 $dbInfo->geometryColumn = $fieldName;
                 $dbInfo->geometryType = strtolower($prop->type);
                 // If postgresql, get real geometryType from pg_attribute (jelix prop gives 'geometry')
@@ -430,7 +456,7 @@ class qgisVectorLayer extends qgisMapLayer
                     $res = $cnx->query($sql);
                     $res = $res->fetch();
                     // It returns something like "geometry(PointZ,32620) as type"
-                    if ($res && preg_match('/^geometry\\(([^,\\)]*)/i', $res->type, $m)) {
+                    if ($res && preg_match('/^geometry\(([^,\)]*)/i', $res->type, $m)) {
                         $dbInfo->geometryType = strtolower($m[1]);
                     }
                 }
@@ -644,9 +670,9 @@ class qgisVectorLayer extends qgisMapLayer
      *
      * @param array $values values computed from the form
      *
-     * @throws Exception
-     *
      * @return bool false when there is a filter by polygon and the geometry is outside the polygon(s)
+     *
+     * @throws Exception
      */
     public function checkFeatureAgainstPolygonFilter($values)
     {
@@ -727,7 +753,7 @@ class qgisVectorLayer extends qgisMapLayer
 
             return false;
         } catch (Exception $e) {
-            \jLog::log('Project '.$this->project->getKey().' layer '.$this->name.': bad SQL query to check feature against polygon filter : '.$sql, 'lizmapadmin');
+            jLog::log('Project '.$this->project->getKey().' layer '.$this->name.': bad SQL query to check feature against polygon filter : '.$sql, 'lizmapadmin');
 
             throw $e;
         }
@@ -738,9 +764,9 @@ class qgisVectorLayer extends qgisMapLayer
     /**
      * @param array $values
      *
-     * @throws Exception
-     *
      * @return array list of primary keys with their values
+     *
+     * @throws Exception
      */
     public function insertFeature($values)
     {
@@ -830,7 +856,7 @@ class qgisVectorLayer extends qgisMapLayer
 
             return $pkvals;
         } catch (Exception $e) {
-            \jLog::log('Project '.$this->project->getKey().' layer '.$this->name.': bad SQL query to insert a feature :'.$sql, 'lizmapadmin');
+            jLog::log('Project '.$this->project->getKey().' layer '.$this->name.': bad SQL query to insert a feature :'.$sql, 'lizmapadmin');
 
             throw $e;
         }
@@ -844,9 +870,9 @@ class qgisVectorLayer extends qgisMapLayer
      *                                        - type: 'groups' or 'login'
      *                                        - attribute: filter attribute from the layer
      *
-     * @throws Exception
-     *
      * @return array list of primary keys with their values
+     *
+     * @throws Exception
      */
     public function updateFeature($feature, $values, $loginFilteredLayers)
     {
@@ -956,9 +982,11 @@ class qgisVectorLayer extends qgisMapLayer
      *                                                - attribute: filter attribute from the layer
      * @param null|jDbConnection $connection          DBConnection, if not null then the parameter conneciton is used, default value null
      *
+     * @return bool|int the number of affected rows. False if the query has failed.
+     *
      * @throws Exception
      *
-     * @return int
+     * @see jDbConnection::exec() Launch a SQL Query (update, delete..) which doesn't return rows.
      */
     public function deleteFeature($feature, $loginFilteredLayers, $connection = null)
     {
@@ -1116,13 +1144,13 @@ class qgisVectorLayer extends qgisMapLayer
         );
 
         // Perform the request to get the editable features
-        $wfsRequest = new \Lizmap\Request\WFSRequest($project, $params, lizmap::getServices());
+        $wfsRequest = new WFSRequest($project, $params, lizmap::getServices());
         // Activate edition context to get filtered layer for edition
         $wfsRequest->setEditingContext(true);
         $result = $wfsRequest->process();
 
         // Check code
-        if (floor($result->getCode() / 100) >= 4) {
+        if ($result->getCode() >= 400) {
             return true;
         }
 
@@ -1131,17 +1159,9 @@ class qgisVectorLayer extends qgisMapLayer
             return true;
         }
 
-        // Get data
-        $wfsData = $result->getBodyAsString();
-
-        // Check data: if there is no data returned by WFS, the user has not access to it
-        if (!$wfsData) {
-            return true;
-        }
-
-        // Get data from layer
-        $wfsData = json_decode($wfsData);
-        if (count($wfsData->features) !== 1) {
+        $featureStream = Psr7StreamWrapper::getResource($result->getBodyAsStream());
+        $features = JsonMachineItems::fromStream($featureStream, array('pointer' => '/features'));
+        if (iterator_count($features) !== 1) {
             return false;
         }
 
@@ -1154,9 +1174,11 @@ class qgisVectorLayer extends qgisMapLayer
      * when there is a filter by login (or by polygon). This allows to deactivate the editing icon
      * for the non-editable features inside the popup and attribute table.
      *
+     * @param array<string, string> $wfsParams Extra WFS parameters to filter the layer : FEATUREID or EXP_FILTER could be use
+     *
      * @return array Data containing the status (restricted|unrestricted) and the features if restricted
      */
-    public function editableFeatures()
+    public function editableFeatures($wfsParams = array())
     {
         // Editable features are a restricted list
         $restricted_empty_data = array(
@@ -1235,8 +1257,10 @@ class qgisVectorLayer extends qgisMapLayer
             'GEOMETRYNAME' => 'none',
         );
 
+        $params = array_merge($params, $wfsParams);
+
         // Perform the request to get the editable features
-        $wfsRequest = new \Lizmap\Request\WFSRequest($project, $params, lizmap::getServices());
+        $wfsRequest = new WFSRequest($project, $params, lizmap::getServices());
         // Activate edition context to get filtered layer for edition
         $wfsRequest->setEditingContext(true);
         $result = $wfsRequest->process();
@@ -1251,20 +1275,13 @@ class qgisVectorLayer extends qgisMapLayer
             return $restricted_empty_data;
         }
 
-        // Get data
-        $wfsData = $result->getBodyAsString();
-
-        // Check data: if there is no data returned by WFS, the user has not access to it
-        if (!$wfsData) {
-            return $restricted_empty_data;
-        }
-
-        // Get data from layer
-        $wfsData = json_decode($wfsData);
+        // Features as iterator
+        $featureStream = Psr7StreamWrapper::getResource($result->getBodyAsStream());
+        $features = JsonMachineItems::fromStream($featureStream, array('pointer' => '/features'));
 
         return array(
             'status' => 'restricted',
-            'features' => $wfsData->features,
+            'features' => $features,
         );
     }
 
@@ -1539,10 +1556,10 @@ class qgisVectorLayer extends qgisMapLayer
         if ($use_cache) {
             try {
                 $cached = $this->project->getCacheHandler()->getProjectRelatedDataCache($cache_key);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // if qgisprojects profile does not exist, or if there is an
                 // other error about the cache, let's log it
-                \jLog::logEx($e, 'error');
+                jLog::logEx($e, 'error');
                 $use_cache = false;
             }
         }
@@ -1567,8 +1584,8 @@ class qgisVectorLayer extends qgisMapLayer
         }
 
         $params = array_merge($params, $user_and_groups);
-        $url = \Lizmap\Request\Proxy::constructUrl($params, lizmap::getServices());
-        list($data, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($url);
+        $url = Proxy::constructUrl($params, lizmap::getServices());
+        list($data, $mime, $code) = Proxy::getRemoteData($url);
 
         if (strpos($mime, 'text/json') === 0 || strpos($mime, 'application/json') === 0) {
             $json = json_decode($data);

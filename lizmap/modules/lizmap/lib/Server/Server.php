@@ -13,6 +13,10 @@
 
 namespace Lizmap\Server;
 
+use Jelix\Core\Infos\AppInfos;
+use Lizmap\Request\Proxy;
+use LizmapAdmin\ModulesInfo\ModulesChecker;
+
 class Server
 {
     /**
@@ -103,6 +107,19 @@ class Server
         return version_compare($currentVersion, $requiredVersion) < 0;
     }
 
+    /** Get the current recommended/required Lizmap desktop plugin.
+     * This value is only forward to the plugin thanks to the server metadata. The plugin will decide if it's
+     * recommended or required.
+     *
+     * This is experimental for now on the plugin side.
+     *
+     * @return string String containing the version
+     */
+    public function getLizmapPluginDesktopVersion()
+    {
+        return \jApp::config()->minimumRequiredVersion['lizmapDesktopPlugin'];
+    }
+
     /**
      * Get the list of groups having the given right
      * for the given repository.
@@ -182,7 +199,7 @@ class Server
             $repositories[$repositoryKey]['editing_authorized_groups'] = $editingAuthorizedGroups;
 
             // Add the projects
-            $repositoryProjects = $lizmapRepository->getProjectsMetadata();
+            $repositoryProjects = $lizmapRepository->getProjectsMainData();
             $projects = array();
             foreach ($repositoryProjects as $project) {
                 if (!$project->getAcl()) {
@@ -196,6 +213,26 @@ class Server
         }
 
         return $repositories;
+    }
+
+    /**
+     * Get the list of modules.
+     *
+     * @return array List of modules
+     */
+    private function getModules()
+    {
+        $data = array();
+        $modules = new ModulesChecker();
+
+        foreach ($modules->getList(false) as $info) {
+            $data[$info->slug] = array(
+                'version' => $info->version,
+                'core' => $info->isCore,
+            );
+        }
+
+        return $data;
     }
 
     /**
@@ -230,11 +267,12 @@ class Server
         $data = array();
 
         // Get Lizmap version from project.xml
-        $projectInfos = \Jelix\Core\Infos\AppInfos::load();
+        $projectInfos = AppInfos::load();
         // Version
         $data['info'] = array();
         $data['info']['version'] = $projectInfos->version;
         $data['info']['date'] = $projectInfos->versionDate;
+        $data['info']['commit'] = \jApp::config()->commitSha;
 
         $jelixVersion = \jFramework::version();
 
@@ -258,13 +296,19 @@ class Server
             ),
         );
 
-        if (\jAcl2::check('lizmap.admin.server.information.view')) {
+        $serverInfoAccess = (\jAcl2::check('lizmap.admin.access') || \jAcl2::check('lizmap.admin.server.information.view'));
+        if ($serverInfoAccess) {
             if (isset(\jApp::config()->lizmap['hosting'])) {
                 $data['hosting'] = \jApp::config()->lizmap['hosting'];
             }
 
             // Add the list of repositories
             $data['repositories'] = $this->getLizmapRepositories();
+
+            // Add the list of modules
+            $data['modules'] = $this->getModules();
+
+            $data['lizmap_desktop_plugin_version'] = $this->getLizmapPluginDesktopVersion();
 
             // Add the list of user groups
             $data['acl'] = array(
@@ -288,15 +332,7 @@ class Server
         $services = \lizmap::getServices();
 
         // Get the data from the QGIS Server Lizmap plugin
-        if (empty($services->lizmapPluginAPIURL)) {
-            // When the Lizmap API URL is not set, we use the WMS server URL only
-            $lizmap_url = rtrim($services->wmsServerURL, '/').'/lizmap/server.json';
-        } else {
-            // When the Lizmap API URL is set
-            $lizmap_url = rtrim($services->lizmapPluginAPIURL, '/').'/server.json';
-        }
-
-        list($resp, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($lizmap_url);
+        list($resp, $mime, $code) = Proxy::getRemoteData($services->getUrlLizmapQgisServerMetadata());
         if ($code == 200 && $mime == 'application/json' && strpos((string) $resp, 'metadata') !== false) {
             // Convert the JSON to an associative array
             $qgis_server_data = json_decode($resp, true);
@@ -328,8 +364,8 @@ class Server
             'service' => 'WMS',
             'request' => 'GetCapabilities',
         );
-        $url = \Lizmap\Request\Proxy::constructUrl($params, $services);
-        list($resp, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($url);
+        $url = Proxy::constructUrl($params, $services);
+        list($resp, $mime, $code) = Proxy::getRemoteData($url);
         if (
             preg_match('#ServerException#i', $resp)
             || preg_match('#ServiceExceptionReport#i', $resp)

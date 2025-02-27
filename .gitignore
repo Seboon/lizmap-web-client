@@ -14,7 +14,9 @@
 
 # Build
 build/
-assets/node_modules/
+node_modules/
+assets/dist/
+*.bundle.js
 
 # Config
 lizmap/var/config/lizmapConfig.ini.php
@@ -40,31 +42,27 @@ lizmap/www/live/images/home/*
 !lizmap/www/live/images/home/.empty
 
 # Built JS files
+lizmap/www/assets/js/*.js.LICENSE.txt
+lizmap/www/assets/js/*.js.map
 lizmap/www/assets/js/lizmap.js
-lizmap/www/assets/js/lizmap.js.map
-lizmap/www/assets/js/lizmap.js.LICENSE.txt
 lizmap/www/assets/js/atlas.js
-lizmap/www/assets/js/atlas.js.map
 lizmap/www/assets/js/attributeTable.js
-lizmap/www/assets/js/attributeTable.js.map
+lizmap/www/assets/js/action.js
 lizmap/www/assets/js/bottom-dock.js
-lizmap/www/assets/js/bottom-dock.js.map
 lizmap/www/assets/js/edition.js
-lizmap/www/assets/js/edition.js.map
 lizmap/www/assets/js/filter.js
-lizmap/www/assets/js/filter.js.map
 lizmap/www/assets/js/map.js
-lizmap/www/assets/js/map.js.map
-lizmap/www/assets/js/map.js.LICENSE.txt
+lizmap/www/assets/js/map-projects.js
+lizmap/www/assets/js/popupQgisAtlas.js
+lizmap/www/assets/js/search.js
 lizmap/www/assets/js/switcher-layers-actions.js
-lizmap/www/assets/js/switcher-layers-actions.js.map
 lizmap/www/assets/js/timemanager.js
-lizmap/www/assets/js/timemanager.js.map
 lizmap/www/assets/js/view.js
-lizmap/www/assets/js/view.js.map
 
 # Docs
+docs/.build
 docs/js
+docs/php
 
 temp/lizmap/*
 !temp/lizmap/.empty
@@ -88,13 +86,16 @@ docker/*.zip
 .venv
 venv
 
+# Files coming from QGIS
+*_attachments.zip
+*.gpkg-shm
+*.gpkg-wal
+
 # Tests
 tests/units/vendor/
 tests/units/composer.lock
 tests/units/.phpunit.result.cache
 tests/qgis-projects/*
-# Zip file coming with QGIS 3.28
-tests/qgis-projects/*/*_attachments.zip
 !tests/qgis-projects/tests
 !tests/qgis-projects/webdav
 tests/qgis-projects/webdav/test/*
@@ -102,18 +103,25 @@ tests/qgis-projects/webdav/test/*
 !tests/qgis-projects/webdav/test/test_upload.conf
 !tests/qgis-projects/webdav/test/test_upload.txt
 !tests/qgis-projects/ProJets 1982*!
-tests/qgis-projects/tests/media
+tests/qgis-projects/tests/media/
+!tests/qgis-projects/tests/media/js/javascript_error/invalid_javascript.js
+tests/qgis-projects/tests/*_attachments.zip
 tests/qgis-server-plugins/*
 !tests/qgis-server-plugins/upgrade_projects.py
 tests/lizmap-qgis-plugin.master.zip
-tests/end2end/node_modules/
 tests/end2end/cypress/downloads/
 tests/end2end/cypress/screenshots/
-tests/js-units/node_modules/
 tests/.env
 tests/end2end/playwright-report/
+tests/end2end/ctrf/
 tests/end2end/playwright/.auth
-tests/end2end/test-results
+tests/end2end/test-results*
+
+# Keep them a little bit, when we come back from a legacy branch, to be removed soon
+tests/js-units/node_modules/
+tests/end2end/node_modules/
+assets/node_modules/
+
 
 /.composer
 /.npm

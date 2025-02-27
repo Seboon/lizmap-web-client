@@ -4,15 +4,17 @@
  * @copyright 2023 3Liz
  * @license MPL-2.0
  */
-import { mainLizmap, mainEventDispatcher } from '../modules/Globals.js';
-import Utils from '../modules/Utils.js';
+import { mainEventDispatcher } from '../modules/Globals.js';
+import { deepFreeze } from './config/Tools.js';
+import { createEnum } from './utils/Enums.js';
+import { Utils } from './Utils.js';
 
 import GeoJSON from 'ol/format/GeoJSON.js';
 import GPX from 'ol/format/GPX.js';
 import KML from 'ol/format/KML.js';
 import WKT from 'ol/format/WKT.js';
 
-import { Draw, Modify, Select } from 'ol/interaction.js';
+import { Draw, Modify, Select, Translate } from 'ol/interaction.js';
 import { createBox } from 'ol/interaction/Draw.js';
 
 import { Circle, Fill, Stroke, RegularShape, Style, Text } from 'ol/style.js';
@@ -21,8 +23,19 @@ import { Vector as VectorSource } from 'ol/source.js';
 import { Vector as VectorLayer } from 'ol/layer.js';
 import { Feature } from 'ol';
 
-import { Point, LineString, Polygon, Circle as CircleGeom, MultiPoint, GeometryCollection } from 'ol/geom.js';
-import { circular } from 'ol/geom/Polygon.js';
+import {
+    LinearRing,
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+    Circle as CircleGeom,
+    GeometryCollection
+} from 'ol/geom.js';
+
+import { circular, fromCircle } from 'ol/geom/Polygon.js';
 
 import { getArea, getLength } from 'ol/sphere.js';
 import Overlay from 'ol/Overlay.js';
@@ -30,29 +43,83 @@ import { unByKey } from 'ol/Observable.js';
 
 import { transform } from 'ol/proj.js';
 
+import shp from 'shpjs';
+import * as flatgeobuf from 'flatgeobuf';
+import { register } from "ol/proj/proj4.js";
+import proj4 from "proj4";
+
+import Transform from "ol-ext/interaction/Transform.js";
+
+/**
+ * Enum for digitizing tools
+ * @enum {string}
+ * @property {string} Deactivate - Deactivate digitizing tools
+ * @property {string} Point - Point digitizing tool
+ * @property {string} Line - Line digitizing tool
+ * @property {string} Polygon - Polygon digitizing tool
+ * @property {string} Box - Box digitizing tool
+ * @property {string} Circle - Circle digitizing tool
+ * @property {string} Freehand - Freehand digitizing tool
+ * @property {string} Text - Text digitizing tool
+ */
+export const DigitizingTools = createEnum({
+    'Deactivate': 'deactivate',
+    'Point': 'point',
+    'Line': 'line',
+    'Polygon': 'polygon',
+    'Box': 'box',
+    'Circle': 'circle',
+    'Freehand': 'freehand',
+    'Text': 'text'
+});
+
+/**
+ * List of digitizing available tools
+ * @name DigitizingAvailableTools
+ * @constant {Array<string>}
+ */
+export const DigitizingAvailableTools = deepFreeze([
+    DigitizingTools.Deactivate,
+    DigitizingTools.Point,
+    DigitizingTools.Line,
+    DigitizingTools.Polygon,
+    DigitizingTools.Box,
+    DigitizingTools.Circle,
+    DigitizingTools.Freehand,
+    DigitizingTools.Text
+]);
+
 /**
  * @class
  * @name Digitizing
  */
-export default class Digitizing {
+export class Digitizing {
 
-    constructor() {
+    constructor(map, lizmap3) {
+
+        this._map = map;
+        this._lizmap3 = lizmap3;
 
         // defined a context to separate drawn features
         this._context = 'draw';
         this._contextFeatures = {};
 
-        this._tools = ['deactivate', 'point', 'line', 'polygon', 'box', 'circle', 'freehand', 'text'];
+        this._tools = DigitizingAvailableTools;
         this._toolSelected = this._tools[0];
 
-        this._repoAndProjectString = lizUrls.params.repository + '_' + lizUrls.params.project;
+        this._repoAndProjectString =
+            globalThis['lizUrls'].params.repository +
+            '_' +
+            globalThis['lizUrls'].params.project;
 
         // Set draw color to value in local storage if any or default (red)
         this._drawColor = localStorage.getItem(this._repoAndProjectString + '_drawColor') || '#ff0000';
 
         this._isEdited = false;
+        this._isRotate = false;
         this._hasMeasureVisible = false;
         this._isSaved = false;
+        this._isSplitting = false;
         this._isErasing = false;
 
         this._drawInteraction;
@@ -158,6 +225,16 @@ export default class Digitizing {
             features: this._selectInteraction.getFeatures(),
         });
 
+        this._translateInteraction = new Translate({
+            features: this._selectInteraction.getFeatures(),
+            hitTolerance: 20
+        });
+
+        this._transformInteraction = new Transform({
+            rotate: true,
+            scale: false,
+        });
+
         this._drawStyleFunction = (feature) => {
             let color = feature.get('color') || this._drawColor;
 
@@ -223,12 +300,14 @@ export default class Digitizing {
         });
 
         this._drawLayer = new VectorLayer({
-            visible: false,
             source: this._drawSource,
             style: this._drawStyleFunction
         });
+        this._drawLayer.setProperties({
+            name: 'LizmapDigitizingDrawLayer'
+        });
 
-        mainLizmap.map.addLayer(this._drawLayer);
+        this._map.addToolLayer(this._drawLayer);
 
         // Constraint layer
         this._constraintLayer = new VectorLayer({
@@ -252,7 +331,10 @@ export default class Digitizing {
                 }),
             })
         });
-        mainLizmap.map.addLayer(this._constraintLayer);
+        this._constraintLayer.setProperties({
+            name: 'LizmapDigitizingConstraintLayer'
+        });
+        this._map.addToolLayer(this._constraintLayer);
 
         // Constraints values
         this._distanceConstraint = 0;
@@ -262,21 +344,13 @@ export default class Digitizing {
         this.loadFeatureDrawnToMap();
 
         // Disable drawing tool when measure tool is activated
-        mainLizmap.lizmap3.events.on({
+        this._lizmap3.events.on({
             minidockopened: (e) => {
                 if (e.id == 'measure') {
                     this.toolSelected = this._tools[0];
                 } else if (['draw', 'selectiontool', 'print'].includes(e.id)) {
                     // Display draw for print redlining
                     this.context = e.id === 'print' ? 'draw' : e.id;
-                    // mainLizmap.newOlMap = true;
-                    this.toggleVisibility(true);
-                }
-            },
-            minidockclosed: (e) => {
-                if (['draw', 'selectiontool', 'print'].includes(e.id)) {
-                    // mainLizmap.newOlMap = false;
-                    this.toggleVisibility(false);
                 }
             }
         });
@@ -340,12 +414,22 @@ export default class Digitizing {
     }
 
     set context(aContext) {
+        if (this._context == aContext) {
+            return;
+        }
         if (this.featureDrawn) {
             this._contextFeatures[this._context] = this.featureDrawn;
         } else {
             this._contextFeatures[this._context] = null;
         }
-        this._isSaved = false;
+        this._isSaved = (
+            localStorage.getItem(this._repoAndProjectString + '_' + this._context + '_drawLayer') !== null
+        );
+        this._measureTooltips.forEach((measureTooltip) => {
+            this._map.removeOverlay(measureTooltip[0]);
+            this._map.removeOverlay(measureTooltip[1]);
+            this._measureTooltips.delete(measureTooltip);
+        });
         this._drawLayer.getSource().clear();
         this._context = aContext;
         if (this._contextFeatures[this._context]) {
@@ -366,7 +450,7 @@ export default class Digitizing {
     set toolSelected(tool) {
         if (this._tools.includes(tool)) {
             // Disable all tools
-            mainLizmap.map.removeInteraction(this._drawInteraction);
+            this._map.removeInteraction(this._drawInteraction);
 
             // If tool === 'deactivate' or current selected tool is selected again => deactivate
             if (tool === this._toolSelected || tool === this._tools[0]) {
@@ -383,11 +467,15 @@ export default class Digitizing {
                         break;
                     case this._tools[2]:
                         drawOptions.type = 'LineString';
-                        drawOptions.geometryFunction = (coords, geom) => this._contraintsHandler(coords, geom, drawOptions.type);
+                        drawOptions.geometryFunction = (coords, geom) => {
+                            return this._contraintsHandler(coords, geom, drawOptions.type);
+                        }
                         break;
                     case this._tools[3]:
                         drawOptions.type = 'Polygon';
-                        drawOptions.geometryFunction = (coords, geom) => this._contraintsHandler(coords, geom, drawOptions.type);
+                        drawOptions.geometryFunction = (coords, geom) => {
+                            return this._contraintsHandler(coords, geom, drawOptions.type);
+                        }
                         break;
                     case this._tools[4]:
                         drawOptions.type = 'Circle';
@@ -450,11 +538,7 @@ export default class Digitizing {
                     geom.set('totalOverlay', Array.from(this._measureTooltips).pop()[1], true);
                     geom.on('change', (e) => {
                         const geom = e.target;
-                        if (geom instanceof Polygon) {
-                            this._updateTotalMeasureTooltip(geom.getCoordinates()[0], geom, 'Polygon', geom.get('totalOverlay'));
-                        } else if (geom instanceof LineString) {
-                            this._updateTotalMeasureTooltip(geom.getCoordinates(), geom, 'Linestring', geom.get('totalOverlay'));
-                        }
+                        this._setTooltipContentByGeom(geom);
                     });
 
                     this._constraintLayer.setVisible(false);
@@ -468,15 +552,26 @@ export default class Digitizing {
                     this._segmentMeasureTooltipElement = null;
                     this._totalMeasureTooltipElement = null;
                     unByKey(this._listener);
+
+                    if (geom.getType() === 'LineString') {
+                        this._updateTotalMeasureTooltip(
+                            null,
+                            geom,
+                            'LineString',
+                            Array.from(this._measureTooltips).pop()[1],
+                        );
+                    }
                 });
 
-                mainLizmap.map.addInteraction(this._drawInteraction);
+                this._map.addInteraction(this._drawInteraction);
 
                 this._toolSelected = tool;
 
-                // Disable edition and erasing when tool changes
+                // Disable other tools when digitizing tool changes
                 this.isEdited = false;
                 this.isErasing = false;
+                this.isRotate = false;
+                this.isSplitting = false;
             }
 
             mainEventDispatcher.dispatch('digitizing.toolSelected');
@@ -507,7 +602,7 @@ export default class Digitizing {
      * @todo active state should be set on UI's events
      * @readonly
      * @memberof Digitizing
-     * @returns {boolean}
+     * @returns {boolean} true if digitizing tool is active, false otherwise
      */
     get isActive() {
         const isActive = document.getElementById('button-draw')?.parentElement?.classList?.contains('active');
@@ -529,25 +624,176 @@ export default class Digitizing {
                     this.drawColor = this.featureDrawn[0].get('color');
                 }
 
-                mainLizmap.map.removeInteraction(this._drawInteraction);
+                this._map.removeInteraction(this._drawInteraction);
 
-                mainLizmap.map.addInteraction(this._selectInteraction);
-                mainLizmap.map.addInteraction(this._modifyInteraction);
+                this._map.addInteraction(this._translateInteraction);
+                this._map.addInteraction(this._selectInteraction);
+                this._map.addInteraction(this._modifyInteraction);
 
                 this.toolSelected = 'deactivate';
                 this.isErasing = false;
+                this.isRotate = false;
+                this.isSplitting = false;
 
                 mainEventDispatcher.dispatch('digitizing.editionBegins');
             } else {
                 // Clear selection
                 this._selectInteraction.getFeatures().clear();
-                mainLizmap.map.removeInteraction(this._selectInteraction);
-                mainLizmap.map.removeInteraction(this._modifyInteraction);
+                this._map.removeInteraction(this._translateInteraction);
+                this._map.removeInteraction(this._selectInteraction);
+                this._map.removeInteraction(this._modifyInteraction);
 
                 this.saveFeatureDrawn();
 
                 mainEventDispatcher.dispatch('digitizing.editionEnds');
             }
+        }
+    }
+
+    get isRotate() {
+        return this._isRotate;
+    }
+
+    set isRotate(isRotate) {
+        if (this._isRotate !== isRotate) {
+            this._isRotate = isRotate;
+
+            if (this._isRotate) {
+                this.toolSelected = 'deactivate';
+                this.isErasing = false;
+                this.isEdited = false;
+                this.isSplitting = false;
+
+                this._map.addInteraction(this._transformInteraction);
+            } else {
+                this._map.removeInteraction(this._transformInteraction);
+            }
+
+            mainEventDispatcher.dispatch('digitizing.rotate');
+        }
+    }
+
+    get isSplitting() {
+        return this._isSplitting;
+    }
+
+    set isSplitting(isSplitting) {
+        if (this._isSplitting !== isSplitting) {
+            this._isSplitting = isSplitting;
+
+            if (this._isSplitting) {
+                // Disable other tools
+                this.toolSelected = 'deactivate';
+                this.isEdited = false;
+                this.isRotate = false;
+                this.isErasing = false;
+
+                this._splitInteraction = new Draw({
+                    source: this._drawSource,
+                    type: 'LineString'
+                });
+                this._splitInteraction.on('drawend', event => {
+                    Promise.all([
+                        import(
+                            /* webpackChunkName: 'OLparser' */ 'jsts/org/locationtech/jts/io/OL3Parser.js'
+                        ),
+                        import(
+                            /* webpackChunkName: 'UnionOp' */ 'jsts/org/locationtech/jts/operation/union/UnionOp.js'
+                        ),
+                        import(
+                            /* webpackChunkName: 'Polygonizer' */
+                            'jsts/org/locationtech/jts/operation/polygonize/Polygonizer.js'
+                        ),
+                        import(
+                            /* webpackChunkName: 'lineSplit' */ '@turf/line-split'
+                        ),
+                    ]).then(([
+                        { default: OLparser },
+                        { default: UnionOp },
+                        { default: Polygonizer },
+                        { default: lineSplit }
+                    ]) => {
+                        const parser = new OLparser();
+                        parser.inject(
+                            Point,
+                            LineString,
+                            LinearRing,
+                            Polygon,
+                            MultiPoint,
+                            MultiLineString,
+                            MultiPolygon
+                        );
+
+                        const lineGeometry = event.feature.getGeometry();
+
+                        // Remove line used for splitting
+                        this._drawSource.removeFeature(event.feature);
+
+                        for (const feature of this._drawSource.getFeatures()) {
+                            // Check if split line intersects with drawn feature
+                            if (!lineGeometry.intersectsExtent(feature.getGeometry().getExtent())) {
+                                continue;
+                            }
+                            const geomType = feature.getGeometry().getType();
+                            if ( geomType === 'Polygon') {
+                                // Convert the OpenLayers geometry to a JSTS geometry
+                                const jstsLine = parser.read(lineGeometry);
+                                const jstsDrawnGeom = parser.read(feature.getGeometry());
+
+                                // Perform union of Polygon and Line and use Polygonizer to split the polygon by line
+                                let union = UnionOp.union(jstsDrawnGeom.getExteriorRing(), jstsLine);
+                                let polygonizer = new Polygonizer();
+
+                                // Splitting polygon in two parts
+                                polygonizer.add(union);
+                                let polygons = polygonizer.getPolygons();
+
+                                // This will execute only if polygon is successfully splitted into two parts
+                                if (polygons.array.length == 2) {
+                                    // Remove original polygon
+                                    this._drawSource.removeFeature(feature);
+
+                                    // Iterate through splitted polygons
+                                    polygons.array.forEach(geom => {
+                                        let splitted_polygon = new Feature({
+                                            geometry: new Polygon(parser.write(geom).getCoordinates())
+                                        });
+
+                                        // Add splitted polygon to vector layer
+                                        this._drawSource.addFeature(splitted_polygon);
+                                        this._selectInteraction.getFeatures().push(splitted_polygon);
+                                    });
+
+                                    this.isEdited = true;
+                                }
+                            } else if (geomType === 'LineString') {
+                                const format = new GeoJSON();
+                                const turfDrawnFeature = format.writeFeatureObject(feature);
+                                const turfSplitterFeature = format.writeFeatureObject(event.feature);
+
+                                const split = lineSplit(turfDrawnFeature, turfSplitterFeature);
+
+                                if (split.features.length > 1) {
+                                    // Remove original lineString
+                                    this._drawSource.removeFeature(feature);
+
+                                    split.features.forEach((feature) => {
+                                        let splitted_line = format.readFeature(feature);
+                                        this._drawSource.addFeature(splitted_line);
+                                        this._selectInteraction.getFeatures().push(splitted_line);
+                                    });
+                                }
+                                this.isEdited = true;
+                            }
+                        }
+                    });
+                });
+                this._map.addInteraction(this._splitInteraction);
+            } else {
+                this._map.removeInteraction(this._splitInteraction);
+            }
+
+            mainEventDispatcher.dispatch('digitizing.split');
         }
     }
 
@@ -560,35 +806,25 @@ export default class Digitizing {
             this._isErasing = isErasing;
 
             if (this._isErasing) {
-                // deactivate draw and edition
+                // deactivate other tools
                 this.toolSelected = 'deactivate';
                 this.isEdited = false;
+                this.isRotate = false;
+                this.isSplitting = false;
 
                 this._erasingCallBack = event => {
-                    const features = mainLizmap.map.getFeaturesAtPixel(event.pixel, {
+                    const features = this._map.getFeaturesAtPixel(event.pixel, {
                         layerFilter: layer => {
                             return layer === this._drawLayer;
                         },
                         hitTolerance: 8
                     });
                     if(features.length){
-                        if (!confirm(lizDict['digitizing.confirme.erase'])) {
+                        if (!confirm(lizDict['digitizing.confirm.erase'])) {
                             return false;
                         }
 
-                        const totalOverlay = features[0].getGeometry().get('totalOverlay');
-                        if (totalOverlay) {
-                            this._measureTooltips.forEach((measureTooltip) => {
-                                if(measureTooltip[1] === totalOverlay){
-                                    mainLizmap.map.removeOverlay(measureTooltip[0]);
-                                    mainLizmap.map.removeOverlay(measureTooltip[1]);
-                                    this._measureTooltips.delete(measureTooltip);
-                                    return;
-                                }
-                            });
-                        }
-
-                        this._drawSource.removeFeature(features[0]);
+                        this._eraseFeature(features[0]);
 
                         // Stop erasing mode when no features left
                         if(this._drawSource.getFeatures().length === 0){
@@ -601,10 +837,10 @@ export default class Digitizing {
                     }
                 };
 
-                mainLizmap.map.on('singleclick', this._erasingCallBack );
+                this._map.on('singleclick', this._erasingCallBack );
                 mainEventDispatcher.dispatch('digitizing.erasingBegins');
             } else {
-                mainLizmap.map.un('singleclick', this._erasingCallBack );
+                this._map.un('singleclick', this._erasingCallBack );
                 mainEventDispatcher.dispatch('digitizing.erasingEnds');
             }
         }
@@ -637,6 +873,22 @@ export default class Digitizing {
 
     set angleConstraint(angleConstraint){
         this._angleConstraint = parseInt(angleConstraint)
+    }
+
+    _eraseFeature(feature) {
+        const totalOverlay = feature.getGeometry().get('totalOverlay');
+        if (totalOverlay) {
+            this._measureTooltips.forEach((measureTooltip) => {
+                if(measureTooltip[1] === totalOverlay){
+                    this._map.removeOverlay(measureTooltip[0]);
+                    this._map.removeOverlay(measureTooltip[1]);
+                    this._measureTooltips.delete(measureTooltip);
+                    return;
+                }
+            });
+        }
+
+        this._drawSource.removeFeature(feature);
     }
 
     _userChangedColor(color) {
@@ -686,20 +938,28 @@ export default class Digitizing {
             // Contraint where point will be drawn on click
             let constrainedPointCoords = cursorPointCoords;
 
+            const mapProjection = this._map.getView().getProjection();
+
             if (this._distanceConstraint) {
                 // Draw circle with distanceConstraint as radius
                 const circle = circular(
-                    transform(lastDrawnPointCoords, 'EPSG:3857', 'EPSG:4326'),
+                    transform(lastDrawnPointCoords, mapProjection, 'EPSG:4326'),
                     this._distanceConstraint,
                     128
                 );
 
-                constrainedPointCoords = transform(circle.getClosestPoint(transform(cursorPointCoords, 'EPSG:3857', 'EPSG:4326')), 'EPSG:4326', 'EPSG:3857');
+                constrainedPointCoords = transform(
+                    circle.getClosestPoint(
+                        transform(cursorPointCoords, mapProjection, 'EPSG:4326')
+                    ),
+                    'EPSG:4326',
+                    mapProjection,
+                );
 
                 // Draw visual constraint features
                 this._constraintLayer.getSource().addFeature(
                     new Feature({
-                        geometry: circle.transform('EPSG:4326', 'EPSG:3857')
+                        geometry: circle.transform('EPSG:4326', mapProjection)
                     })
                 );
 
@@ -740,7 +1000,11 @@ export default class Digitizing {
 
                 // Display clockwise or anticlockwise angle
                 // Closest from cursor is displayed
-                if (getLength(new LineString([closestClockwise, cursorPointCoords])) < getLength(new LineString([closestAntiClockwise, cursorPointCoords]))) {
+                if (getLength(
+                    new LineString([closestClockwise, cursorPointCoords])
+                ) < getLength(
+                    new LineString([closestAntiClockwise, cursorPointCoords])
+                )) {
                     constrainedAngleLineString = constrainedAngleClockwise.clone();
                 } else {
                     constrainedAngleLineString = constrainedAngleAntiClockwise.clone();
@@ -771,11 +1035,16 @@ export default class Digitizing {
     // Display draw measures in tooltips
     _updateTooltips(coords, geom, geomType) {
         // Current segment length
-        let segmentTooltipContent = this.formatLength(new LineString([coords[coords.length - 1], coords[coords.length - 2]]));
+        let segmentTooltipContent = this.formatLength(
+            new LineString([coords[coords.length - 1], coords[coords.length - 2]])
+        );
 
         // Total length for LineStrings
         // Perimeter and area for Polygons
-        if (coords.length > 2) {
+        // Radius and area for Circles
+        if(geomType == 'Circle') {
+            this._updateTotalMeasureTooltip(coords, geom, geomType, Array.from(this._measureTooltips).pop()[1]);
+        } else if (coords.length > 2) {
             this._updateTotalMeasureTooltip(coords, geom, geomType, Array.from(this._measureTooltips).pop()[1]);
 
             // Display angle ABC between three points. B is center
@@ -796,8 +1065,8 @@ export default class Digitizing {
             segmentTooltipContent += '<br>' + angleInDegrees + '°';
         }
 
-        // Display current segment measure only when drawing lines, polygons or circles
-        if (['line', 'polygon', 'circle'].includes(this.toolSelected)) {
+        // Display current segment measure only when drawing lines or polygons
+        if (['line', 'polygon'].includes(this.toolSelected)) {
             this._segmentMeasureTooltipElement.innerHTML = segmentTooltipContent;
             Array.from(this._measureTooltips).pop()[0].setPosition(geom.getLastCoordinate());
         }
@@ -813,7 +1082,16 @@ export default class Digitizing {
 
             overlay.getElement().innerHTML = totalTooltipContent;
             overlay.setPosition(geom.getInteriorPoint().getCoordinates());
-        } else {
+        } else if(geomType == 'Circle') {
+            // get polygon from circular geometry by approximating the circle with a 128-sided polygon
+            let circularGeom = fromCircle(geom,128);
+            let totalTooltipContent = this.formatLength(new LineString([coords[0], coords[1]]));
+            totalTooltipContent += '<br>' + this.formatArea(circularGeom);
+
+            overlay.getElement().innerHTML = totalTooltipContent;
+            overlay.setPosition(circularGeom.getInteriorPoint().getCoordinates());
+        }
+        else {
             overlay.getElement().innerHTML = this.formatLength(geom);
             overlay.setPosition(geom.getCoordinateAt(0.5));
         }
@@ -825,7 +1103,7 @@ export default class Digitizing {
      * @returns {string} The formatted length.
      */
     formatLength(geom) {
-        const length = getLength(geom);
+        const length = getLength(geom, {projection: this._map.getView().getProjection()});
         let output;
         if (length > 100) {
             output = Math.round((length / 1000) * 100) / 100 + ' ' + 'km';
@@ -841,7 +1119,7 @@ export default class Digitizing {
      * @returns {string} Formatted area.
      */
     formatArea(polygon) {
-        const area = getArea(polygon);
+        const area = getArea(polygon, {projection: this._map.getView().getProjection()});
         let output;
         if (area > 10000) {
             output = Math.round((area / 1000000) * 100) / 100 + ' ' + 'km<sup>2</sup>';
@@ -849,6 +1127,45 @@ export default class Digitizing {
             output = Math.round(area * 100) / 100 + ' ' + 'm<sup>2</sup>';
         }
         return output;
+    }
+
+    /**
+     * Initializes measure tooltip and change event on a feature loaded from local storage.
+     * @param {Geometry} geom The geometry.
+     */
+    _initMeasureTooltipOnLoadedFeatures(geom){
+        // create overlays
+        this.createMeasureTooltips();
+
+        geom.set('totalOverlay', Array.from(this._measureTooltips).pop()[1], true);
+        // calculate measures
+        this._setTooltipContentByGeom(geom);
+        geom.on('change', (e) => {
+            const geom = e.target;
+            this._setTooltipContentByGeom(geom);
+        });
+        // make measure tooltip static and hidden
+        this._totalMeasureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+        this._totalMeasureTooltipElement.classList.toggle('hide', !this._hasMeasureVisible);
+
+        // reset measureTooltip element
+        this._totalMeasureTooltipElement = null;
+    }
+
+    /**
+     * Calculates measuements for a specific geometry.
+     * @param {Geometry} geom The geometry.
+     */
+    _setTooltipContentByGeom(geom){
+        if (geom instanceof Polygon) {
+            this._updateTotalMeasureTooltip(geom.getCoordinates()[0], geom, 'Polygon', geom.get('totalOverlay'));
+        } else if (geom instanceof LineString) {
+            this._updateTotalMeasureTooltip(geom.getCoordinates(), geom, 'Linestring', geom.get('totalOverlay'));
+        } else if ( geom instanceof CircleGeom) {
+            this._updateTotalMeasureTooltip(
+                [geom.getFirstCoordinate(), geom.getLastCoordinate()], geom, 'Circle', geom.get('totalOverlay')
+            );
+        }
     }
 
     /**
@@ -886,8 +1203,8 @@ export default class Digitizing {
         });
 
         this._measureTooltips.add([segmentOverlay, totalOverlay]);
-        mainLizmap.map.addOverlay(segmentOverlay);
-        mainLizmap.map.addOverlay(totalOverlay);
+        this._map.addOverlay(segmentOverlay);
+        this._map.addOverlay(totalOverlay);
     }
 
     // Get SLD for featureDrawn[index]
@@ -896,16 +1213,17 @@ export default class Digitizing {
             return null;
         }
         const color = this.featureDrawn[index].get('color') || this._drawColor;
+        let opacityFactor = this.featureDrawn[index].get('mode') == 'textonly' ? 0 : 1;
         let symbolizer = '';
         let strokeAndFill =
         `<Stroke>
             <SvgParameter name="stroke">${color}</SvgParameter>
-            <SvgParameter name="stroke-opacity">1</SvgParameter>
+            <SvgParameter name="stroke-opacity">${1*opacityFactor}</SvgParameter>
             <SvgParameter name="stroke-width">${this._strokeWidth}</SvgParameter>
         </Stroke>
         <Fill>
             <SvgParameter name="fill">${color}</SvgParameter>
-            <SvgParameter name="fill-opacity">${this._fillOpacity}</SvgParameter>
+            <SvgParameter name="fill-opacity">${this._fillOpacity*opacityFactor}</SvgParameter>
         </Fill>`;
 
         // We consider LINESTRING and POLYGON together currently
@@ -927,6 +1245,9 @@ export default class Digitizing {
             </PolygonSymbolizer>`;
         }
 
+        /* eslint-disable @stylistic/js/max-len --
+         * Block of XML
+        **/
         const sld =
         `<?xml version="1.0" encoding="UTF-8"?>
         <StyledLayerDescriptor xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.opengis.net/sld http://schemas.opengis.net/sld/1.1.0/StyledLayerDescriptor.xsd" xmlns:se="http://www.opengis.net/se">
@@ -938,6 +1259,7 @@ export default class Digitizing {
                 </FeatureTypeStyle>
             </UserStyle>
         </StyledLayerDescriptor>`;
+        /* eslint-enable @stylistic/js/max-len */
 
         // Remove indentation to avoid big queries full of unecessary spaces
         return sld.replace('    ', '');
@@ -949,7 +1271,7 @@ export default class Digitizing {
 
     /**
      * Set visibility or toggle if not defined
-     * @param {boolean} visible
+     * @param {boolean} visible - true to show, false to hide
      */
     toggleVisibility(visible = !this.visibility) {
         this._drawLayer.setVisible(visible);
@@ -965,8 +1287,16 @@ export default class Digitizing {
         this.isEdited = !this.isEdited;
     }
 
+    toggleRotate() {
+        this.isRotate = !this.isRotate;
+    }
+
     toggleMeasure() {
         this.hasMeasureVisible = !this.hasMeasureVisible;
+    }
+
+    toggleSplit() {
+        this.isSplitting = !this._isSplitting;
     }
 
     toggleErasing() {
@@ -979,6 +1309,25 @@ export default class Digitizing {
         this.saveFeatureDrawn();
 
         mainEventDispatcher.dispatch('digitizing.save');
+    }
+
+    eraseAll() {
+        this.isEdited = false;
+        this.isRotate = false
+        this.isErasing = false;
+        this.isSplitting = false;
+
+        this._measureTooltips.forEach((measureTooltip) => {
+            this._map.removeOverlay(measureTooltip[0]);
+            this._map.removeOverlay(measureTooltip[1]);
+            this._measureTooltips.delete(measureTooltip);
+        });
+        this._drawSource.clear();
+
+        this.saveFeatureDrawn();
+
+        mainEventDispatcher.dispatch('digitizing.erase.all');
+        mainEventDispatcher.dispatch('digitizing.erase');
     }
 
     /**
@@ -1006,10 +1355,15 @@ export default class Digitizing {
                         });
                     }
                 }
-                localStorage.setItem(this._repoAndProjectString + '_' + this._context + '_drawLayer', JSON.stringify(savedFeatures));
+                localStorage.setItem(
+                    this._repoAndProjectString + '_' + this._context + '_drawLayer',
+                    JSON.stringify(savedFeatures),
+                );
             } else {
                 localStorage.removeItem(this._repoAndProjectString + '_' + this._context + '_drawLayer');
             }
+        } else {
+            localStorage.removeItem(this._repoAndProjectString + '_' + this._context + '_drawLayer');
         }
     }
 
@@ -1018,7 +1372,8 @@ export default class Digitizing {
      */
     loadFeatureDrawnToMap() {
         // get saved data without context for draw
-        const oldSavedGeomJSON = this._context === 'draw' ? localStorage.getItem(this._repoAndProjectString + '_drawLayer') : null;
+        const oldSavedGeomJSON =
+            this._context === 'draw' ? localStorage.getItem(this._repoAndProjectString + '_drawLayer') : null;
 
         // Clear old saved data without context for draw from localStorage
         if (oldSavedGeomJSON !== null) {
@@ -1027,7 +1382,9 @@ export default class Digitizing {
         }
 
         // keep saved data without context for draw or get saved data with context
-        const savedGeomJSON = oldSavedGeomJSON !== null ? oldSavedGeomJSON : localStorage.getItem(this._repoAndProjectString + '_' + this._context + '_drawLayer');
+        const savedGeomJSON =
+            oldSavedGeomJSON !== null ? oldSavedGeomJSON :
+                localStorage.getItem(this._repoAndProjectString + '_' + this._context + '_drawLayer');
 
         if (savedGeomJSON) {
             let loadedFeatures = [];
@@ -1050,6 +1407,8 @@ export default class Digitizing {
 
                     if(loadedGeom){
                         const loadedFeature = new Feature(loadedGeom);
+                        // init measure tooltip
+                        this._initMeasureTooltipOnLoadedFeatures(loadedFeature.getGeometry());
                         loadedFeature.set('color', feature.color);
                         loadedFeatures.push(loadedFeature);
                     }
@@ -1064,6 +1423,8 @@ export default class Digitizing {
                     console.log(loadedFeatures.length+' features read from WKT!');
                     // set color
                     for(const loadedFeature of loadedFeatures){
+                        // init measure tooltip
+                        this._initMeasureTooltipOnLoadedFeatures(loadedFeature.getGeometry());
                         loadedFeature.set('color', this._drawColor);
                     }
                     // No features read from localStorage so remove the data
@@ -1078,6 +1439,7 @@ export default class Digitizing {
             }
 
             // Draw features
+            this._isSaved = (loadedFeatures.length > 0);
             this._drawSource.addFeatures(loadedFeatures);
         }
     }
@@ -1085,7 +1447,7 @@ export default class Digitizing {
     download(format) {
         if (this.featureDrawn) {
             const options = {
-                featureProjection: mainLizmap.projection,
+                featureProjection: this._lizmap3.map.getProjection(),
                 dataProjection: 'EPSG:4326'
             };
             if (format === 'geojson') {
@@ -1097,6 +1459,16 @@ export default class Digitizing {
             } else if (format === 'kml') {
                 const kml = (new KML()).writeFeatures(this.featureDrawn, options);
                 Utils.downloadFileFromString(kml, 'application/vnd.google-earth.kml+xml', 'export.kml');
+            } else if (format === 'fgb') {
+                // We create a temp GeoJSON in order to fill the metadata with the projection code
+                const tempGeoJSON = (new GeoJSON()).writeFeaturesObject(this.featureDrawn);
+
+                let projCode = options.featureProjection.split(":")[1];
+                projCode = parseInt(projCode);
+
+                // The 'serialize' func from GeoJSON allows us to add a projection code
+                const fgb = flatgeobuf.geojson.serialize(tempGeoJSON, projCode);
+                Utils.downloadFileFromString(fgb, 'application/octet-stream', 'export.fgb');
             }
         }
     }
@@ -1107,15 +1479,61 @@ export default class Digitizing {
         // Get file extension
         const fileExtension = file.name.split('.').pop().toLowerCase();
 
+        // Prepare for flatgeobuf
+        let projFGB;
+
+        /**
+         * Handle meta data of the FlatGeobuf file
+         * @param {object} headerMeta - Meta data of the FlatGeobuf file
+         */
+        function handleHeaderMeta(headerMeta) {
+            const crsFGB = headerMeta.crs;
+            projFGB = (crsFGB ? "EPSG:" + crsFGB.code : null);
+        }
+
+        /**
+         * Reproject all features from a sourceProj to a targetProj
+         * @param {Feature} features - Features to reproject
+         * @param {string} sourceProj - Source projection
+         * @param {string} targetProj - Target projection
+         * @returns {Feature} - Reprojected features
+         */
+        function reprojAll(features, sourceProj, targetProj) {
+            for (let i = 0; i < features.length; i++) {
+                features[i].getGeometry().transform(sourceProj, targetProj);
+            }
+            return features;
+        }
+
+        // if (fileExtension === 'zip') {
+        //     reader.onload = (() => {
+        //         return (e) => {
+        //             const buffershp = e.target.result;
+        //             shp(buffershp).then(response => {
+        //                 let OL6features = (new GeoJSON()).readFeatures(
+        //                     response,
+        //                     {featureProjection: this._lizmap3.map.getProjection()},
+        //                 );
+        //
+        //                 if (OL6features) {
+        //                     // Add imported features to map and zoom to their extent
+        //                     this._drawSource.addFeatures(OL6features);
+        //                 }
+        //             });
+        //         };
+        //     })(this);
+        //     reader.readAsArrayBuffer(file);
+        // }
+
         reader.onload = (() => {
-            return (e) => {
+            return async (e) => {
                 const fileContent = e.target.result;
                 let OL6features;
 
                 // Handle GeoJSON, GPX or KML strings
                 try {
                     const options = {
-                        featureProjection: mainLizmap.projection
+                        featureProjection: this._lizmap3.map.getProjection()
                     };
                     // Check extension for format type
                     if (['json', 'geojson'].includes(fileExtension)) {
@@ -1125,9 +1543,56 @@ export default class Digitizing {
                     } else if (fileExtension === 'kml') {
                         // Remove features default style to display layer style
                         OL6features = (new KML({ extractStyles: false })).readFeatures(fileContent, options);
+                    } else if (fileExtension === 'zip') {
+                        const geojson = await shp(fileContent);
+                        if (geojson) {
+                            OL6features = (new GeoJSON()).readFeatures(geojson, options);
+                        }
+                    } else if (fileExtension === 'fgb') {
+                        let features = [];
+
+                        const blob = new Blob([fileContent]);
+                        const stream = blob.stream();
+
+                        for await (const feature of flatgeobuf.ol.deserialize(stream, null, handleHeaderMeta)) {
+                            features.push(feature);
+                        }
+
+                        if (projFGB !== null) {
+                            const projCode = projFGB.split(":")[1];
+
+                            // Verifiy if the projection is already included in proj4
+                            if (Object.keys(proj4.defs).filter((name) => name.includes(projFGB)).length === 0) {
+                                // We need a reprojection to be done because flatgeobuf files
+                                // doesn't have a precise projection
+                                // We neither used wkt located in headers due to some errors
+                                // to define it with proj4.
+                                // Nor 'fromEPSGcode()' because it returns a 'Projection' object
+                                // that sometimes throws errors.
+                                let descriptor = await Utils.fetch('https://epsg.io/' + projCode + '.proj4')
+                                    .then((res) => res.text())
+                                    .catch((error) => {
+                                        throw new Error(
+                                            lizDict["digitizing.import.fetch.error"] + " : " + error.message
+                                        );
+                                    });
+
+                                proj4.defs(projFGB, descriptor);
+                                register(proj4);
+                            }
+
+                            features = reprojAll(features, projFGB, this._lizmap3.map.getProjection());
+                        } else {
+                            this._lizmap3.addMessage(lizDict["digitizing.import.metadata.error"] + " : " +
+                                this._lizmap3.map.getProjection()
+                            , 'info'
+                            , true)
+                        }
+
+                        OL6features = features;
                     }
                 } catch (error) {
-                    lizMap.addMessage(error, 'error', true)
+                    this._lizmap3.addMessage(error, 'danger', true)
                 }
 
                 if (OL6features) {
@@ -1138,11 +1603,17 @@ export default class Digitizing {
                     const featuresGeometryCollection = new GeometryCollection(featuresGeometry);
                     const extent = featuresGeometryCollection.getExtent();
 
-                    mainLizmap.map.getView().fit(extent);
+                    this._map.getView().fit(extent);
                 }
             };
         })(this);
 
-        reader.readAsText(file);
+        if (fileExtension === 'zip'){
+            reader.readAsArrayBuffer(file);
+        } else if (fileExtension === 'fgb'){
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
     }
 }

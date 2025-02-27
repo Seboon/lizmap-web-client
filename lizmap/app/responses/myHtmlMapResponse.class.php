@@ -1,4 +1,5 @@
 <?php
+
 /**
  * HTML Jelix response for full screen map.
  *
@@ -37,8 +38,7 @@ class myHtmlMapResponse extends AbstractLizmapHtmlResponse
         $this->addAssets('datatables');
         $this->addAssets('map');
 
-        $generalJSConfig = 'Proj4js.libPath = "'.$bp.'assets/js/Proj4js/";';
-        $this->addJSCode($generalJSConfig);
+        $this->setBodyAttributes(array('data-proj4js-lib-path' => $bp.'assets/js/Proj4js/'));
     }
 
     protected function doAfterActions()
@@ -49,5 +49,7 @@ class myHtmlMapResponse extends AbstractLizmapHtmlResponse
         $this->body->assignIfNone('user', jAuth::getUserSession());
         $this->body->assignIfNone('auth_url_return', '');
         $this->body->assignIfNone('googleAnalyticsID', '');
+
+        parent::doAfterActions();
     }
 }

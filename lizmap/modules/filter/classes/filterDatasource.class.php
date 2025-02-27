@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Manage and give access to lizmap configuration.
  *
@@ -98,12 +99,13 @@ class filterDatasource
 
         return str_replace('$geometry', '"'.$this->datasource->geocol.'"', $filter);
     }
-    
+
     /**
-     * return data as jDbResultSet or errors as array 
+     * return data as jDbResultSet or errors as array.
      *
-     * @param  mixed $sql
-     * @return jDbResultSet|array
+     * @param mixed $sql
+     *
+     * @return array|jDbResultSet
      */
     protected function getData($sql)
     {

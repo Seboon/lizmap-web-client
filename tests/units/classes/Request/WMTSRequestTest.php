@@ -4,7 +4,7 @@ use PHPUnit\Framework\TestCase;
 
 class WMTSRequestTest extends TestCase
 {
-    public function testGetCapabilities()
+    public function testGetCapabilities(): void
     {
         $appContext = new ContextForTests();
         $project = new ProjectForOGCForTests();
@@ -12,7 +12,7 @@ class WMTSRequestTest extends TestCase
         $project->setRepo($repo);
         $project->setKey('test');
         $wmtsMock = $this->getMockBuilder(WMTSRequestForTests::class)
-                         ->setMethods(['serviceException'])
+                         ->onlyMethods(['serviceException'])
                          ->setConstructorArgs(array($project, array(), null))
                          ->getMock();
         LizmapTilerForTests::$tileCapFail = true;

@@ -121,8 +121,9 @@ export function inverse(mgrs) {
 }
 
 /**
- *
- * @param mgrs
+ * Convert MGRS string to lat/lon.
+ * @param {string} mgrs MGRS string.
+ * @returns {[number,number]} An array with longitude and latitude.
  */
 export function toPoint(mgrs) {
     if (mgrs === '') {
@@ -213,6 +214,7 @@ function LLtoUTM(ll) {
     const C = eccPrimeSquared * Math.cos(LatRad) * Math.cos(LatRad);
     const A = Math.cos(LatRad) * (LongRad - LongOriginRad);
 
+    // eslint-disable-next-line @stylistic/js/max-len
     const M = a * ((1 - ECC_SQUARED / 4 - 3 * ECC_SQUARED * ECC_SQUARED / 64 - 5 * ECC_SQUARED * ECC_SQUARED * ECC_SQUARED / 256) * LatRad - (3 * ECC_SQUARED / 8 + 3 * ECC_SQUARED * ECC_SQUARED / 32 + 45 * ECC_SQUARED * ECC_SQUARED * ECC_SQUARED / 1024) * Math.sin(2 * LatRad) + (15 * ECC_SQUARED * ECC_SQUARED / 256 + 45 * ECC_SQUARED * ECC_SQUARED * ECC_SQUARED / 1024) * Math.sin(4 * LatRad) - (35 * ECC_SQUARED * ECC_SQUARED * ECC_SQUARED / 3072) * Math.sin(6 * LatRad));
 
     const UTMEasting = (SCALE_FACTOR * N * (A + (1 - T + C) * A * A * A / 6 + (5 - 18 * T + T * T + 72 * C - 58 * eccPrimeSquared) * A * A * A * A * A / 120) + EASTING_OFFSET);
@@ -321,7 +323,7 @@ function UTMtoLL(utm) {
  * @private
  * @param {number} latitude The latitude in WGS84 to get the letter designator
  *     for.
- * @returns {string} The letter designator.
+ * @returns {string|void} The letter designator.
  */
 export function getLetterDesignator(latitude) {
     if (latitude <= 84 && latitude >= 72) {
@@ -361,9 +363,9 @@ function encode(utm, accuracy) {
  * Get the two letter 100k designator for a given UTM easting,
  * northing and zone number value.
  * @private
- * @param {number} easting
- * @param {number} northing
- * @param {number} zoneNumber
+ * @param {number} easting the easting value within the UTM zone.
+ * @param {number} northing the northing value within the UTM zone.
+ * @param {number} zoneNumber the UTM zone number.
  * @returns {string} the two letter 100k designator for the given UTM location.
  */
 function get100kID(easting, northing, zoneNumber) {
@@ -654,7 +656,7 @@ function getNorthingFromChar(n, set) {
  * Ported from Geotrans' c Lattitude_Band_Value structure table.
  * @private
  * @param {string} zoneLetter The MGRS zone to get the min northing for.
- * @returns {number}
+ * @returns {number} the minimum northing value of the given zone.
  */
 function getMinNorthing(zoneLetter) {
     let northing;

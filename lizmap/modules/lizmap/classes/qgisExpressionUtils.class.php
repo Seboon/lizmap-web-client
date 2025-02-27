@@ -1,4 +1,8 @@
 <?php
+
+use Lizmap\Project\Project;
+use Lizmap\Request\Proxy;
+
 /**
  * @author    3liz
  * @copyright 2020 3liz
@@ -21,8 +25,8 @@ class qgisExpressionUtils
         if ($exp === null || trim($exp) === '') {
             return array();
         }
-        preg_match_all('/"([^"]+)"/', $exp, $matches);
-        if (count($matches) < 2) {
+        $preg = preg_match_all('/"([^"]+)"/', $exp, $matches);
+        if ($preg == false) {
             return array();
         }
 
@@ -39,7 +43,7 @@ class qgisExpressionUtils
     public static function getCriteriaFromExpressions($expressions)
     {
         $criteriaFrom = array();
-        foreach ($expressions as $id => $exp) {
+        foreach ($expressions as $exp) {
             if ($exp === null || trim($exp) === '') {
                 continue;
             }
@@ -59,8 +63,8 @@ class qgisExpressionUtils
      */
     public static function getCurrentValueCriteriaFromExpression($exp)
     {
-        preg_match_all('/\\bcurrent_value\\(\\s*\'([^)]*)\'\\s*\\)/', $exp, $matches);
-        if (count($matches) == 2) {
+        $preg = preg_match_all('/\bcurrent_value\(\s*\'([^)]*)\'\s*\)/', $exp, $matches);
+        if ($preg !== false) {
             return array_values(array_unique($matches[1]));
         }
 
@@ -76,7 +80,7 @@ class qgisExpressionUtils
      */
     public static function hasCurrentGeometry($exp)
     {
-        return preg_match('/\\B@current_geometry\\b/', $exp) === 1;
+        return preg_match('/\B@current_geometry\b/', $exp) === 1;
     }
 
     /**
@@ -154,10 +158,15 @@ class qgisExpressionUtils
      * @param qgisVectorLayer $layer         A QGIS vector layer
      * @param array           $virtualFields The expressions' list to evaluate as key
      * @param string          $filter        A filter to restrict virtual fields creation
+     * @param string          $withGeometry  'true' to get geometries of features
+     * @param string          $fields        A list of field names separated by comma. E.g. 'name,code'
+     * @param int             $limit         The maximum number of features to return
+     * @param null|string     $sortingField  The field to sort by E.g. 'desc'
+     * @param null|string     $sortingOrder  The order to sort by E.g. 'name'
      *
      * @return null|array the features with virtual fields
      */
-    public static function virtualFields($layer, $virtualFields, $filter = null)
+    public static function virtualFields($layer, $virtualFields, $filter = null, $withGeometry = 'true', $fields = '', $limit = 1000, $sortingField = null, $sortingOrder = 'asc')
     {
         // Evaluate the expression by qgis
         $project = $layer->getProject();
@@ -167,10 +176,16 @@ class qgisExpressionUtils
             'map' => $project->getRelativeQgisPath(),
             'layer' => $layer->getName(),
             'virtuals' => json_encode($virtualFields),
-            'with_geometry' => 'true',
+            'with_geometry' => $withGeometry,
+            'fields' => $fields,
+            'limit' => $limit,
         );
         if ($filter) {
             $params['filter'] = $filter;
+        }
+        if ($sortingField) {
+            $params['sorting_field'] = $sortingField;
+            $params['sorting_order'] = in_array(strtolower($sortingOrder), array('asc', 'desc')) ? $sortingOrder : 'asc';
         }
 
         // Request virtual fields
@@ -236,6 +251,43 @@ class qgisExpressionUtils
         }
 
         return null;
+    }
+
+    /**
+     * Request QGIS Server and the lizmap plugin to replace QGIS expressions text.
+     *
+     * @param qgisVectorLayer $layer        A QGIS vector layer
+     * @param array           $expressions  The expressions text to replace
+     * @param array           $form_feature A feature to add to the evaluation context
+     *
+     * @return null|object the results of expressions text replacement
+     */
+    public static function replaceExpressionText($layer, $expressions, $form_feature = null)
+    {
+        // Evaluate the expression by qgis
+        $project = $layer->getProject();
+        $params = array(
+            'service' => 'EXPRESSION',
+            'request' => 'REPLACEEXPRESSIONTEXT',
+            'map' => $project->getRelativeQgisPath(),
+            'layer' => $layer->getName(),
+            'strings' => json_encode($expressions),
+            'format' => 'GeoJSON',
+        );
+        if ($form_feature) {
+            $params['feature'] = json_encode($form_feature);
+            $params['form_scope'] = 'true';
+        } else {
+            $params['features'] = 'ALL';
+        }
+
+        // Request replace expression text
+        $json = self::request($params, $project);
+        if (!$json) {
+            return null;
+        }
+
+        return $json;
     }
 
     /**
@@ -324,10 +376,10 @@ class qgisExpressionUtils
             if ($ref == $form->getData('liz_geometryColumn')) {
                 // from wkt to geom
                 $wkt = trim($form->getData($ref));
-                if ($wkt && \lizmapWkt::check($wkt)) {
-                    $geom = \lizmapWkt::parse($wkt);
+                if ($wkt && lizmapWkt::check($wkt)) {
+                    $geom = lizmapWkt::parse($wkt);
                     if ($geom === null) {
-                        \jLog::log('Parsing WKT failed! '.$wkt, 'error');
+                        jLog::log('Parsing WKT failed! '.$wkt, 'error');
                     }
                 }
             } else {
@@ -365,9 +417,9 @@ class qgisExpressionUtils
         );
 
         // Request evaluate constraint expressions
-        $url = \Lizmap\Request\Proxy::constructUrl($params, lizmap::getServices());
+        $url = Proxy::constructUrl($params, lizmap::getServices());
         $options = array('method' => 'post');
-        list($data, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($url, $options);
+        list($data, $mime, $code) = Proxy::getRemoteData($url, $options);
 
         // Check data from request
         if (strpos($mime, 'text/json') === 0 || strpos($mime, 'application/json') === 0) {
@@ -398,8 +450,8 @@ class qgisExpressionUtils
     /**
      * Performing the request to QGIS Server.
      *
-     * @param array                               $params
-     * @param \Lizmap\Project\Project|qgisProject $project
+     * @param array               $params
+     * @param Project|qgisProject $project
      *
      * @return null|object The response content or null
      */
@@ -425,13 +477,13 @@ class qgisExpressionUtils
                 'Lizmap_Override_Filter' => $loginFilteredOverride,
             ));
         }
-        $url = \Lizmap\Request\Proxy::constructUrl($merged_params, lizmap::getServices());
+        $url = Proxy::constructUrl($merged_params, lizmap::getServices());
         // Use POST method as the expressions can be heavy (polygon filter)
         $options = array('method' => 'post');
-        list($data, $mime, $code) = \Lizmap\Request\Proxy::getRemoteData($url, $options);
+        list($data, $mime, $code) = Proxy::getRemoteData($url, $options);
 
         // Check data from request
-        if (strpos($mime, 'text/json') === 0 || strpos($mime, 'application/json') === 0) {
+        if (strpos($mime, 'text/json') === 0 || strpos($mime, 'application/json') === 0 || strpos($mime, 'application/vnd.geo+json') === 0) {
             return json_decode($data);
         }
 

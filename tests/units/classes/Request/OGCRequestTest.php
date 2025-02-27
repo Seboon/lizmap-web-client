@@ -4,7 +4,7 @@ use PHPUnit\Framework\TestCase;
 
 class OGCRequestTest extends TestCase
 {
-    public function testParam()
+    public function testParam(): void
     {
         $params = array(
             'request' => 'getmap',
@@ -21,7 +21,7 @@ class OGCRequestTest extends TestCase
         $this->assertEquals($default, $ogc->param('empty', $default, true));
     }
 
-    public function testParameters()
+    public function testParameters(): void
     {
         $params = array(
             'request' => 'getmap',
@@ -66,14 +66,14 @@ class OGCRequestTest extends TestCase
         $this->assertEquals($expectedParameters, $parameters);
     }
 
-    public function testProcess()
+    public function testProcess(): void
     {
         $params = array(
             'service' => 'WMS',
             'request' => 'getcapabilities'
         );
         $ogc = $this->getMockBuilder(OGCRequestForTests::class)
-            ->setMethods(['process_getcapabilities'])
+            ->onlyMethods(['process_getcapabilities'])
             ->setConstructorArgs([new ProjectForOGCForTests(), $params, null])
             ->getMock();
         $ogc->expects($this->once())->method('process_getcapabilities');
@@ -83,7 +83,7 @@ class OGCRequestTest extends TestCase
             'request' => 'not existing method'
         );
         $ogc = $this->getMockBuilder(OGCRequestForTests::class)
-            ->setMethods(['serviceException'])
+            ->onlyMethods(['serviceException'])
             ->setConstructorArgs([new ProjectForOGCForTests(), $params, null])
             ->getMock();
         $ogc->expects($this->once())->method('serviceException')->with(501);

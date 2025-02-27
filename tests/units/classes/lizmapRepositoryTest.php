@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
  */
 class lizmapRepositoryTest extends TestCase
 {
-    public function getTestGetPathData()
+    public static function getTestGetPathData()
     {
         $repo1 = array(
             'repository:test' => array(
@@ -61,7 +61,7 @@ class lizmapRepositoryTest extends TestCase
      * @param mixed $varPath
      * @param mixed $expectedPath
      */
-    public function testGetPath($repo, $key, $varPath, $expectedPath)
+    public function testGetPath($repo, $key, $varPath, $expectedPath): void
     {
         $services = new lizmapServices($repo, (object) array(), true, $varPath, null);
         $rep = $services->getLizmapRepository($key);
@@ -69,7 +69,7 @@ class lizmapRepositoryTest extends TestCase
         unset($services, $rep);
     }
 
-    public function getTestUpdateData()
+    public static function getTestUpdateData()
     {
         $data1 = array(
             'repository:test' => array(
@@ -133,7 +133,7 @@ class lizmapRepositoryTest extends TestCase
      * @param mixed $changedValue
      * @param mixed $expectedReturnValue
      */
-    public function testUpdate($data, $expectedData, $changedProp, $changedValue, $expectedReturnValue)
+    public function testUpdate($data, $expectedData, $changedProp, $changedValue, $expectedReturnValue): void
     {
         $iniFile = realpath(__DIR__.'/../tmp').'/config.ini.php';
         $section = 'repository:test';

@@ -14,7 +14,7 @@ class ItemTest extends TestCase
         }
     }
 
-    public function getConstructData()
+    public static function getConstructData()
     {
         $data1 = array(
             'label' => 'test',
@@ -38,7 +38,7 @@ class ItemTest extends TestCase
     /**
      * @dataProvider getConstructData
      */
-    public function testConstruct($config)
+    public function testConstruct($config): void
     {
         $props = Log\Item::getSProperties();
         $item = new Log\Item('key', $config, $this->context);
@@ -51,7 +51,7 @@ class ItemTest extends TestCase
         }
     }
 
-    public function getLogDetailData()
+    public static function getLogDetailData()
     {
         $data1 = array(
             'key' => 'key',
@@ -77,7 +77,7 @@ class ItemTest extends TestCase
     /**
      * @dataProvider getLogDetailData
      */
-    public function testInsertLogDetail($data)
+    public function testInsertLogDetail($data): void
     {
         $context = new ContextForTests();
         $context->setResult(array(

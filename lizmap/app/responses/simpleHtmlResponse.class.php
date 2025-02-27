@@ -1,4 +1,5 @@
 <?php
+
 /**
  * HTML Jelix response for full screen map.
  *
@@ -27,5 +28,7 @@ class simpleHtmlResponse extends AbstractLizmapHtmlResponse
         // main template, the settings of the response etc..
         // $this->bodyTagAttributes = array('onload'=>'init()');
         $this->body->assignIfNone('MAIN', '<p>Pas de contenu</p>');
+
+        parent::doAfterActions();
     }
 }

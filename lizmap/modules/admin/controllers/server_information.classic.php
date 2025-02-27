@@ -1,4 +1,8 @@
 <?php
+
+use Lizmap\Server\Server;
+use LizmapAdmin\ModulesInfo\ModulesChecker;
+
 /**
  * Lizmap administration : Server information page.
  *
@@ -27,7 +31,7 @@ class server_informationCtrl extends jController
         $rep = $this->getResponse('html');
 
         // Get the metadata
-        $server = new \Lizmap\Server\Server();
+        $server = new Server();
         $data = $server->getMetadata();
 
         $qgisMinimumVersionRequired = jApp::config()->minimumRequiredVersion['qgisServer'];
@@ -46,7 +50,7 @@ class server_informationCtrl extends jController
             // but LWC could not reach QGIS server or the Lizmap API
             jLog::log(jLocale::get(
                 'admin.server.information.qgis.unknown',
-                array($qgisMinimumVersionRequired, $lizmapPluginMinimumVersionRequired, \lizmap::getServices()->wmsServerURL)
+                array($qgisMinimumVersionRequired, $lizmapPluginMinimumVersionRequired, lizmap::getServices()->wmsServerURL)
             ), 'lizmapadmin');
         }
 
@@ -59,30 +63,31 @@ class server_informationCtrl extends jController
             jLog::log($updateQgisServer, 'lizmapadmin');
         }
 
-        $displayPluginActionColumn = false;
         $lizmapQgisServerNeedsUpdate = $server->pluginServerNeedsUpdate(
             $currentLizmapVersion,
             $lizmapPluginMinimumVersionRequired
         );
-        $updateLizmapPlugin = jLocale::get('admin.server.information.plugin.update', array('lizmap_server'));
+        $updateLizmapPlugin = jLocale::get('admin.server.information.plugin.update');
         if (!is_null($currentQgisVersion) && $lizmapQgisServerNeedsUpdate) {
             // lizmap_server is required to use LWC
             jLog::log($updateLizmapPlugin, 'lizmapadmin');
-            $displayPluginActionColumn = true;
         }
+
+        $modules = new ModulesChecker();
 
         // Set the HTML content
         $tpl = new jTpl();
         $assign = array(
             'data' => $data,
-            'baseUrlApplication' => \jServer::getServerURI().\jApp::urlBasePath(),
+            'baseUrlApplication' => jServer::getServerURI().jApp::urlBasePath(),
+            'modules' => $modules->getList(false),
             'qgisServerNeedsUpdate' => $qgisServerNeedsUpdate,
             'updateQgisServer' => $updateQgisServer,
-            'displayPluginActionColumn' => $displayPluginActionColumn,
             'lizmapQgisServerNeedsUpdate' => $lizmapQgisServerNeedsUpdate,
             'lizmapPluginUpdate' => $updateLizmapPlugin,
             'minimumQgisVersion' => $qgisMinimumVersionRequired,
             'minimumLizmapServer' => $lizmapPluginMinimumVersionRequired,
+            'currentLizmapCommitId' => jApp::config()->commitSha,
         );
         $tpl->assign($assign);
         $rep->body->assign('MAIN', $tpl->fetch('server_information'));

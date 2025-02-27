@@ -2,11 +2,14 @@
 
 namespace Lizmap\Commands;
 
+use Jelix\FakeServerConf\ApacheMod;
+use Jelix\Scripts\ModuleCommandAbstract;
+use Lizmap\CliHelpers\WMTSCache;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class WMTSCapabilities extends \Jelix\Scripts\ModuleCommandAbstract
+class WMTSCapabilities extends ModuleCommandAbstract
 {
     protected function configure()
     {
@@ -19,7 +22,6 @@ class WMTSCapabilities extends \Jelix\Scripts\ModuleCommandAbstract
             ->addArgument('project', InputArgument::REQUIRED, 'The project name')
             ->addArgument('layer', InputArgument::OPTIONAL, 'The layer name for which you want to know capabilities')
             ->addArgument('TileMatrixSet', InputArgument::OPTIONAL, 'the TileMatrixSet (CRS) for which you want to know capabilites')
-
         ;
     }
 
@@ -27,10 +29,10 @@ class WMTSCapabilities extends \Jelix\Scripts\ModuleCommandAbstract
     {
         $req = new \jClassicRequest();
 
-        $fakeServer = new \Jelix\FakeServerConf\ApacheMod(\jApp::wwwPath(), '/index.php');
+        $fakeServer = new ApacheMod(\jApp::wwwPath(), '/index.php');
         $fakeServer->setHttpRequest($req->getServerURI());
 
-        $WMTSCache = new \Lizmap\CliHelpers\WMTSCache(function ($str) use ($output) {$output->writeln($str); });
+        $WMTSCache = new WMTSCache(function ($str) use ($output): void {$output->writeln($str); });
 
         return $WMTSCache->capabilities(
             $input->getArgument('repository'),

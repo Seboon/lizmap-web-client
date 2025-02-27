@@ -2,15 +2,20 @@ import { expect } from 'chai';
 
 import { readFileSync } from 'fs';
 
-import { ValidationError, ConversionError } from '../../../../assets/src/modules/Errors.js';
-import { LayersConfig } from '../../../../assets/src/modules/config/Layer.js';
-import { LayerGeographicBoundingBoxConfig, LayerBoundingBoxConfig, LayerTreeGroupConfig, buildLayerTreeConfig } from '../../../../assets/src/modules/config/LayerTree.js';
-import { base64png, base64svg, base64svgPointLayer, base64svgLineLayer, base64svgPolygonLayer, BaseIconSymbology, LayerIconSymbology, LayerSymbolsSymbology, SymbolIconSymbology } from '../../../../assets/src/modules/state/Symbology.js';
-import { buildLayersOrder } from '../../../../assets/src/modules/config/LayersOrder.js';
-import { LayersAndGroupsCollection } from '../../../../assets/src/modules/state/Layer.js';
-import { MapLayerLoadStatus, MapGroupState } from '../../../../assets/src/modules/state/MapLayer.js';
+import { ConversionError } from 'assets/src/modules/Errors.js';
+import { LayersConfig } from 'assets/src/modules/config/Layer.js';
+import { LayerTreeGroupConfig, buildLayerTreeConfig } from 'assets/src/modules/config/LayerTree.js';
+import { base64png, base64svg, base64svgPointLayer, base64svgLineLayer, base64svgPolygonLayer, base64svgRasterLayer, base64svgOlLayer } from 'assets/src/modules/state/SymbologyIcons.js';
+import { BaseIconSymbology, LayerIconSymbology, LayerSymbolsSymbology, SymbolIconSymbology } from 'assets/src/modules/state/Symbology.js';
+import { buildLayersOrder } from 'assets/src/modules/config/LayersOrder.js';
+import { LayersAndGroupsCollection } from 'assets/src/modules/state/Layer.js';
+import { MapLayerLoadStatus, MapGroupState, MapRootState } from 'assets/src/modules/state/MapLayer.js';
 
-import { LayerTreeGroupState, LayerTreeLayerState } from '../../../../assets/src/modules/state/LayerTree.js';
+import { LayerTreeGroupState, LayerTreeLayerState, TreeRootState } from 'assets/src/modules/state/LayerTree.js';
+import { ExternalLayerTreeGroupState } from 'assets/src/modules/state/ExternalLayerTree.js';
+import { OptionsConfig } from 'assets/src/modules/config/Options.js';
+
+import { default as ol } from 'assets/src/dependencies/ol.js';
 
 /**
  * Returns the root LayerTreeGroupState for the project
@@ -24,26 +29,31 @@ import { LayerTreeGroupState, LayerTreeLayerState } from '../../../../assets/src
  * @return {LayerTreeGroupState}
  **/
 function getRootLayerTreeGroupState(name) {
-    const capabilities = JSON.parse(readFileSync('./data/'+ name +'-capabilities.json', 'utf8'));
+    const capabilities = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-capabilities.json', 'utf8'));
     expect(capabilities).to.not.be.undefined
     expect(capabilities.Capability).to.not.be.undefined
-    const config = JSON.parse(readFileSync('./data/'+ name +'-config.json', 'utf8'));
+    const config = JSON.parse(readFileSync('./tests/js-units/data/'+ name +'-config.json', 'utf8'));
     expect(config).to.not.be.undefined
 
     const layers = new LayersConfig(config.layers);
 
-    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers);
+    let invalid = [];
+    const rootCfg = buildLayerTreeConfig(capabilities.Capability.Layer, layers, invalid);
+
+    expect(invalid).to.have.length(0);
     expect(rootCfg).to.be.instanceOf(LayerTreeGroupConfig)
 
     const layersOrder = buildLayersOrder(config, rootCfg);
 
-    const collection = new LayersAndGroupsCollection(rootCfg, layersOrder);
+    const options = new OptionsConfig(config.options);
+    const collection = new LayersAndGroupsCollection(rootCfg, layersOrder, options.hideGroupCheckbox);
 
-    const rootMapGroup = new MapGroupState(collection.root);
+    const rootMapGroup = new MapRootState(collection.root);
     expect(rootMapGroup).to.be.instanceOf(MapGroupState)
 
-    const root = new LayerTreeGroupState(rootMapGroup);
+    const root = new TreeRootState(rootMapGroup);
     expect(root).to.be.instanceOf(LayerTreeGroupState)
+    expect(root).to.be.instanceOf(TreeRootState)
     return root;
 }
 
@@ -865,7 +875,7 @@ describe('LayerTreeGroupState', function () {
         const root = getRootLayerTreeGroupState('montpellier')
         expect(root).to.be.instanceOf(LayerTreeGroupState)
 
-        const legend = JSON.parse(readFileSync('./data/montpellier-legend.json', 'utf8'));
+        const legend = JSON.parse(readFileSync('./tests/js-units/data/montpellier-legend.json', 'utf8'));
         expect(legend).to.not.be.undefined
 
         const sousquartiers = root.children[2];
@@ -1171,5 +1181,157 @@ describe('LayerTreeGroupState', function () {
             "DPI": 96,
             "FILTER": "SousQuartiers:\"QUARTMNO\" = 'HO'"
         })
+    })
+})
+
+describe('TreeRootState', function () {
+    it('createExternalGroup', function () {
+        const root = getRootLayerTreeGroupState('montpellier');
+        expect(root.childrenCount).to.be.eq(4)
+
+        const mapRoot = root.mapItemState;
+        expect(mapRoot).to.be.instanceOf(MapRootState);
+        expect(mapRoot.childrenCount).to.be.eq(4)
+
+        // Create external group
+        const extGroup = mapRoot.createExternalGroup('test');
+        expect(extGroup.name).to.be.eq('test')
+
+        // The external group has been added
+        expect(root.childrenCount).to.be.eq(5)
+
+        const extTreeGroup = root.children[0]
+        expect(extTreeGroup).to.be.instanceOf(ExternalLayerTreeGroupState)
+        expect(extTreeGroup.type).to.be.eq('ext-group')
+        expect(extTreeGroup.level).to.be.eq(1)
+        expect(extTreeGroup.name).to.be.eq('test')
+        expect(extTreeGroup.mapItemState).to.be.eq(extGroup)
+    })
+
+    it('removeExternalGroup', function () {
+        const root = getRootLayerTreeGroupState('montpellier');
+        expect(root.childrenCount).to.be.eq(4)
+
+        const mapRoot = root.mapItemState;
+        expect(mapRoot).to.be.instanceOf(MapRootState);
+        expect(mapRoot.childrenCount).to.be.eq(4)
+
+        // Create external group
+        const extGroup = mapRoot.createExternalGroup('test');
+        expect(extGroup.name).to.be.eq('test')
+
+        // The external group has been added
+        expect(mapRoot.childrenCount).to.be.eq(5)
+        expect(root.childrenCount).to.be.eq(5)
+
+        // Remove external group
+        mapRoot.removeExternalGroup('test')
+        expect(mapRoot.childrenCount).to.be.eq(4)
+        expect(root.childrenCount).to.be.eq(4)
+    })
+
+    it('External events', function () {
+        const root = getRootLayerTreeGroupState('montpellier');
+        expect(root.childrenCount).to.be.eq(4)
+
+        const mapRoot = root.mapItemState;
+        expect(mapRoot).to.be.instanceOf(MapRootState);
+        expect(mapRoot.childrenCount).to.be.eq(4)
+
+        // Create external group
+        const extGroup = mapRoot.createExternalGroup('test');
+        expect(extGroup.name).to.be.eq('test')
+
+        // The external group has been added
+        expect(mapRoot.childrenCount).to.be.eq(5)
+        expect(root.childrenCount).to.be.eq(5)
+
+		// OL layer removed event
+		let olLayerAddedEvt;
+		extGroup.addListener(evt => {
+			olLayerAddedEvt = evt;
+		}, 'ol-layer.added');
+		// OL layer wmsTitle changed event
+		let olLayerWmsTitleChangedEvt;
+		extGroup.addListener(evt => {
+			olLayerWmsTitleChangedEvt = evt;
+		}, 'ol-layer.wmsTitle.changed');
+		// OL layer icon changed event
+		let olLayerIconChangedEvt;
+		extGroup.addListener(evt => {
+			olLayerIconChangedEvt = evt;
+		}, 'ol-layer.icon.changed');
+		// OL layer removed event
+		let olLayerRemovedEvt;
+		extGroup.addListener(evt => {
+			olLayerRemovedEvt = evt;
+		}, 'ol-layer.removed');
+
+
+		// Add OpenLayers layer
+		const olLayer = new ol.layer.Tile({
+			source: new ol.source.TileWMS({
+				url: 'https://ahocevar.com/geoserver/gwc/service/wms',
+				crossOrigin: '',
+				params: {
+					'LAYERS': 'ne:NE1_HR_LC_SR_W_DR',
+					'TILED': true,
+					'VERSION': '1.1.1',
+				},
+				projection: 'EPSG:4326',
+				// Source tile grid (before reprojection)
+				tileGrid: ol.tilegrid.createXYZ({
+					extent: [-180, -90, 180, 90],
+					maxResolution: 360 / 512,
+					maxZoom: 10,
+				}),
+				// Accept a reprojection error of 2 pixels
+				reprojectionErrorThreshold: 2,
+			}),
+		});
+		const olLayerState = extGroup.addOlLayer('wms4326', olLayer);
+		expect(olLayerState.type).to.be.eq('ol-layer')
+        expect(olLayerState.name).to.be.eq('wms4326')
+        expect(olLayerState.wmsTitle).to.be.eq(olLayerState.name)
+        expect(olLayerState.icon).to.be.eq(base64svg+base64svgOlLayer)
+
+		// Event dispatched
+		expect(olLayerAddedEvt).to.not.be.undefined
+		expect(olLayerAddedEvt.name).to.be.eq('test')
+		expect(olLayerAddedEvt.childName).to.be.eq('wms4326')
+		expect(olLayerAddedEvt.childrenCount).to.be.eq(1)
+
+        // Update wmsTitle
+        const newWmsTitle = 'WMS 4326 layer'
+        olLayerState.wmsTitle = newWmsTitle
+        expect(olLayerState.name).to.be.eq('wms4326')
+        expect(olLayerState.wmsTitle).to.not.be.eq(olLayerState.name)
+        expect(olLayerState.wmsTitle).to.be.eq(newWmsTitle)
+
+		// Event dispatched
+		expect(olLayerWmsTitleChangedEvt).to.not.be.undefined
+		expect(olLayerWmsTitleChangedEvt.name).to.be.eq(olLayerState.name)
+        expect(olLayerWmsTitleChangedEvt.wmsTitle).to.be.eq(newWmsTitle)
+
+        // Update icon
+        const newIcon = base64svg+base64svgRasterLayer
+        olLayerState.icon = newIcon
+        expect(olLayerState.icon).to.not.be.eq(base64svg+base64svgOlLayer)
+        expect(olLayerState.icon).to.be.eq(newIcon)
+
+		// Event dispatched
+		expect(olLayerIconChangedEvt).to.not.be.undefined
+		expect(olLayerIconChangedEvt.name).to.be.eq(olLayerState.name)
+        expect(olLayerIconChangedEvt.icon).to.be.eq(newIcon)
+
+		// Remove child
+		expect(extGroup.removeOlLayer('wms4326')).to.be.deep.eq(olLayerState)
+		expect(extGroup.childrenCount).to.be.eq(0)
+
+		// Event dispatched
+		expect(olLayerRemovedEvt).to.not.be.undefined
+		expect(olLayerRemovedEvt.name).to.be.eq('test')
+		expect(olLayerRemovedEvt.childName).to.be.eq('wms4326')
+		expect(olLayerRemovedEvt.childrenCount).to.be.eq(0)
     })
 })
