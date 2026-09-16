@@ -116,6 +116,7 @@ admin_api.enabled=on
 [coordplugins]
 ;name = file_ini_name or 1
 autolocale=1
+langpersist=1
 
 [coordplugin_autolocale]
 ; activate the detection from a parameter given in the url
