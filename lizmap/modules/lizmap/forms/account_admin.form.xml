@@ -64,6 +64,11 @@
         <item value="1" locale="jcommunity~account.form.status.valid" />
         <item value="2" locale="jcommunity~account.form.status.valid.email.changed" />
         <item value="3" locale="jcommunity~account.form.status.valid.password.changed" />
+        <item value="4" locale="jcommunity~account.form.status.newuser.check.mail" />
+        <item value="5" locale="jcommunity~account.form.status.newuser.byAdmin" />
+        <item value="6" locale="jcommunity~account.form.status.newuser.check.mail.expired" />
+        <item value="7" locale="jcommunity~account.form.status.newuser.byAdmin.mail.expired" />
+        <item value="8" locale="jcommunity~account.form.status.valid.password.changed.expired" />
     </menulist>
 
     <output ref="keyactivate">
