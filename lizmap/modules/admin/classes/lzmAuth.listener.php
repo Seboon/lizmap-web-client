@@ -15,11 +15,31 @@ class lzmAuthListener extends jEventListener
     public function onjcommunity_registration_after_save($event)
     {
         $services = lizmap::getServices();
+        $websiteUri = \jApp::coord()->request->getServerURI();
+        $basePath = \jApp::urlBasePath();
+        $websiteFullUri = $websiteUri . ($basePath == '/' ? '' : $basePath);        
+        $appName = $services->appName;
         $services->sendNotificationEmail(
-            jLocale::get('admin~user.email.admin.subject'),
+            jLocale::get('admin~user.email.admin.subject',array($appName)),
             jLocale::get(
                 'admin~user.email.admin.body',
-                array($event->user->login, $event->user->email)
+                array($websiteFullUri,$event->user->login, $event->user->email)
+            )
+        );
+    } 
+
+    public function onjcommunity_registration_confirm($event)
+    {
+        $services = lizmap::getServices();
+        $websiteUri = \jServer::getServerURI();
+        $basePath = \jApp::urlBasePath();
+        $websiteFullUri = $websiteUri . ($basePath == '/' ? '' : $basePath);        
+        $appName = $services->appName;
+        $services->sendNotificationEmail(
+            jLocale::get('admin~user.email.admin.link.confirm.subject',array($appName)),
+            jLocale::get(
+                'admin~user.email.admin.link.confirm.body',
+                array($event->user->login,$websiteFullUri)
             )
         );
     }
