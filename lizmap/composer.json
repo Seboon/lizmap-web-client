@@ -7,9 +7,9 @@
   ],
   "require": {
     "php": ">=8.1",
-    "jelix/jelix": "~1.8.27",
+    "jelix/jelix": "1.8.27",
     "jelix/composer-module-setup": "^1.1.0",
-    "jelix/jcommunity-module": "^1.4.7",
+    "jelix/jcommunity-module": "1.4.7",
     "jelix/ldapdao-module": "~2.2.4",
     "proj4php/proj4php": "~2.0.0",
     "violet/streaming-json-encoder": "^1.1.5",
@@ -34,5 +34,13 @@
       "app-dir" : "./",
       "var-config-dir" : "var/config/"
     }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "sh ../patches/vendor/apply.sh"
+    ],
+    "post-update-cmd": [
+      "sh ../patches/vendor/apply.sh"
+    ]
   }
 }
