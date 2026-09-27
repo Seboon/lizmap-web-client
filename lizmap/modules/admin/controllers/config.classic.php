@@ -21,6 +21,35 @@ class configCtrl extends jController
         'saveServices' => array('jacl2.right' => 'lizmap.admin.services.update'),
     );
 
+    /**
+     * Local addition (Seb's fork): populate the "language of notification
+     * e-mails" dropdown (adminNotificationLocale) with the languages
+     * actually available on this site (single source, see
+     * lizmapServices::getAvailableLocalesList()).
+     *
+     * Needed in two different places: once from prepareServicesForm()
+     * (used when the form is first created, in index() and
+     * modifyServices()), and once directly from editServices(). This is
+     * NOT redundant: jForms::get() (used by editServices()) builds a
+     * brand new control object from the compiled form class on every
+     * call, with an empty datasource -- only the submitted/stored field
+     * VALUES are kept across requests (in the session), not this kind of
+     * runtime-populated list. Without this second call, the dropdown
+     * shown by editServices() -- the page an admin actually edits -- would
+     * always stay limited to its empty "site default language" option,
+     * even though prepareServicesForm() did populate it correctly for the
+     * (now discarded) request that preceded the redirect to editServices().
+     *
+     * @return void
+     */
+    protected function fillNotificationLocaleDatasource(jFormsBase $form)
+    {
+        $ctrl = $form->getControl('adminNotificationLocale');
+        if ($ctrl) {
+            $ctrl->datasource->data = lizmapServices::getAvailableLocalesList();
+        }
+    }
+
     protected function prepareServicesForm(jFormsBase $form, lizmapServices $services)
     {
         // Set form data values
@@ -37,6 +66,17 @@ class configCtrl extends jController
 
                 case 'projectSwitcher':
                     $form->setData($ser, $services->{$ser} ? 'on' : 'off');
+
+                    break;
+
+                case 'adminNotificationLocale':
+                    // Local addition (Seb's fork): populate the datasource
+                    // of this menulist with the languages actually
+                    // available on this site -- see
+                    // fillNotificationLocaleDatasource() for why the same
+                    // call is also needed separately in editServices().
+                    $this->fillNotificationLocaleDatasource($form);
+                    $form->setData($ser, $services->{$ser});
 
                     break;
 
@@ -144,6 +184,11 @@ class configCtrl extends jController
 
         /** @var null|jFormsBase $form */
         if ($form) {
+            // Local addition (Seb's fork): repopulate the notification-
+            // locale dropdown here too -- see fillNotificationLocaleDatasource()
+            // for why prepareServicesForm() alone is not enough.
+            $this->fillNotificationLocaleDatasource($form);
+
             $hasSenderEmail = ($form->getData('adminSenderEmail') != '');
             if (lizmap::getServices()->isLdapEnabled()) {
                 $ctrl = $form->getControl('allowUserAccountRequests');

@@ -1,0 +1,337 @@
+Fork changes to jelix/jcommunity-module 1.4.7 (lizmap/vendor), applied by patches/vendor/apply.sh.
+
+@copyright 2026 S.Poudroux / Kheper 3D
+@license GPL-2.0 (licence of jelix/jcommunity-module)
+
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/classes/authadmincommunity.listener.php b/jelix/jcommunity-module/modules/jcommunity/classes/authadmincommunity.listener.php
+--- a/jelix/jcommunity-module/modules/jcommunity/classes/authadmincommunity.listener.php	2026-09-27 16:40:15.232561834 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/classes/authadmincommunity.listener.php	2026-09-27 16:40:15.242561834 +0000
+@@ -40,16 +40,31 @@
+         $canChangePassword = $tpl->get('canChangePass');
+ 
+         $config = new \Jelix\JCommunity\Config();
+-        if ($config->isResetAdminPasswordEnabledForAdmin() && $canChangePassword) {
+-            $tpl->assign('canChangePass', false);
+-            $links = $tpl->get('otherLinks');
+-            $status = $form->getData('status');
+-            if ($status == \Jelix\JCommunity\Account::STATUS_NEW) {
++
++
++        $status = $form->getData('status');
++
++        if ($status == \Jelix\JCommunity\Account::STATUS_CHECK_MAIL
++            || $status == \Jelix\JCommunity\Account::STATUS_ADMIN
++            || $status == \Jelix\JCommunity\Account::STATUS_ADMIN_EXPIRED
++            || $status == \Jelix\JCommunity\Account::STATUS_CHECK_MAIL_EXPIRED) {
+                 $links[] = array(
+                     'url' => jUrl::get('jcommunity~registration_admin_resend:index', array('login'=>$tpl->get('id'))),
+                     'label' => jLocale::get('jcommunity~account.admin.link.account.resent.validation.email'),
+                 );
++                $tpl->assign('otherLinks', $links);
+             }
++        elseif ($config->isResetAdminPasswordEnabledForAdmin() && $canChangePassword) {
++            $tpl->assign('canChangePass', false);
++            $links = $tpl->get('otherLinks');
++            
++            if ($status == \Jelix\JCommunity\Account::STATUS_NEW) {
++                $links[] = array( 
++                    'url' => jUrl::get('jauthdb_admin~default:validate', array('j_user_login'=>$tpl->get('id'))),
++                    'label' => jLocale::get('jauthdb_admin~crud.link.account.validate'),
++                );
++            }        
++            
+             else {
+                 $links[] = array(
+                     'url' => jUrl::get('jcommunity~password_reset_admin:index', array('login'=>$tpl->get('id'))),
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/controllers/registration_admin_resend.classic.php b/jelix/jcommunity-module/modules/jcommunity/controllers/registration_admin_resend.classic.php
+--- a/jelix/jcommunity-module/modules/jcommunity/controllers/registration_admin_resend.classic.php	2026-09-27 16:40:15.257561835 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/controllers/registration_admin_resend.classic.php	2026-09-27 16:40:15.268561835 +0000
+@@ -50,7 +50,12 @@
+             return false;
+         }
+ 
+-        if ($user->status != \Jelix\JCommunity\Account::STATUS_NEW) {
++        if (!in_array($user->status, [
++            \Jelix\JCommunity\Account::STATUS_CHECK_MAIL,
++            \Jelix\JCommunity\Account::STATUS_ADMIN_EXPIRED,
++            \Jelix\JCommunity\Account::STATUS_ADMIN,
++            \Jelix\JCommunity\Account::STATUS_CHECK_MAIL_EXPIRED
++            ])) {
+             $this->showError($rep, 'no_access_badstatus');
+             return false;
+         }
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/lib/Account.php b/jelix/jcommunity-module/modules/jcommunity/lib/Account.php
+--- a/jelix/jcommunity-module/modules/jcommunity/lib/Account.php	2026-09-27 16:40:15.283561835 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/lib/Account.php	2026-09-27 16:40:15.291561835 +0000
+@@ -18,5 +18,10 @@
+     const STATUS_NEW = 0;
+     const STATUS_DEACTIVATED = -1;
+     const STATUS_DELETED = -2;
++    const STATUS_PWD_CHANGED_EXPIRED = 8;
++    const STATUS_ADMIN_EXPIRED = 7;
++    const STATUS_CHECK_MAIL_EXPIRED = 6;
++    const STATUS_ADMIN = 5;
++    const STATUS_CHECK_MAIL = 4;
+ 
+ }
+\ No newline at end of file
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/lib/Command/ResetPassword.php b/jelix/jcommunity-module/modules/jcommunity/lib/Command/ResetPassword.php
+--- a/jelix/jcommunity-module/modules/jcommunity/lib/Command/ResetPassword.php	2026-09-27 16:40:15.306561836 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/lib/Command/ResetPassword.php	2026-09-27 16:40:15.315561836 +0000
+@@ -51,6 +51,7 @@
+ 
+         if (!$code && ($user->status == \Jelix\JCommunity\Account::STATUS_VALID
+             || $user->status == \Jelix\JCommunity\Account::STATUS_PWD_CHANGED)
++            || $user->status == \Jelix\JCommunity\Account::STATUS_PWD_CHANGED_EXPIRED
+         ) {
+             $passReset = new \Jelix\JCommunity\PasswordReset(true, true);
+             $result = $passReset->sendEmail($user);
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/lib/PasswordReset.php b/jelix/jcommunity-module/modules/jcommunity/lib/PasswordReset.php
+--- a/jelix/jcommunity-module/modules/jcommunity/lib/PasswordReset.php	2026-09-27 16:40:15.325561836 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/lib/PasswordReset.php	2026-09-27 16:40:15.336561836 +0000
+@@ -61,7 +61,8 @@
+ 
+         if ($user->status != Account::STATUS_VALID &&
+             $user->status != Account::STATUS_PWD_CHANGED &&
+-            $user->status != Account::STATUS_NEW
++            $user->status != Account::STATUS_NEW && 
++            $user->status != Account::STATUS_PWD_CHANGED_EXPIRED
+         ) {
+             return self::RESET_BAD_STATUS;
+         }
+@@ -145,8 +146,12 @@
+             return self::RESET_BAD_KEY;
+         }
+ 
+-        $expectedStatus = ($this->forRegistration? Account::STATUS_NEW : Account::STATUS_PWD_CHANGED);
+-        if ($user->status != $expectedStatus) {
++        $expectedStatuses = $this->forRegistration
++        ? [Account::STATUS_NEW,Account::STATUS_ADMIN]  // Pour une inscription
++        : [Account::STATUS_PWD_CHANGED, Account::STATUS_PWD_CHANGED_EXPIRED];  // Pour un reset
++           
++        if (!in_array($user->status, $expectedStatuses))
++        {
+             if ($user->status == Account::STATUS_VALID) {
+                 return self::RESET_ALREADY_DONE;
+             }
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/lib/Registration.php b/jelix/jcommunity-module/modules/jcommunity/lib/Registration.php
+--- a/jelix/jcommunity-module/modules/jcommunity/lib/Registration.php	2026-09-27 16:40:15.348561836 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/lib/Registration.php	2026-09-27 16:40:15.356561837 +0000
+@@ -37,7 +37,7 @@
+ 
+         $user = \jAuth::createUserObject($login, $password);
+         $user->email = $email;
+-        $user->status = Account::STATUS_NEW;
++        $user->status = Account::STATUS_CHECK_MAIL;
+         $user->request_date = date('Y-m-d H:i:s');
+         $user->keyactivate = 'U:'.$key;
+ 
+@@ -51,7 +51,7 @@
+         $config = new \Jelix\JCommunity\Config();
+         if ($config->isResetAdminPasswordEnabledForAdmin()) {
+             $key = sha1(password_hash($user->login.$user->password.microtime(), PASSWORD_DEFAULT));
+-            $user->status = Account::STATUS_NEW;
++            $user->status = Account::STATUS_ADMIN;
+             $user->request_date = date('Y-m-d H:i:s');
+             $user->keyactivate = 'A:'.$key;
+             $this->sendRegistrationMail($user,
+@@ -168,19 +168,33 @@
+     public function resendRegistrationMail($user, $byAdmin=false)
+     {
+         $key = sha1(password_hash($user->login.$user->password.microtime(), PASSWORD_DEFAULT));
+-        $user->status = Account::STATUS_NEW;
+         $user->request_date = date('Y-m-d H:i:s');
+         if ($byAdmin || (preg_match('/^([AU]):/', $user->keyactivate , $m) && $m[1] == 'A')) {
+             $user->keyactivate = 'A:'.$key;
+-            $this->sendRegistrationMail($user,
++            if ($user->status == Account::STATUS_ADMIN_EXPIRED
++                || $user->status == Account::STATUS_ADMIN){ 
++                $this->sendRegistrationMail($user,
+                 'jcommunity~mail.registration.admin.body.html',
+-                'jcommunity~password_confirm_registration:resetform');
+-        }
++                'jcommunity~password_confirm_registration:resetform');              
++                $user->status = Account::STATUS_ADMIN;
++                }
++            else {
++                $user->status = Account::STATUS_CHECK_MAIL;
++                $this->sendRegistrationMail($user,
++                'jcommunity~mail.registration.admin.resend.link.activation.body.html',
++                'jcommunity~registration:confirm'); 
++                }       
++        }       
+         else {
++            if ($user->status == Account::STATUS_ADMIN_EXPIRED
++                || $user->status == Account::STATUS_ADMIN){               
++                $user->status = Account::STATUS_ADMIN;}
++            else {
++                $user->status = Account::STATUS_CHECK_MAIL;}  
+             $user->keyactivate = 'U:'.$key;
+             $this->sendRegistrationMail($user,
+-                'jcommunity~mail.registration.body.html',
+-                'jcommunity~registration:confirm');
++            'jcommunity~mail.registration.admin.resend.link.activation.body.html',
++            'jcommunity~registration:confirm');                
+         }
+         \jAuth::updateUser($user);
+     }
+@@ -215,6 +229,7 @@
+     const CONFIRMATION_BAD_KEY = "badkey";
+     const CONFIRMATION_BAD_STATUS = "badstatus";
+     const CONFIRMATION_EXPIRED_KEY = "expiredkey";
++    const CONFIRMATION_ALREADY_VERIFIED = "alreadyverified";
+ 
+     /**
+      * @return string one of CONFIRMATION_* const
+@@ -225,10 +240,17 @@
+             return self::CONFIRMATION_BAD_KEY;
+         }
+ 
+-        if ($user->status != Account::STATUS_NEW) {
+-            if ($user->status == Account::STATUS_VALID) {
++        if ($user->status != Account::STATUS_CHECK_MAIL ) {
++            
++            if ($user->status == Account::STATUS_NEW && empty($user->keyactivate)) {
++                return self::CONFIRMATION_ALREADY_VERIFIED;
++            }
++            elseif($user->status == Account::STATUS_VALID) {
+                 return self::CONFIRMATION_ALREADY_DONE;
+             }
++            elseif ($user->status == Account::STATUS_CHECK_MAIL_EXPIRED) {
++                return self::CONFIRMATION_EXPIRED_KEY;
++            }
+             return self::CONFIRMATION_BAD_STATUS;
+         }
+ 
+@@ -254,7 +276,7 @@
+         }
+ 
+         $user->keyactivate = '';
+-        $user->status = Account::STATUS_VALID;
++        $user->status =Account::STATUS_NEW;
+         \jEvent::notify('jcommunity_registration_confirm', array('user' => $user));
+         \jAuth::updateUser($user);
+         return self::CONFIRMATION_DONE;
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/locales/en_US/account.UTF-8.properties b/jelix/jcommunity-module/modules/jcommunity/locales/en_US/account.UTF-8.properties
+--- a/jelix/jcommunity-module/modules/jcommunity/locales/en_US/account.UTF-8.properties	2026-09-27 16:40:15.380561837 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/locales/en_US/account.UTF-8.properties	2026-09-27 16:40:15.389561837 +0000
+@@ -12,10 +12,12 @@
+ form.status = Status
+ form.status.deleted = Deleted
+ form.status.deactivate = Deactivated
+-form.status.newuser = New account, awaiting email validation
++#Modified form.status.newuser = New account, awaiting email validation
++form.status.newuser = New account – Pending validation
+ form.status.valid = Account validated
+ form.status.valid.email.changed = Validated, awaiting new email validation
+-form.status.valid.password.changed = Validated, awaiting password reset
++#Modified form.status.valid.password.changed = Validated, awaiting password reset
++form.status.valid.password.changed = Validated account – Password reset in progress
+ form.keyactivate = Request key
+ form.requestdate = Request date
+ form.createdate = Date of account creation
+@@ -54,3 +56,23 @@
+ duration.hours = hours
+ duration.minute = minute
+ duration.minutes = minutes
++
++# --- Added ---
++form.status.valid.password.changed.expired = Validated account – Password reset expired
++form.status.newuser.check.mail = New account – Email verification
++form.status.newuser.check.mail.expired = New account – Email verification expired
++form.status.newuser.byAdmin = Admin-managed account – Activation link sent
++form.status.newuser.byAdmin.mail.expired = Admin-managed account – Activation link expired
++
++validation.title = Validation of user account %s
++validation.message = The account has been successfully validated. An email will be sent to the user to notify them that their registration has been processed.
++validation.back.to.profile = Back to profile
++validation.email.subject = Registration request on the site %s
++
++validation.email.body = Hello %s,<br><br>\
++Your account has been successfully validated.<br><br>\
++You can now log in to our site %s and use all its features.<br><br>\
++Thank you,<br><br>\
++The technical support team
++
++validation.email.error.smtperror = There was a technical error while sending the email. Please try again later or contact the administrator.
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/locales/en_US/mail.UTF-8.properties b/jelix/jcommunity-module/modules/jcommunity/locales/en_US/mail.UTF-8.properties
+--- a/jelix/jcommunity-module/modules/jcommunity/locales/en_US/mail.UTF-8.properties	2026-09-27 16:40:15.401561838 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/locales/en_US/mail.UTF-8.properties	2026-09-27 16:40:15.412561838 +0000
+@@ -37,3 +37,9 @@
+ account.change.notification.body.html=<p>Hello,</p>\n\n\
+ <p>The user {$userName} has made some changes <a href="{$profilLink}">into his profile</a>.</p>\
+ <p>Regards.</p>
++
++# --- Added ---
++registration.admin.resend.link.activation.body.html=<p>Hello,</p>\n\n\
++<p>You have just requested a new activation key for your account <em>"{$user->login}"</em>.</p>\n\n\
++<p><a href="{$confirmation_link}">Click on this link</a> to confirm your registration. This link is valid for {$validationKeyTTL}.</p>\n\n\
++<p>See you soon on {$domain_name}{$basePath}!</p>
+\ No newline at end of file
+diff -ruN a/jelix/jcommunity-module/modules/jcommunity/locales/en_US/register.UTF-8.properties b/jelix/jcommunity-module/modules/jcommunity/locales/en_US/register.UTF-8.properties
+--- a/jelix/jcommunity-module/modules/jcommunity/locales/en_US/register.UTF-8.properties	2026-09-27 16:40:15.423561838 +0000
++++ b/jelix/jcommunity-module/modules/jcommunity/locales/en_US/register.UTF-8.properties	2026-09-27 16:40:15.431561838 +0000
+@@ -1,28 +1,36 @@
+ registration.title=Registration
+ 
+ form.create.title=Create an account
+-form.create.text.html=<p>Register yourself by filling the following form.</p>\
+-<p>An email will be sent to you with a link to confirm your registration.\
+-You could then identified yourself on the web site.</p>
++#Modified form.create.text.html=<p>Register yourself by filling the following form.</p>\
++#<p>An email will be sent to you with a link to confirm your registration.\
++#You could then identified yourself on the web site.</p>
++form.create.text.html = <p>Sign up by filling in the following form.</p>\
++<p>An email will be sent to you to validate your registration request.</p>
+ 
+ form.create.submit=Create the account
+-
+-mail.new.subject = Activating your account on the web site %s
++#Modified mail.new.subject = Activating your account on the web site %s
++mail.new.subject = Registration request on the web site %s
+ form.login.exists = This username already exists
+ email.bad.format = Wrong email format
+ 
+ registration.waiting.title = Registration
+-registration.waiting.text.html = <p>Your account is created, but before using it, we have to verify your email.</p>\
+-<p>In order to verify your email, we just have sent you an email containing a link on which you must click.\
+-Verify your spam folder if you don't see this email in your inbox.</p>
++#Modified registration.waiting.text.html = <p>Your account is created, but before using it, we have to verify your email.</p>\
++#<p>In order to verify your email, we just have sent you an email containing a link on which you must click.\
++#Verify your spam folder if you don't see this email in your inbox.</p>
++registration.waiting.text.html = <p>Your account has just been created. However, before you can use it, we must validate it and first verify your email address.</p>\
++<p>To do so, you must click on the link contained in <strong>the email we have just sent you</strong>.\
++Please check your spam folder if you do not see it in your inbox within a few minutes.</p>
+ 
+ registration.cmdline.ok = User successfully created.
+ registration.confirm.title = Activation of your account
+ registration.confirm.alreadydone = Your account is already activated. You can identify yourself on the web site.
+-registration.confirm.ok = Your account is activated. You can identify yourself on the web site.
++#Modified registration.confirm.ok = Your account is activated. You can identify yourself on the web site.
++registration.confirm.ok = Your email address is now verified.\
++You will receive a new email once your account has been validated by the site administrator.
+ registration.confirm.badkey = Activation is not possible: the key or the username is invalid.
+ registration.confirm.badstatus = Activation is not possible: your account is not a new one.
+-registration.confirm.expiredkey= Activation is not possible: the request has expired. Ask the administrator of the web site to activate your account
++registration.confirm.expiredkey = Activation impossible: the request has expired. Please ask the site administrator to resend you an activation link.
++
+ 
+ admin.resend.email.title= Account creation: resend the validation email
+ admin.resend.email.text.html=<p>An email with a new validation key, will be send to the user '%s' who have a non-validated account. \
+@@ -46,7 +54,7 @@
+ cmdline.delete.help.parameter.login=The login of the account to delete
+ 
+ cmdline.import.help.description=Import some user account from a CSV file
+-cmdline.import.help.text=Each field into the CSV file may correspond to a property of an account. You must declare the\
++cmdline.import.help.text=Each field into the CSV file may correspond to a property of an account. You must declare the \
+ order of fields with the fields parameter.\n\
+ The CSV file must contain at least the login and the email fields.\n\
+ For example when each rows of the CSV contains a login, a birthdate and an email, and when possible fields are only \n\
+@@ -83,3 +91,7 @@
+ cmdline.import.results.dryrun.message=Import SIMULATION done.
+ cmdline.import.results.dryrun.imported.account.count=Account that could be imported: %s
+ cmdline.import.results.dryrun.account.existing.count=Account that will be ignored because they exists: %s
++
++# --- Added ---
++registration.confirm.alreadyverified = Your email address has already been confirmed.\
++You will be notified by email once the site administrator has validated your registration request.

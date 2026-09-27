@@ -62,6 +62,7 @@ class lizmapServices
         'adminContactEmail',
         'adminSenderEmail',
         'adminSenderName',
+        'adminNotificationLocale',
         'googleTag',
         'uploadedImageMaxWidthHeight',
     );
@@ -392,6 +393,73 @@ class lizmapServices
      * @var string
      */
     public $adminSenderName = '';
+
+    /**
+     * Locale to use for the e-mails sent to the site administrator
+     * (new registration request, confirmed registration). If empty,
+     * the site's default locale (jApp::config()->locale) is used.
+     *
+     * @var string
+     */
+    public $adminNotificationLocale = '';
+
+    /**
+     * Local addition (Seb's fork): human-readable language names, for any
+     * language-choice dropdown in the UI (settings menu on the map side,
+     * and the "Language of notification e-mails" field on the admin side).
+     * Single source -- do not duplicate this list elsewhere (see
+     * lizmapServices::getAvailableLocalesList()).
+     *
+     * @var array<string,string> locale => display name
+     */
+    public static $localeLabels = array(
+        'ar_SD' => 'العربية',
+        'cs_CZ' => 'Čeština',
+        'de_DE' => 'Deutsch',
+        'el_GR' => 'Ελληνικά',
+        'en_US' => 'English',
+        'es_ES' => 'Español',
+        'eu_ES' => 'Euskara',
+        'fi_FI' => 'Suomi',
+        'fr_FR' => 'Français',
+        'gl_ES' => 'Galego',
+        'hu_HU' => 'Magyar',
+        'it_IT' => 'Italiano',
+        'ja_JP' => '日本語',
+        'nl_NL' => 'Nederlands',
+        'no_NO' => 'Norsk',
+        'pl_PL' => 'Polski',
+        'pt_BR' => 'Português (Brasil)',
+        'pt_PT' => 'Português',
+        'ro_RO' => 'Română',
+        'ru_RU' => 'Русский',
+        'sl_SI' => 'Slovenščina',
+        'sv_SE' => 'Svenska',
+        'sk_SK' => 'Slovensko',
+        'uk_UA' => 'Українська',
+    );
+
+    /**
+     * Local addition (Seb's fork): list of languages actually available on
+     * this site (locale => display name), in the order of availableLocales
+     * (mainconfig.ini.php). Single source used both by the settings menu
+     * (map view, lizmap/modules/view/zones/settings_menu.zone.php) and by
+     * the "Language of notification e-mails" field (admin services form,
+     * admin/controllers/config.classic.php). A language not present in
+     * self::$localeLabels is displayed under its raw code (e.g. "xx_XX")
+     * rather than being silently omitted.
+     *
+     * @return array<string,string>
+     */
+    public static function getAvailableLocalesList()
+    {
+        $list = array();
+        foreach (jApp::config()->availableLocales as $locale) {
+            $list[$locale] = isset(self::$localeLabels[$locale]) ? self::$localeLabels[$locale] : $locale;
+        }
+
+        return $list;
+    }
 
     /**
      * Google Tag for Analytics.

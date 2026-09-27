@@ -1,0 +1,215 @@
+Fork changes to jelix/jelix 1.8.27 (lizmap/vendor), applied by patches/vendor/apply.sh.
+
+@copyright 2026 S.Poudroux / Kheper 3D
+@license LGPL-2.1-or-later (licence of jelix/jelix)
+
+diff -ruN a/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/controllers/default.classic.php b/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/controllers/default.classic.php
+--- a/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/controllers/default.classic.php	2026-09-27 16:40:15.458561839 +0000
++++ b/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/controllers/default.classic.php	2026-09-27 16:40:15.466561839 +0000
+@@ -144,6 +144,47 @@
+             }
+         }
+ 
++        $listUsers = $dao->findBy($cond, $offset, $this->listPageSize);
++        $statusLabels = [
++            '-2' => jLocale::get('jcommunity~account.form.status.deleted'),
++            '-1' => jLocale::get('jcommunity~account.form.status.deactivate'),
++            '0'  => jLocale::get('jcommunity~account.form.status.newuser'),
++            '1'  => jLocale::get('jcommunity~account.form.status.valid'),
++            '2'  => jLocale::get('jcommunity~account.form.status.valid.email.changed'),
++            '3'  => jLocale::get('jcommunity~account.form.status.valid.password.changed'),
++            '4'  => jLocale::get('jcommunity~account.form.status.newuser.check.mail'),
++            '5'  => jLocale::get('jcommunity~account.form.status.newuser.byAdmin'),
++            '6'  => jLocale::get('jcommunity~account.form.status.newuser.check.mail.expired'),
++            '7'  => jLocale::get('jcommunity~account.form.status.newuser.byAdmin.mail.expired'),
++            '8'  => jLocale::get('jcommunity~account.form.status.valid.password.changed.expired'),
++        ];
++        $config = new \Jelix\JCommunity\Config();
++        $dtNow = new \DateTime();
++
++        foreach ($listUsers as $user) {
++            $status = $user->status;
++            $requestDate = $user->request_date;
++            $keyActivate = $user->keyactivate;
++    
++            if (!empty($requestDate) && !empty($keyActivate)) {
++                $dt = new \DateTime($requestDate);
++                $dt->add($config->getValidationKeyTTL());
++    
++                if ($dt < $dtNow) {
++                    if ($status == \Jelix\JCommunity\Account::STATUS_CHECK_MAIL) {
++                        $user->status = \Jelix\JCommunity\Account::STATUS_CHECK_MAIL_EXPIRED;
++                    } elseif ($status == \Jelix\JCommunity\Account::STATUS_ADMIN) {
++                        $user->status = \Jelix\JCommunity\Account::STATUS_ADMIN_EXPIRED;
++                    } elseif ($status == \Jelix\JCommunity\Account::STATUS_PWD_CHANGED) {
++                        $user->status = \Jelix\JCommunity\Account::STATUS_PWD_CHANGED_EXPIRED;
++                    }
++                jAuth::updateUser($user);
++                }
++            }
++        }
++
++        $tpl->assign('statusLabels', $statusLabels);
++
+         $tpl->assign('list', $dao->findBy($cond, $offset, $this->listPageSize));
+ 
+         //$pk = $dao->getPrimaryKeyNames();
+@@ -200,8 +241,17 @@
+         $tpl->assign('canDelete', (jAuth::getUserSession()->login != $login)
+             && jAcl2::check('auth.users.delete'));
+         $tpl->assign('canUpdate', jAcl2::check('auth.users.modify'));
+-        $tpl->assign('canChangePass', jAcl2::check('auth.users.change.password')
+-            && jAuth::canChangePassword($login));
++        $expectedStatuses = [
++            \Jelix\JCommunity\Account::STATUS_CHECK_MAIL,
++            \Jelix\JCommunity\Account::STATUS_CHECK_MAIL_EXPIRED,
++            \Jelix\JCommunity\Account::STATUS_PWD_CHANGED,
++            \Jelix\JCommunity\Account::STATUS_ADMIN,
++            \Jelix\JCommunity\Account::STATUS_ADMIN_EXPIRED,
++        ];
++        if (!in_array($daorec->status , $expectedStatuses)){
++            $tpl->assign('canChangePass', jAcl2::check('auth.users.change.password')
++                && jAuth::canChangePassword($login));
++            }  
+         $tpl->assign('otherLinks', array());
+         $tpl->assign('otherInfo', jEvent::notify(
+             'jauthdbAdminGetViewInfo',
+@@ -344,6 +394,7 @@
+         $form->setReadOnly('login');
+         $form->deactivate('password');
+         $form->deactivate('password_confirm');
++        $form->deactivate('status');
+ 
+         return $this->redirect('default:editupdate', ['j_user_login' => $login]);
+     }
+@@ -375,6 +426,7 @@
+         $form->deactivate('password'); //for security
+         $form->deactivate('password_confirm');
+         $form->setReadOnly('login');
++        $form->deactivate('status');
+         $rep->body->assign('MAIN', $tpl->fetch('crud_edit'));
+ 
+         return $rep;
+@@ -481,9 +533,19 @@
+             return $this->redirect('default:confirmdelete', ['j_user_login' => $login]);
+         }
+ 
++        if (class_exists('\jServer') && method_exists('\jServer', 'getDomainName')) {
++            $domain = \jServer::getDomainName();
++        } else {
++            $domain = \jApp::coord()->request->getDomainName();
++        }
++        $user = jAuth::getUser($login);        
++
+         if ($login !== null && jAuth::getUserSession()->login != $login) {
+             if (jAuth::removeUser($login)) {
+                 jMessage::add(jLocale::get('crud.message.delete.ok', $login), 'notice');
++                $url = "https://{$domain}{$websiteUri}";
++                $link = "<a href='{$url}'>{$domain}</a>";
++                $this->sendNotificationEmail($user, 'crud.email.delete', [$user->login, $link]);
+             } else {
+                 jMessage::add(jLocale::get('crud.message.delete.notok'), 'error');
+                 return $this->redirect('default:view', ['j_user_login' => $login]);
+@@ -518,4 +580,76 @@
+ 
+         return $rep;
+     }
++
++    public function validate()
++    {
++        $login = $this->param('j_user_login');
++        if ($login === null) {
++            jMessage::add(jLocale::get('crud.message.bad.id', 'null'), 'error');
++            return $this->redirect('default:index');
++        }
++
++        $dao = jDao::create($this->dao, $this->dbProfile);
++        $daoUser = $dao->getByLogin($login);
++        if (!$daoUser) {
++            jMessage::add(jLocale::get('crud.message.bad.id', $login), 'error');
++            return $this->redirect('default:index');
++        }
++
++        if ($daoUser->status == \Jelix\JCommunity\Account::STATUS_NEW) {
++            $daoUser->status = \Jelix\JCommunity\Account::STATUS_VALID;
++            $dao->update($daoUser);
++            if (method_exists('jServer', 'getDomainName')) {
++                $websiteUri = \jServer::getServerURI();
++            } else {
++                $websiteUri = \jApp::coord()->request->getServerURI();
++            }
++            $this->sendNotificationEmail(
++                $daoUser,
++                'jcommunity~account.validation.email',
++                array($login, '<a href="'.$websiteUri.'">'.$websiteUri.'</a>')
++            );
++        }
++
++        $rep = $this->getResponse('html');
++        $tpl = new jTpl();
++        $tpl->assign('user', $daoUser);
++        $tpl->assign('validationTitle', jLocale::get('jcommunity~account.validation.title', array($daoUser->login)));
++        $rep->body->assign('MAIN', $tpl->fetch('validate_user'));
++
++        return $rep;
++    }
++
++    protected function sendNotificationEmail($user, $locale, $params = [])
++    {
++        if (method_exists('jServer', 'getDomainName')) {
++            $domain = \jServer::getDomainName();
++            $websiteUri = \jServer::getServerURI();
++        } else {
++            $domain = \jApp::coord()->request->getDomainName();
++            $websiteUri = \jApp::coord()->request->getServerURI();
++        }
++    
++        // Create the mail
++        $mail = new \jMailer();
++        $mail->From = \jApp::config()->mailer['webmasterEmail'];
++        $mail->FromName = \jApp::config()->mailer['webmasterName'];
++        $mail->Sender = \jApp::config()->mailer['webmasterEmail'];
++        
++        // Get the mail subject and body
++        $mail->Subject = jLocale::get($locale . '.subject', [$domain]);
++        $body = jLocale::get($locale . '.body', $params);
++        
++        $mail->AddAddress($user->email);
++        $mail->msgHTML($body);
++    
++        try {
++            return $mail->Send();
++        } catch (\Exception $e) {
++            \jLog::logEx($e, 'error');
++            jMessage::add(jLocale::get('jcommunity~account.validation.email.error.smtperror'), 'error');
++            return false;
++        }
++    }    
++
+ }
+diff -ruN a/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/locales/en_US/crud.UTF-8.properties b/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/locales/en_US/crud.UTF-8.properties
+--- a/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/locales/en_US/crud.UTF-8.properties	2026-09-27 16:40:15.489561839 +0000
++++ b/jelix/jelix/lib/jelix-admin-modules/jauthdb_admin/locales/en_US/crud.UTF-8.properties	2026-09-27 16:40:15.500561840 +0000
+@@ -18,7 +18,7 @@
+ confirm.deletion = Are you sure to want to delete this user ?
+ confirm.password = Type your password to confirm
+ 
+-message.delete.ok = The user %s has been deleted.
++message.delete.ok = The user %s has been deleted. An email has been sent for him to be notified.
+ message.update.ok = The user %s has been updated.
+ message.create.ok = The user %s has been created.
+ message.create.existing.user = The user %s already exists
+@@ -43,3 +43,13 @@
+ 
+ view.otherinfo = Other information
+ view.primaryinfo = Information on the user
++
++# --- Added ---
++list.col.status = Account status
++link.account.validate = Validate account
++validation.title = Account validation
++validation.message = The account has been successfully validated.
++validation.back.to.profile = Back to profile
++email.delete.subject = Deletion of your account on the site %s
++email.delete.body = Hello %s,<br><br>\n\nWe inform you that your account has been deleted from the site %s.<br><br>\n\n\
++Please submit a new registration request if you wish to use our services again.<br><br>\n\nKind regards,<br><br>\n\nThe technical support team

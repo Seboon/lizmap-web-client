@@ -27,7 +27,7 @@
         <div>
             <h2>{@admin~admin.configuration.services.section.emails.label@}</h2>
             <table class="table services-table">
-                {formcontrols array( 'adminSenderEmail', 'adminSenderName', 'allowUserAccountRequests', 'adminContactEmail')}
+                {formcontrols array( 'adminSenderEmail', 'adminSenderName', 'allowUserAccountRequests', 'adminContactEmail', 'adminNotificationLocale')}
                     <tr>
                         <th>{ctrl_label}</th><td>{ctrl_value}</td>
                     </tr>
