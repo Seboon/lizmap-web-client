@@ -113,7 +113,7 @@ button.btn-primary:hover > [class*=" icon-"] {
 #header-clear {
   background-position: -875px 0 !important;
   position: absolute;
-  right: calc(100% + 4px);
+  right: 80%;
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;

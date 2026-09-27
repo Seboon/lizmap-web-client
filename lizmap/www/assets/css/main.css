@@ -265,3 +265,21 @@ div.form-horizontal .control-label {
     transform: rotate(1turn);
   }
 }
+
+/* ===Generic SVG icon style=== (moved here from map.css: this base
+   rule is shared by several icons -- including the Settings gear,
+   see settingsMenu.css -- some of which now need to render outside
+   the map page too, so it has to live in a file loaded everywhere,
+   not just via the 'map' webassets group. The icon-specific rules
+   (mask-image, colors) stay in their own files, e.g. settingsMenu.css
+   for .svg-cog.) */
+.svg-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background-color: currentColor;
+  color: var(--color-text-primary);
+}

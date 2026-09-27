@@ -43,3 +43,6 @@
         </li>
     {/if}
 {/ifuserconnected}
+
+{assign $pageContext = isset($pageContext) ? $pageContext : 'general'}
+{zone 'view~settings_menu', array('context' => $pageContext)}

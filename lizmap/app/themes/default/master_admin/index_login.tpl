@@ -24,6 +24,7 @@
             <span class="text"><b>{@view~default.home.title@}</b></span>
           </a>
         </li>
+        {zone 'view~settings_menu', array('context' => $pageContext)}
       </ul>
     </div>
   </div>

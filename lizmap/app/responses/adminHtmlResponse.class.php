@@ -25,6 +25,7 @@ class adminHtmlResponse extends AbstractLizmapHtmlResponse
 
         $this->addAssets('jquery_ui');
         $this->addAssets('bootstrap');
+        $this->addAssets('settingsMenu');
 
         // Override default theme with color set in admin panel
         $CSSThemeFile = jApp::varPath('lizmap-theme-config/').'theme.css';
@@ -45,10 +46,11 @@ class adminHtmlResponse extends AbstractLizmapHtmlResponse
         $this->title .= ($this->title != '' ? ' - ' : '').' Administration';
         $this->body->assignIfNone('selectedMenuItem', '');
         $this->body->assignZone('MENU', 'master_admin~admin_menu', array('selectedMenuItem' => $this->body->get('selectedMenuItem')));
-        $this->body->assignZone('INFOBOX', 'master_admin~admin_infobox');
+        $this->body->assignZone('INFOBOX', 'master_admin~admin_infobox', array('pageContext' => 'admin'));
         $this->body->assignIfNone('MAIN', '');
         $this->body->assignIfNone('adminTitle', '');
         $this->body->assign('user', jAuth::getUserSession());
+        $this->body->assignIfNone('pageContext', 'admin');
 
         parent::doAfterActions();
     }

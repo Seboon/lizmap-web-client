@@ -1,0 +1,85 @@
+/* Settings menu (gear icon in the top bar, settings_menu.tpl).
+   Extracted from map.css so the icon is styled consistently on
+   every page (map, general pages, admin panel, admin login), not
+   just the map view.
+   @copyright 2026 S.Poudroux / Kheper 3D
+   @license MPL-2.0 */
+
+/* icons_base.css only provides the generic .svg-icon mask; this sets
+   the actual icon image. */
+.svg-cog {
+  mask-image: url("/assets/icons/cog.svg");
+  vertical-align: middle;
+}
+
+/* --settings-icon-color is only set under :root.dark (see main.css):
+   light theme inherits the menu text color, dark theme forces white. */
+.settings-item .svg-icon {
+  color: var(--settings-icon-color);
+}
+
+.navbar .nav .settings-item > a:hover .svg-icon,
+.navbar .nav .settings-item.open > a .svg-icon {
+  color: var(--color-text-primary);
+}
+
+.settings-item .dropdown-menu li a {
+  display: flex !important;
+  align-items: center;
+  padding: 2px 5px !important;
+  white-space: nowrap;
+  color: var(--color-text-primary-content);
+  text-decoration: none;
+}
+
+/* Removes Bootstrap's default triangle above navbar dropdown menus. */
+.navbar .nav > li > .dropdown-menu::before,
+.navbar .nav > li > .dropdown-menu::after {
+  content: none !important;
+  border: none !important;
+}
+
+/* Bootstrap opens .dropdown-submenu to the right by default; since
+   this menu is pinned to the right edge (pull-right), it must open
+   to the left instead. */
+.dropdown-submenu {
+  position: relative;
+}
+
+.dropdown-submenu > .dropdown-menu {
+  top: 0;
+  left: auto;
+  right: 100%;
+  margin-top: -6px;
+  margin-left: 0;
+  margin-right: -1px;
+  border-radius: 6px 0 6px 6px;
+}
+
+.dropdown-submenu:hover > .dropdown-menu {
+  display: block;
+}
+
+/* Hides Bootstrap's default submenu arrow. */
+.dropdown-submenu > a:after {
+  display: none;
+  content: none;
+}
+
+.dropdown-submenu > a,
+.dropdown-submenu > .dropdown-menu li > a,
+.settings-item > .dropdown-menu > li > a {
+  /* Centers the label horizontally in each menu item's flex box
+     (see the "display: flex" rule above). Originally only covered
+     submenu triggers (Theme/Language) and their own nested entries;
+     extended to top-level, non-submenu entries too (e.g. Aide) so
+     every item in the Settings menu lines up the same way. */
+  justify-content: center;
+}
+
+/* Prevents the main dropdown from overflowing past the right edge. */
+#auth .settings-item.dropdown > .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+

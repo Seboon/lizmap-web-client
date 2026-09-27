@@ -246,3 +246,24 @@ div.jforms-submit-buttons.form-actions #jforms_view_edition__submit_submit {
 .navbar .nav .home.active a .icon {
   background-position: 0 0;
 }
+
+
+:root.dark {
+  --header-color: rgba(42, 46, 50, 0.85);;
+  --color-background-primary: #2b2b2bee;
+  --color-background-primary-content: #2b2b2bee;
+  --color-text-primary: #e6e6e6;
+  --color-text-primary-content: #e6e6e6;
+  --color-contrasted-elements: #3a3a3a;
+  --color-contrasted-elements-light: #4d4d4d;
+  --color-contrasted-text: #ffffff;
+  --color-dark-gray-elements: #cccccc;
+    /* Icon color in dark theme */
+  --settings-icon-color: #fff;
+}
+
+/* General background */
+:root.dark body {
+  background-color: #1e1d1d;
+}
+

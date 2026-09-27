@@ -35,6 +35,7 @@ class myHtmlResponse extends AbstractLizmapHtmlResponse
         $this->addAssets('jquery_ui');
         $this->addAssets('bootstrap');
         $this->addAssets('normal');
+        $this->addAssets('settingsMenu');
     }
 
     protected function doAfterActions()
@@ -46,6 +47,7 @@ class myHtmlResponse extends AbstractLizmapHtmlResponse
         $this->body->assignIfNone('auth_url_return', '');
         $this->body->assignIfNone('googleTag', '');
         $this->body->assignIfNone('showHomeLink', true);
+        $this->body->assignIfNone('pageContext', 'general');
 
         parent::doAfterActions();
     }

@@ -37,6 +37,7 @@ class myHtmlMapResponse extends AbstractLizmapHtmlResponse
         $this->addAssets('bootstrap');
         $this->addAssets('datatables');
         $this->addAssets('map');
+        $this->addAssets('settingsMenu');
 
         $this->setBodyAttributes(array('data-proj4js-lib-path' => $bp.'assets/js/Proj4js/'));
     }
@@ -49,6 +50,7 @@ class myHtmlMapResponse extends AbstractLizmapHtmlResponse
         $this->body->assignIfNone('user', jAuth::getUserSession());
         $this->body->assignIfNone('auth_url_return', '');
         $this->body->assignIfNone('googleTag', '');
+        $this->body->assignIfNone('pageContext', 'map');
 
         parent::doAfterActions();
     }

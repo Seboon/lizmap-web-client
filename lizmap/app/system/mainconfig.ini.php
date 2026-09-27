@@ -374,6 +374,13 @@ normal.css[]=assets/css/media.css
 
 view.js[]="assets/js/view.js|defer"
 
+; Settings menu (gear icon in the top bar): loaded on every page type
+; (map, general pages, admin panel, admin login) via addAssets('settingsMenu')
+; in each response class, so the icon and its styling are available
+; everywhere, not just on the map page.
+settingsMenu.js[]="assets/js/settingsMenu.js|defer"
+settingsMenu.css[]="assets/css/settingsMenu.css"
+
 embed.css[]=assets/css/embed.css
 embed.css[]="$theme/css/embed.css"
 

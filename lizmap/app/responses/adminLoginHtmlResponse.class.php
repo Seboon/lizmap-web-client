@@ -21,6 +21,8 @@ class adminLoginHtmlResponse extends AbstractLizmapHtmlResponse
         parent::__construct();
         $this->prepareHeadContent();
 
+        $this->addAssets('settingsMenu');
+
         // Override default theme with color set in admin panel
         $CSSThemeFile = jApp::varPath('lizmap-theme-config/').'theme.css';
         if (file_exists($CSSThemeFile)) {
@@ -40,6 +42,7 @@ class adminLoginHtmlResponse extends AbstractLizmapHtmlResponse
         $this->title .= ($this->title != '' ? ' - ' : '').'Administration';
         $this->body->assignIfNone('MAIN', '');
         $this->body->assignIfNone('page_title', jLocale::get('jcommunity~login.login.title'));
+        $this->body->assignIfNone('pageContext', 'admin_login');
 
         parent::doAfterActions();
     }
