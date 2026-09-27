@@ -3200,6 +3200,11 @@ lizmap-treeview li > div.selected {
   border-color: #0094D6;
 }
 
+lizmap-treeview .node.active-layer {
+  background-color: rgb(0 148 214 / 12%);
+  border-radius: 3px;
+}
+
 lizmap-treeview div.expandable{
   display: inline-block;
   position: absolute;
@@ -3233,7 +3238,96 @@ lizmap-treeview .node {
   column-gap: 2px;
 }
 
-lizmap-treeview input[type="checkbox"] {
+
+
+lizmap-treeview li.dragging > div > .node {
+  opacity: 0.4;
+}
+
+lizmap-treeview .node.drag-over-before {
+  box-shadow: inset 0 1px 0 0 rgba(42, 46, 50, 0.85);
+}
+
+lizmap-treeview .node.drag-over-after {
+  box-shadow: inset 0 -1px 0 0 rgba(42, 46, 50, 0.85);
+}
+
+lizmap-treeview .node.drag-over-into {
+  outline: 1px dashed rgba(42, 46, 50, 0.85);
+  outline-offset: -2px;
+  background-color: rgba(51, 136, 255, 0.12);
+}
+
+lizmap-treeview > ul.drag-over-root {
+  /* outline: 2px dashed #3388ff; */
+  outline-offset: -2px;
+}
+
+/* Context menu (right-click) on a layer. No min-width needed: with
+   `left`/`top` fixed and no `right`, `auto` width already
+   shrink-to-fits the longest <li> text. */
+lizmap-treeview .contextmenu {
+  position: fixed;
+  z-index: 10000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background-color: var(--color-background-primary, #ffffff);
+  color: var(--color-text-primary, #333333);
+  border: 1px solid var(--color-contrasted-elements, #43718c);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+lizmap-treeview .contextmenu li {
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+lizmap-treeview .contextmenu li:hover {
+  background-color: var(--color-contrasted-elements-light, #c3dceb);
+}
+
+/* "Compare layer" entry icon, same .svg-icon mask-image mechanism.
+   Source file: lizmap/www/assets/icons/slider.svg. */
+lizmap-treeview .contextmenu li.contextmenu-compare-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+lizmap-treeview .contextmenu li.contextmenu-compare-layer .svg-compare-layer {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  mask-image: url("/assets/icons/slider.svg");
+}
+
+/* "Zoom to layer" entry icon, same .svg-icon mask-image mechanism.
+   Source file: lizmap/www/assets/icons/zoom.svg. */
+lizmap-treeview .contextmenu li.contextmenu-zoom-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+lizmap-treeview .contextmenu li.contextmenu-zoom-layer .svg-zoom-layer {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  mask-image: url("/assets/icons/zoom.svg");
+}
+
+lizmap-treeview input[type="checkbox"]:not(.rounded-checkbox) {
+  /* The native checkbox is visually replaced by .svg-eye-toggle below;
+     kept in the DOM for accessibility and the existing lit-html
+     .checked/@click bindings, just hidden. */
+  display: none;
+}
+
+lizmap-treeview input.rounded-checkbox {
   margin-top: 0;
   margin-right: 5px;
   align-self: baseline;
@@ -3241,6 +3335,29 @@ lizmap-treeview input[type="checkbox"] {
   accent-color: #0094D6;
   flex: 0 0 18px;
   height: 18px;
+}
+
+lizmap-treeview .svg-eye-toggle {
+  /* .svg-icon already sets mask-size/repeat/position and
+     background-color: currentColor; just sizing to match the old
+     checkbox (18px) and setting the default (unchecked) icon. */
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-right: 5px;
+  align-self: baseline;
+  margin-top: 5px;
+  cursor: pointer;
+  mask-image: url("/assets/icons/eye-blocked.svg");
+}
+
+lizmap-treeview .svg-eye-toggle.checked {
+  mask-image: url("/assets/icons/eye.svg");
+}
+
+lizmap-treeview li.not-visible > div .svg-eye-toggle,
+lizmap-treeview li.not-in-scale > label .svg-eye-toggle {
+  opacity: 0.5;
 }
 
 lizmap-treeview input.rounded-checkbox {
@@ -3552,4 +3669,38 @@ div.lizmap-features-table.popup-displayed > table.lizmap-features-table-containe
 /* Remove margin for active item popup lizmapPopupDiv */
 #popupcontent div.lizmap-features-table.popup-displayed > table.lizmap-features-table-container + div.lizmap-features-table-item-popup div.lizmapPopupDiv {
   margin: 0 !important;
+}
+
+
+/* ===Compare-layer swipe tool=== */
+
+#newOlMap {
+  position: relative;
+  overflow: hidden;
+}
+
+#lizmap-swipe-vertical-bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 99999;
+  display: none;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+#lizmap-swipe-horizontal-bar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 99999;
+  display: none;
+  pointer-events: none;
+  transform: translateY(-50%);
 }

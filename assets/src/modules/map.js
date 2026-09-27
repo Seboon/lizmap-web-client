@@ -14,7 +14,7 @@ import { MapLayerLoadStatus, MapLayerState, MapRootState } from './state/MapLaye
 import olMap from 'ol/Map.js';
 import View from 'ol/View.js';
 import { ADJUSTED_DPI } from '../utils/Constants.js';
-import { get as getProjection, getPointResolution } from 'ol/proj.js';
+import { get as getProjection, getPointResolution, transformExtent } from 'ol/proj.js';
 import { Attribution } from 'ol/control.js';
 import ImageWMS from 'ol/source/ImageWMS.js';
 import WMTS, {optionsFromCapabilities} from 'ol/source/WMTS.js';
@@ -165,6 +165,11 @@ export default class map extends olMap {
         this._overlayLayersAndGroups = [];
         // Mapping between layers name and states used to construct the singleWMSLayer, if needed
         this._statesSingleWMSLayers = new Map();
+
+        // Keep a reference to the root map group state, used later to recompute the
+        // OpenLayers zIndex of every layer when the layer tree order changes (drag and
+        // drop reordering in the treeview, see `updateLayersZIndex()` below)
+        this._rootMapGroup = rootMapGroup;
 
         const layersCount = rootMapGroup.countExplodedMapLayers();
 
@@ -976,6 +981,77 @@ export default class map extends olMap {
         return this._overlayLayersGroup.getLayersArray();
     }
 
+    /**
+     * Root map group state, as given to the constructor. Kept to be able to recompute
+     * layers zIndex from the CURRENT (possibly reordered) tree at any time.
+     * @type {MapRootState}
+     */
+    get rootMapGroup(){
+        return this._rootMapGroup;
+    }
+
+    /**
+     * Recompute and reapply the OpenLayers zIndex of every overlay layer, based on the
+     * CURRENT order of the map layer/group state tree (`this._rootMapGroup`).
+     *
+     * This is what makes the actual map rendering stacking order follow a layer/group
+     * reorder performed in the treeview (drag and drop), without ever mutating the
+     * original, read-only `layerOrder` property: other modules (Tooltip.js, Popup.js,
+     * Print.js, SingleWMSLayer.js) rely on `layerOrder` to keep referring to a layer by
+     * its ORIGINAL position in the QGIS project, so it must stay untouched. Instead,
+     * this method walks the tree fresh every time it is called and assigns brand new
+     * zIndex values from scratch, the same way the constructor does once at startup.
+     *
+     * The exploding of "group as layer" groups (several QGIS layers merged into a
+     * single combined WMS request/OpenLayers layer) mirrors
+     * `MapGroupState.countExplodedMapLayers()`: such a group occupies as many slots in
+     * the sequence as it has underlying layers, but only the FIRST (topmost) slot gets
+     * an actual zIndex applied, since there is only one live OpenLayers layer object
+     * for the whole group.
+     *
+     * Known limitation: when Lizmap is configured to merge every layer into a single
+     * combined WMS image (`mapState.singleWMSLayer`), individual layers have no live
+     * OpenLayers layer object of their own (see SingleWMSLayer.js) and this method has
+     * no effect on that combined request's internal layer order.
+     * @returns {void}
+     */
+    updateLayersZIndex() {
+        if (!this._rootMapGroup) {
+            return;
+        }
+
+        // Flatten the CURRENT tree (depth-first, visual top-to-bottom order) the same
+        // way the constructor originally exploded it to assign the initial zIndex
+        const blocks = [];
+        const walk = (groupState) => {
+            for (const item of groupState.children) {
+                if (item.type === 'group') {
+                    walk(item);
+                    continue;
+                }
+                const itemState = item.itemState;
+                const blockSize = (itemState && itemState.groupAsLayer && typeof itemState.findLayers === 'function')
+                    ? Math.max(1, itemState.findLayers().length)
+                    : 1;
+                blocks.push({ name: item.name, blockSize: blockSize });
+            }
+        };
+        walk(this._rootMapGroup);
+
+        const layersCount = this._rootMapGroup.countExplodedMapLayers();
+        let cursor = 0;
+        for (const block of blocks) {
+            const stateOlLayerAndMap = this._statesOlLayersandGroupsMap.get(block.name);
+            if (stateOlLayerAndMap) {
+                const olLayer = stateOlLayerAndMap[1];
+                if (olLayer && typeof olLayer.setZIndex === 'function') {
+                    olLayer.setZIndex(layersCount - 1 - cursor);
+                }
+            }
+            cursor += block.blockSize;
+        }
+    }
+
     get overlayLayersGroup(){
         return this._overlayLayersGroup;
     }
@@ -1218,6 +1294,22 @@ export default class map extends olMap {
             }
         }
         this.getView().fit(geometryOrExtent, options);
+    }
+
+    /**
+     * Zoom to a layer or group's WMS geographic bounding box
+     * (`item.wmsGeographicBoundingBox`, always EPSG:4326), reprojected
+     * to the map's projection.
+     * @param {number[]} geographicBoundingBox Extent in EPSG:4326.
+     * @param {object} [options] OpenLayers View fit options object https://openlayers.org/en/latest/apidoc/module-ol_View-View.html#fit
+     */
+    zoomToGeographicBoundingBox(geographicBoundingBox, options) {
+        if (!geographicBoundingBox) {
+            console.log('No geographic bounding box available to zoom to (non-spatial layer/group?)');
+            return;
+        }
+        const extent = transformExtent([...geographicBoundingBox], 'EPSG:4326', this.getView().getProjection());
+        this.zoomToGeometryOrExtent(extent, options);
     }
 
     /**

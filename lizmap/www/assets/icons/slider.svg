@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- "Compare layer" icon of the layer tree context menu.
+     @copyright 2026 S.Poudroux / Kheper 3D
+     @license MPL-2.0 -->
+<svg
+   viewBox="0 0 20 20"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="g5"
+     transform="matrix(1.0204343,0,0,1.0204343,32.409182,9.9205349)">
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:2;stroke-dasharray:none"
+       id="rect1"
+       width="17.599499"
+       height="17.599499"
+       x="-30.760185"
+       y="-8.7218752"
+       ry="1.6353517" />
+    <path
+       style="font-variation-settings:normal;opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       d="M -21.960436,-8.7218752 V 8.8776236"
+       id="path2" />
+    <path
+       style="font-variation-settings:normal;opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.26534;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       d="m -24.371058,-3.0575396 -3.145103,3.12572497 3.125725,3.14510303 z"
+       id="path4" />
+    <path
+       style="font-variation-settings:normal;opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.26534;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       d="m -19.480929,-3.0575396 3.145103,3.12572497 -3.125725,3.14510303 z"
+       id="path5" />
+  </g>
+</svg>

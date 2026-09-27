@@ -198,6 +198,14 @@ export class LayerTreeItemState extends EventDispatcher {
     }
 
     /**
+     * Parent layer tree group of this item, or null if it is a root-level item
+     * @type {?LayerTreeGroupState}
+     */
+    get parentGroupState() {
+        return this._parentGroupState;
+    }
+
+    /**
      * Layer tree item is expanded
      * @type {boolean}
      */
@@ -435,6 +443,33 @@ export class LayerTreeGroupState extends LayerTreeItemState {
         }
         throw RangeError('The layer name `'+ name +'` is unknown!');
     }
+
+    /**
+     * Remove a direct child item from this group's children list.
+     * Internal helper used by `moveTreeItem` to reorder/move items (drag and drop in
+     * the layer tree). Does not touch the underlying map item state tree.
+     * @param {LayerTreeItemState} item - the child item to remove
+     * @returns {number} the index the item was removed from, or -1 if not found
+     */
+    _removeItem(item) {
+        const index = this._items.indexOf(item);
+        if (index !== -1) {
+            this._items.splice(index, 1);
+        }
+        return index;
+    }
+
+    /**
+     * Insert an item as a direct child of this group at a given index.
+     * Internal helper used by `moveTreeItem` to reorder/move items (drag and drop in
+     * the layer tree). Does not touch the underlying map item state tree.
+     * @param {LayerTreeItemState} item  - the child item to insert
+     * @param {number}             index - the index to insert the item at (clamped to the valid range)
+     */
+    _insertItem(item, index) {
+        const clampedIndex = Math.max(0, Math.min(index, this._items.length));
+        this._items.splice(clampedIndex, 0, item);
+    }
 }
 
 /**
@@ -659,4 +694,103 @@ export class TreeRootState extends LayerTreeGroupState {
         mapGroupState.addListener(this.dispatch.bind(this), 'ext-group.added');
         mapGroupState.addListener(this.dispatch.bind(this), 'ext-group.removed');
     }
+}
+
+
+/**
+ * Move a layer or group item to a new position in the layer tree, possibly under a
+ * different parent group (drag and drop reordering, QGIS layer panel style).
+ *
+ * This keeps the display tree (LayerTreeGroupState/LayerTreeLayerState, used by
+ * `<lizmap-treeview>`) and the underlying map rendering tree (MapGroupState/
+ * MapLayerState, used by `map.js` to build the actual OpenLayers layers) synchronized:
+ * both are mirrored structures built in the same order, so the move is applied to both.
+ *
+ * It deliberately never touches the read-only `layerOrder` property (see Layer.js):
+ * that value is the layer's ORIGINAL position in the QGIS project and other modules
+ * (Tooltip.js, Popup.js, Print.js, SingleWMSLayer.js) rely on it to keep identifying a
+ * layer by that original position. To reflect the new order on the map, call
+ * `map.updateLayersZIndex()` after a successful move, which recomputes and reapplies
+ * the OpenLayers zIndex of every layer from the CURRENT (post-move) tree order.
+ *
+ * Note: moving a layer into a different group does not change which group's checkbox
+ * cascades visibility to it — that cascade is driven by a third, deeper configuration
+ * tree (LayerItemState/LayerGroupState in Layer.js) which this function does not
+ * reparent, to avoid disturbing the visibility-change listeners it wires up once at
+ * construction time. A moved layer keeps following its ORIGINAL group's checkbox for
+ * checked/unchecked cascading, even though it now visually appears under a new group.
+ *
+ * @param {LayerTreeItemState}  item        - the layer or group to move
+ * @param {LayerTreeGroupState} targetGroup - the destination parent group (can be the
+ *                                            tree root itself)
+ * @param {number}              targetIndex - the index within `targetGroup.children`
+ *                                            where the item should end up
+ * @returns {boolean} true if the move was applied, false if it was rejected (invalid
+ *                     target, or trying to move a group into itself or one of its own
+ *                     descendants)
+ */
+export function moveTreeItem(item, targetGroup, targetIndex) {
+    if (!(item instanceof LayerTreeItemState) || !(targetGroup instanceof LayerTreeGroupState)) {
+        return false;
+    }
+
+    const sourceGroup = item.parentGroupState;
+    if (!sourceGroup) {
+        // Root item itself (or an item whose parent could not be determined): nothing to move from
+        return false;
+    }
+
+    if (item === targetGroup) {
+        return false;
+    }
+
+    // Prevent moving a group into itself or one of its own descendants
+    if (item instanceof LayerTreeGroupState) {
+        let ancestor = targetGroup;
+        while (ancestor) {
+            if (ancestor === item) {
+                return false;
+            }
+            ancestor = ancestor.parentGroupState;
+        }
+    }
+
+    const sameGroup = sourceGroup === targetGroup;
+
+    const removedIndex = sourceGroup._removeItem(item);
+    if (removedIndex === -1) {
+        return false;
+    }
+
+    let insertIndex = targetIndex;
+    if (sameGroup && removedIndex < insertIndex) {
+        insertIndex -= 1;
+    }
+    targetGroup._insertItem(item, insertIndex);
+    item._parentGroupState = targetGroup;
+
+    // Mirror the same move in the underlying map rendering tree
+    const mapItem = item.mapItemState;
+    const sourceMapGroup = mapItem.parentMapGroup;
+    const targetMapGroup = targetGroup.mapItemState;
+    if (sourceMapGroup && targetMapGroup
+        && typeof sourceMapGroup._removeItem === 'function'
+        && typeof targetMapGroup._insertItem === 'function') {
+        const mapRemovedIndex = sourceMapGroup._removeItem(mapItem);
+        if (mapRemovedIndex !== -1) {
+            let mapInsertIndex = insertIndex;
+            if (sourceMapGroup === targetMapGroup && mapRemovedIndex < mapInsertIndex) {
+                mapInsertIndex -= 1;
+            }
+            targetMapGroup._insertItem(mapItem, mapInsertIndex);
+            mapItem._parentMapGroup = targetMapGroup;
+        }
+    }
+
+    item.dispatch({
+        type: item.type + '.moved',
+        name: item.name
+    });
+
+    return true;
 }

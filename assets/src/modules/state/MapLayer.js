@@ -218,6 +218,14 @@ export class MapItemState extends EventDispatcher {
     }
 
     /**
+     * Parent map group of this item, or null if it is a root-level item
+     * @type {?MapGroupState}
+     */
+    get parentMapGroup() {
+        return this._parentMapGroup;
+    }
+
+    /**
      * Calculate and save visibility
      * @returns {boolean} the calculated visibility
      */
@@ -519,6 +527,33 @@ export class MapGroupState extends MapItemState {
             }
         }
         throw RangeError('The layer or group name `'+ name +'` is unknown!');
+    }
+
+    /**
+     * Remove a direct child item from this group's children list.
+     * Internal helper used by `moveTreeItem` (LayerTree.js) to keep this map rendering
+     * tree synchronized when a layer/group is moved in the display tree (drag and drop).
+     * @param {MapItemState} item - the child item to remove
+     * @returns {number} the index the item was removed from, or -1 if not found
+     */
+    _removeItem(item) {
+        const index = this._items.indexOf(item);
+        if (index !== -1) {
+            this._items.splice(index, 1);
+        }
+        return index;
+    }
+
+    /**
+     * Insert an item as a direct child of this group at a given index.
+     * Internal helper used by `moveTreeItem` (LayerTree.js) to keep this map rendering
+     * tree synchronized when a layer/group is moved in the display tree (drag and drop).
+     * @param {MapItemState} item  - the child item to insert
+     * @param {number}       index - the index to insert the item at (clamped to the valid range)
+     */
+    _insertItem(item, index) {
+        const clampedIndex = Math.max(0, Math.min(index, this._items.length));
+        this._items.splice(clampedIndex, 0, item);
     }
 }
 
