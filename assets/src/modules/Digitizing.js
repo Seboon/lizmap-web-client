@@ -387,12 +387,9 @@ export class Digitizing {
         // Load and display saved feature if any
         this.loadFeatureDrawnToMap();
 
-        // Disable drawing tool when measure tool is activated
         this._lizmap3.events.on({
             minidockopened: (e) => {
-                if (e.id == 'measure') {
-                    this.toolSelected = this._tools[0]; // DigitizingTools.Deactivate
-                } else if (['draw', 'print'].includes(e.id)) {
+                if (['draw', 'print'].includes(e.id)) {
                     // Display draw for print redlining
                     this.context = e.id === 'print' ? 'draw' : e.id;
                     this.toggleVisibility(true);

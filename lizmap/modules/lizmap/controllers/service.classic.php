@@ -143,6 +143,9 @@ class serviceCtrl extends jController
         if ($request == 'GETSTYLES') {
             return $this->GetStyles($ogcRequest);
         }
+        if ($request == 'GETELEVATIONLAYERS' || $request == 'GETELEVATIONPROFILE') {
+            return $this->GetElevationProfile($ogcRequest);
+        }
         if ($request == 'GETMAP') {
             return $this->GetMap($ogcRequest);
         }
@@ -821,6 +824,32 @@ class serviceCtrl extends jController
         /** @var jResponseBinary $rep */
         $rep = $this->getResponse('binary');
         $this->setupBinaryResponse($rep, $result, 'qgis_style');
+
+        return $rep;
+    }
+
+    /**
+     * GetElevationLayers and GetElevationProfile requests of the elevation
+     * profile tool, answered by the ElevationProfile QGIS Server plugin
+     * (PROFILE service, which receives them as SERVICE=WMS and renames
+     * them).
+     *
+     * Relayed to QGIS Server like GetStyles: Lizmap checks the access to
+     * the project, resolves the project path and adds the user headers
+     * (X-Lizmap-User, X-Lizmap-User-Groups) used by QGIS Server to apply
+     * the layer access rights.
+     *
+     * @param WMSRequest $wmsRequest
+     *
+     * @return jResponseBinary JSON response of the plugin or Service Exception
+     */
+    protected function GetElevationProfile($wmsRequest)
+    {
+        $result = $wmsRequest->process();
+
+        /** @var jResponseBinary $rep */
+        $rep = $this->getResponse('binary');
+        $this->setupBinaryResponse($rep, $result, 'elevation_profile');
 
         return $rep;
     }

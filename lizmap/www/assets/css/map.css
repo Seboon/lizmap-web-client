@@ -3704,3 +3704,891 @@ div.lizmap-features-table.popup-displayed > table.lizmap-features-table-containe
   pointer-events: none;
   transform: translateY(-50%);
 }
+
+
+/* ===Measure tools menu=== (top bar, measure_menu.tpl): drop-down
+   modelled on the QGIS Desktop "Measure" toolbar button, with the
+   native QGIS icons. */
+#auth .measure-menu-item .qgis-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+/* Opens aligned on the right edge of the button, like the Settings
+   menu next to it, so it never overflows the window.
+   width: max-content -- the menu is absolutely positioned, so the
+   browser caps its shrink-to-fit width at the width of its parent
+   button; since the button only shows an icon (~40px), the box fell
+   back to Bootstrap's 160px min-width and cut the longest entries
+   (e.g. "Measure Elevation Profile"). The box now takes the width of
+   its widest entry. */
+#auth .measure-menu-item > .dropdown-menu {
+  left: auto;
+  right: 0;
+  width: max-content;
+}
+
+#auth .measure-menu-item .dropdown-menu li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px;
+  white-space: nowrap;
+  color: var(--color-text-primary-content);
+}
+
+/* Split button, as in the QGIS Desktop toolbar: the icon
+   (.measure-menu-run) starts the current tool, the arrow
+   (.dropdown-toggle) opens the list of the tools. */
+#auth .measure-menu-item {
+  display: flex;
+  align-items: stretch;
+}
+
+#auth .measure-menu-item > .measure-menu-run {
+  padding-right: 4px;
+}
+
+#auth .measure-menu-item > .measure-menu-arrow {
+  display: flex;
+  align-items: center;
+  padding: 0 6px 0 3px;
+}
+
+#auth .measure-menu-item > .measure-menu-arrow .caret {
+  margin: 0;
+  vertical-align: middle;
+  border-top-color: currentColor;
+  border-bottom-color: currentColor;
+  opacity: 0.8;
+}
+
+/* Tool running: the icon looks pressed, like a checked QGIS tool. */
+#auth .measure-menu-item > .measure-menu-run.active {
+  background-color: rgb(0 136 204 / 35%);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 45%);
+}
+
+/* Tools that don't exist yet. */
+#auth .measure-menu-item .dropdown-menu li.disabled a {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Tip of the list under the arrow (the list is aligned on the right). */
+#auth .measure-menu-item > .dropdown-menu::before,
+#auth .measure-menu-item > .dropdown-menu::after {
+  left: auto;
+  right: 4px;
+}
+
+/* ===Dockable window=== (<lizmap-dock-window>, components/DockWindow.js)
+   Same look as Lizmap's mini-dock: dark translucent frame, white
+   title, light content area. */
+
+.lizmap-dock-window {
+  position: absolute;
+  z-index: 1010;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  background-color: rgb(0 0 0 / 70%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+}
+
+.lizmap-dock-window .dock-window-header {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+  color: #fbfbfb;
+}
+
+.lizmap-dock-window .dock-window-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 0.5em 0.5em 0.5em 0.7em;
+  font-weight: bold;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lizmap-dock-window .dock-window-close {
+  flex: 0 0 auto;
+  margin: 0 0.4em;
+  padding: 0 0.3em;
+  border: none;
+  background: none;
+  color: #fbfbfb;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lizmap-dock-window .dock-window-close:hover {
+  color: #fff;
+  opacity: 0.8;
+}
+
+.lizmap-dock-window .dock-window-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.5em;
+  background-color: #f0f0f0;
+}
+
+/* No text selection and no hover effects of the page while the window
+   is being moved or resized. */
+.lizmap-dock-window.dock-window-moving,
+.lizmap-dock-window.dock-window-resizing {
+  user-select: none;
+}
+
+.lizmap-dock-window.dock-window-moving .dock-window-body,
+.lizmap-dock-window.dock-window-resizing .dock-window-body {
+  pointer-events: none;
+}
+
+/* Resize handles: invisible strips on the edges and squares in the
+   corners. */
+.lizmap-dock-window .dock-window-handle {
+  position: absolute;
+  z-index: 1;
+  touch-action: none;
+}
+
+.lizmap-dock-window .dock-window-handle-n,
+.lizmap-dock-window .dock-window-handle-s {
+  left: 6px;
+  right: 6px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.lizmap-dock-window .dock-window-handle-n { top: -3px; }
+.lizmap-dock-window .dock-window-handle-s { bottom: -3px; }
+
+.lizmap-dock-window .dock-window-handle-e,
+.lizmap-dock-window .dock-window-handle-w {
+  top: 6px;
+  bottom: 6px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.lizmap-dock-window .dock-window-handle-e { right: -3px; }
+.lizmap-dock-window .dock-window-handle-w { left: -3px; }
+
+.lizmap-dock-window .dock-window-handle-ne,
+.lizmap-dock-window .dock-window-handle-nw,
+.lizmap-dock-window .dock-window-handle-se,
+.lizmap-dock-window .dock-window-handle-sw {
+  width: 12px;
+  height: 12px;
+}
+
+.lizmap-dock-window .dock-window-handle-ne { top: -3px; right: -3px; cursor: nesw-resize; }
+.lizmap-dock-window .dock-window-handle-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+.lizmap-dock-window .dock-window-handle-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.lizmap-dock-window .dock-window-handle-se { bottom: -3px; right: -3px; cursor: nwse-resize; }
+
+/* Docked: only the inner edge can be resized. */
+.lizmap-dock-window[data-dock="left"] .dock-window-handle:not(.dock-window-handle-e),
+.lizmap-dock-window[data-dock="right"] .dock-window-handle:not(.dock-window-handle-w),
+.lizmap-dock-window[data-dock="bottom"] .dock-window-handle:not(.dock-window-handle-n) {
+  display: none;
+}
+
+.lizmap-dock-window[data-dock="left"] .dock-window-handle-e,
+.lizmap-dock-window[data-dock="right"] .dock-window-handle-w {
+  top: 0;
+  bottom: 0;
+}
+
+.lizmap-dock-window[data-dock="bottom"] .dock-window-handle-n {
+  left: 0;
+  right: 0;
+}
+
+.lizmap-dock-window:not([data-dock="floating"]) {
+  box-shadow: none;
+}
+
+/* Where the window will dock when released. */
+.dock-window-preview {
+  position: absolute;
+  z-index: 1009;
+  box-sizing: border-box;
+  border: 2px solid #0094d6;
+  background-color: rgb(0 148 214 / 20%);
+  pointer-events: none;
+}
+
+
+/* Buttons of the title bar (new window, maximize / restore), like the
+   close button. */
+.lizmap-dock-window .dock-window-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0 0 0 0.2em;
+  padding: 0.2em 0.3em;
+  border: none;
+  background: none;
+  color: #fbfbfb;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lizmap-dock-window .dock-window-button:hover {
+  color: #fff;
+  opacity: 0.8;
+}
+
+/* Maximized: fills the container, not resizable. */
+.lizmap-dock-window[data-dock="maximized"] .dock-window-handle {
+  display: none;
+}
+
+/* Content moved to a separate browser window: the window is hidden until
+   it comes back. */
+.lizmap-dock-window[data-dock="popout"] {
+  display: none !important;
+}
+
+/* The separate browser window: its content fills it, with the look of the
+   body of the window. */
+body.dock-window-popout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  background-color: #f0f0f0;
+}
+
+body.dock-window-popout .dock-window-popout-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  padding: 0.5em;
+}
+
+/* Bar of the separate window: title and "Back to the map" button, like
+   the title bar of the window. */
+body.dock-window-popout .dock-window-popout-bar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 0.4em 0.5em 0.4em 0.7em;
+  background-color: rgb(0 0 0 / 70%);
+  color: #fbfbfb;
+}
+
+body.dock-window-popout .dock-window-popout-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-weight: bold;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+body.dock-window-popout .dock-window-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.2em 0.3em;
+  border: none;
+  background: none;
+  color: #fbfbfb;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.dock-window-popout .dock-window-button:hover {
+  color: #fff;
+  opacity: 0.8;
+}
+
+/* ===Elevation profile=== (<lizmap-elevation-profile>,
+   components/measures/ElevationProfile.js). Tree of the elevation layers
+   on the left, graph of the checked layers on the right (stacked when
+   the window is narrow). Graph styles as the former elevation profile
+   tool (elevationProfileTool.js). */
+
+/* The component fills the window body. It is a size container: its
+   layout follows the width of the window (docked at the bottom, on a
+   side, floating). */
+.lizmap-elevation-profile {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.lizmap-elevation-profile .elevation-profile-panels {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Splitter between the layer panel and the graph: drag to widen or
+   narrow the panel, double-click for its default width. */
+.lizmap-elevation-profile .elevation-profile-splitter {
+  flex: 0 0 8px;
+  margin-right: 4px;
+  cursor: col-resize;
+  touch-action: none;
+  background: linear-gradient(to right, transparent 3px, rgb(0 0 0 / 15%) 3px, rgb(0 0 0 / 15%) 5px, transparent 5px);
+}
+
+.lizmap-elevation-profile .elevation-profile-splitter:hover,
+.lizmap-elevation-profile .elevation-profile-splitter.dragging {
+  background: linear-gradient(to right, transparent 2px, #0094d6 2px, #0094d6 6px, transparent 6px);
+}
+
+/* Layer tree */
+.lizmap-elevation-profile .elevation-profile-layers {
+  flex: 0 0 210px;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: auto;
+  padding: 2px 4px 2px 0;
+  font-size: 12px;
+}
+
+.lizmap-elevation-profile .elevation-profile-layers-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+
+.lizmap-elevation-profile .elevation-profile-layers-title {
+  margin: 2px 0 4px;
+  font-weight: 600;
+}
+
+.lizmap-elevation-profile .elevation-profile-layers-header .elevation-profile-layers-title {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree + .elevation-profile-layers-title {
+  margin-top: 8px;
+}
+
+/* Button collapsing / expanding the layer panel. */
+.lizmap-elevation-profile .elevation-profile-layers-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 3px;
+  background: rgb(255 255 255 / 60%);
+  color: inherit;
+  cursor: pointer;
+}
+
+.lizmap-elevation-profile .elevation-profile-layers-toggle svg {
+  transition: transform 0.15s;
+}
+
+/* Collapsed: a narrow strip with the button and the title written
+   vertically; the graph takes the space. */
+.lizmap-elevation-profile .elevation-profile-layers.collapsed {
+  flex: 0 0 24px;
+  overflow: hidden;
+  margin-right: 8px;
+  padding-right: 4px;
+  border-right: 1px solid rgb(0 0 0 / 15%);
+}
+
+.lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-header {
+  flex-direction: column;
+}
+
+.lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-header .elevation-profile-layers-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* Symbol of the layer: a button opening its style. */
+.lizmap-elevation-profile .elevation-profile-swatch-button {
+  display: flex;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.lizmap-elevation-profile .elevation-profile-swatch-button:hover .elevation-profile-swatch,
+.lizmap-elevation-profile .elevation-profile-swatch-button[aria-expanded="true"] .elevation-profile-swatch {
+  outline: 2px solid #0094d6;
+  outline-offset: 1px;
+}
+
+/* Lizmap still loads Bootstrap 2, which forces 14 px, 20 px line height,
+   5 px margins and fixed widths (220 px select) on every label, select,
+   input and button: everything in the tree and the style editor is set
+   back to 12 px, and sized by the rules below. */
+.lizmap-elevation-profile .elevation-profile-layers label,
+.lizmap-elevation-profile .elevation-profile-layers select,
+.lizmap-elevation-profile .elevation-profile-layers input,
+.lizmap-elevation-profile .elevation-profile-layers button,
+.lizmap-elevation-profile .elevation-profile-layers span {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Style editor of a layer, under it in the tree. Texts are never cut: a
+   text too long for the panel goes on its own line, above its control;
+   the menu and the opacity slider always take the full width. */
+.lizmap-elevation-profile .elevation-profile-style {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Shifted back by the indentation of its groups (16 px each, see
+     .elevation-profile-tree ul): full width of the panel. */
+  margin: 2px 0 6px calc(var(--elevation-profile-depth, 0) * -16px);
+  padding: 6px;
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 3px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.lizmap-elevation-profile .elevation-profile-style label {
+  box-sizing: border-box;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 6px;
+  margin: 0;
+  font-weight: normal;
+  white-space: normal;
+}
+
+.lizmap-elevation-profile .elevation-profile-style-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Menu and slider: on their own line, full width. */
+.lizmap-elevation-profile .elevation-profile-style-field-wide select,
+.lizmap-elevation-profile .elevation-profile-style-control {
+  flex: 1 1 100%;
+}
+
+.lizmap-elevation-profile .elevation-profile-style select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 1px 2px;
+  line-height: 16px;
+}
+
+.lizmap-elevation-profile .elevation-profile-style-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lizmap-elevation-profile .elevation-profile-style input[type="color"] {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 2px;
+  box-shadow: none;
+  background: none;
+  cursor: pointer;
+}
+
+.lizmap-elevation-profile .elevation-profile-style input[type="range"] {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.lizmap-elevation-profile .elevation-profile-style-value {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.lizmap-elevation-profile .elevation-profile-style-reset {
+  align-self: flex-end;
+  max-width: 100%;
+  margin: 2px 0 0;
+  padding: 1px 8px;
+  white-space: normal;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree,
+.lizmap-elevation-profile .elevation-profile-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree ul {
+  padding-left: 16px;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 1px 0;
+  font-weight: normal;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree-group > label {
+  font-weight: 600;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.lizmap-elevation-profile .elevation-profile-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Profile of the layer being computed (Copernicus is read on the
+   Internet by QGIS Server: it may take a few seconds). */
+.lizmap-elevation-profile .elevation-profile-spinner {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgb(0 0 0 / 20%);
+  border-top-color: #0094d6;
+  border-radius: 50%;
+  animation: elevation-profile-spin 0.8s linear infinite;
+}
+
+@keyframes elevation-profile-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Profile symbology of the layer (line, fill below or above). */
+.lizmap-elevation-profile .elevation-profile-swatch {
+  flex: 0 0 auto;
+  border: 1px solid rgb(0 0 0 / 20%);
+  background-color: #fff;
+}
+
+/* Graph, hint and attribution */
+.lizmap-elevation-profile .elevation-profile-graph-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lizmap-elevation-profile .elevation-profile-graph-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.lizmap-elevation-profile .elevation-profile-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-style: italic;
+  text-align: center;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.lizmap-elevation-profile .elevation-profile-attribution {
+  flex: 0 0 auto;
+  padding-top: 2px;
+  font-size: 10px;
+  line-height: 1.3;
+  opacity: 0.75;
+}
+
+.lizmap-elevation-profile .elevation-profile-attribution span + span::before {
+  content: " | ";
+}
+
+.lizmap-elevation-profile [hidden] {
+  display: none !important;
+}
+
+.lizmap-elevation-profile .elevation-profile-graph-wrapper {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.lizmap-elevation-profile .elevation-profile-graph-wrapper .elevation-profile-graph-inner {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Plotly.newPlot() doesn't always size its inner .plot-container.plotly
+   div correctly relative to its wrapper. */
+.lizmap-elevation-profile .elevation-profile-graph-wrapper .plot-container.plotly {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+}
+
+/* Plotly's own hover visuals are hidden: the cursor of the graph
+   (vertical line, dots, distance and elevations) replaces them. Hover
+   detection itself is untouched. */
+.lizmap-elevation-profile .elevation-profile-graph-wrapper .hoverlayer {
+  display: none !important;
+}
+
+/* Narrow window (docked on a side, small floating window): the tree goes
+   above the graph. */
+@container (max-width: 520px) {
+  .lizmap-elevation-profile .elevation-profile-panels {
+    flex-direction: column;
+  }
+
+  /* Collapsed: only its title bar stays, horizontal. */
+  .lizmap-elevation-profile .elevation-profile-layers.collapsed {
+    flex: 0 0 auto;
+  }
+
+  .lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-header {
+    flex-direction: row;
+  }
+
+  .lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-header .elevation-profile-layers-title {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .lizmap-elevation-profile .elevation-profile-layers-toggle svg {
+    transform: rotate(90deg);
+  }
+
+  .lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-toggle svg {
+    transform: rotate(-90deg);
+  }
+
+  /* No splitter when stacked: the width set with it doesn't apply. */
+  .lizmap-elevation-profile .elevation-profile-splitter {
+    display: none;
+  }
+
+  .lizmap-elevation-profile .elevation-profile-layers,
+  .lizmap-elevation-profile .elevation-profile-layers.collapsed {
+    flex: 0 0 auto !important;
+    margin-right: 0;
+    border-right: none;
+  }
+
+  .lizmap-elevation-profile .elevation-profile-layers {
+    max-height: 35%;
+    padding: 0 0 4px;
+    border-right: none;
+    border-bottom: 1px solid rgb(0 0 0 / 15%);
+  }
+}
+
+/* Display settings on the map (length of the segments, help), shared
+   with the measure tools. */
+.lizmap-elevation-profile .elevation-profile-display-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  margin: 0 0 2px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.lizmap-elevation-profile .elevation-profile-display-check input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+
+/* ===Measure tools=== (<lizmap-measure-panel>,
+   components/measures/MeasurePanel.js). Panel of the length, area, angle
+   and bearing tools: settings, detail of the measure, "clear all". Sizes
+   set in px against Bootstrap 2 (14px, fixed widths on labels, inputs and
+   selects), like the elevation profile. */
+.lizmap-measure-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.lizmap-measure-panel .measure-panel-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.lizmap-measure-panel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.lizmap-measure-panel input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.lizmap-measure-panel .measure-panel-field > span {
+  flex: 0 0 auto;
+}
+
+.lizmap-measure-panel select {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 1px 2px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Detail of the measure: scrolls when the window is small. */
+.lizmap-measure-panel .measure-panel-result {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.lizmap-measure-panel .measure-panel-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lizmap-measure-panel .measure-panel-table th,
+.lizmap-measure-panel .measure-panel-table td {
+  padding: 2px 6px;
+  border-bottom: 1px solid rgb(0 0 0 / 10%);
+  text-align: left;
+  font-weight: normal;
+}
+
+.lizmap-measure-panel .measure-panel-table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lizmap-measure-panel .measure-panel-table thead th {
+  font-weight: 600;
+  background: rgb(0 0 0 / 5%);
+}
+
+.lizmap-measure-panel .measure-panel-segments-table thead th:last-child {
+  text-align: right;
+}
+
+.lizmap-measure-panel .measure-panel-segments-table tbody td:first-child {
+  text-align: left;
+}
+
+.lizmap-measure-panel .measure-panel-table tfoot th,
+.lizmap-measure-panel .measure-panel-table tfoot td,
+.lizmap-measure-panel .measure-panel-area,
+.lizmap-measure-panel .measure-panel-angle,
+.lizmap-measure-panel .measure-panel-azimuth {
+  font-weight: 600;
+}
+
+.lizmap-measure-panel .measure-panel-hint,
+.lizmap-measure-panel .measure-panel-keys {
+  margin: 0;
+  color: #666;
+}
+
+.lizmap-measure-panel .measure-panel-footer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.lizmap-measure-panel .measure-panel-keys {
+  flex: 1 1 auto;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.lizmap-measure-panel .measure-panel-clear {
+  flex: 0 0 auto;
+  font-size: 12px;
+}

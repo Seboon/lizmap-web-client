@@ -2444,16 +2444,6 @@ class Project
             );
         }
 
-        if ($this->cfg->getBooleanOption('measure')) {
-            $tpl = new \jTpl();
-            $dockable[] = new \lizmapMapDockItem(
-                'measure',
-                $this->appContext->getLocale('view~map.measure.navbar.title'),
-                $tpl->fetch('view~map_measure'),
-                5
-            );
-        }
-
         if ($this->hasTooltipLayers()) {
             $tpl = new \jTpl();
             $dockable[] = new \lizmapMapDockItem(

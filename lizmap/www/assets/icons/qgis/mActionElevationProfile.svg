@@ -1,0 +1,10 @@
+<!-- mActionElevationProfile.svg: derived from the native QGIS Desktop icon
+     images/themes/default/mActionElevationProfile.svg of
+     https://github.com/qgis/QGIS. Modification: the green "+" badge
+     (bottom right) was removed; the rest of the drawing is unchanged.
+     Icon added to QGIS in 2023 by Nyall Dawson; like every icon of
+     images/themes/default, it is licensed under CC BY-SA 3.0 (QGIS
+     copyright file): https://creativecommons.org/licenses/by-sa/3.0/
+     This modified version is shared under the same licence.
+     See LICENSE.txt in this folder. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path fill="#e6e6e6" d="M2.5 2.5h19v19h-19z" style="stroke-width:1;stroke:none"/><path d="M9 3v18H8V3Zm7 0v18h-1V3Z" style="fill:#d0d0d0;fill-opacity:1;stroke-width:2.00001;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:.206937"/><path d="M21 9H3V8h18Zm0 7H3v-1h18Z" style="fill:#d0d0d0;fill-opacity:1;stroke-width:2.00001;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:.206937"/><path d="M21.369 11.051s-.92-1.355-1.438-2.143c-.519-.788-1.082-3.313-2.338-3.3-1.375.014-2.058 2.21-2.497 3.664-.34 1.122-.931 2.17-2.209 2.564-.947.292-1.638 1.827-2.711 2.086-1.195.29-2.429-1.076-3.61-.722-1.594.479-3.777 3.575-3.777 3.575l-.16 4.769 18.772-.084z" style="fill:#316349;fill-opacity:.25349277;stroke:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"/><path d="M2.789 16.775s2.183-3.096 3.777-3.575c1.181-.354 2.415 1.012 3.61.722 1.073-.259 1.764-1.794 2.711-2.086 1.278-.394 1.869-1.442 2.209-2.564.439-1.454 1.122-3.65 2.497-3.664 1.256-.013 1.819 2.512 2.338 3.3.518.788 1.438 2.143 1.438 2.143" style="fill:none;fill-opacity:1;stroke:#005338;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"/><path d="M2 2v20h20V2Zm1 1h18v18H3Z" style="color:#000;fill:#6e97c4;-inkscape-stroke:none"/></svg>

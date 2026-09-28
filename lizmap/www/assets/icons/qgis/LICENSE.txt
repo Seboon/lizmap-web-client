@@ -1,0 +1,27 @@
+Icons in this folder are native QGIS Desktop icons, copied unmodified
+(apart from an attribution comment, and one exception listed below) from the QGIS source repository:
+https://github.com/qgis/QGIS/tree/master/images/themes/default
+
+  mActionMeasure.svg, mActionMeasureArea.svg,
+  mActionMeasureAngle.svg, mActionMeasureBearing.svg
+
+Modified icon (same licence, CC BY-SA 3.0):
+
+  mActionElevationProfile.svg: native QGIS icon with its green "+"
+  badge (bottom right) removed; the rest of the drawing is unchanged.
+  This icon was added to QGIS in 2023 by Nyall Dawson; it is covered by
+  the same licence entry (images/themes/default/*) of the QGIS copyright
+  file quoted below.
+
+Copyright: 2011, Robert Szczepanek, Anita Graser
+License: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+https://creativecommons.org/licenses/by-sa/3.0/
+
+From the QGIS copyright file (debian/copyright): "GIS icons by Robert
+Szczepanek is licensed under a Creative Commons Attribution-Share Alike
+3.0 Unported License. Feel free to use it in any GIS software or for
+other purposes. I only ask you to let me know about that and to include
+licence.txt file in your work."
+
+These icons keep their own licence (CC BY-SA 3.0); it does not apply to
+the rest of this project (MPL-2.0).

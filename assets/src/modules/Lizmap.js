@@ -16,6 +16,8 @@ import SelectionTool from './SelectionTool.js';
 import { Digitizing } from './Digitizing.js';
 import Snapping from './Snapping.js';
 import ComparisonSlider from './ComparisonSlider.js';
+import ElevationProfile from './measures/ElevationProfile.js';
+import Measure from './measures/Measure.js';
 import Layers from './Layers.js';
 import WFS from './WFS.js';
 import WMS from './WMS.js';
@@ -179,6 +181,8 @@ export default class Lizmap {
                         this.comparisonSlider = new ComparisonSlider(this.map, this.state.layerTree);
                         this.action = new Action(this.map, this.selectionTool, this.digitizing, this.lizmap3);
                         this.popup = new Popup(this.initialConfig, this.state, this.map, this.digitizing);
+                        this.elevationProfile = new ElevationProfile(this.map, this.lizmap3);
+                        this.measure = new Measure(this.map);
                         this.search = new Search(this.map, this.lizmap3);
                         this.tooltip = new Tooltip(this.map, this.initialConfig.tooltipLayers, this.lizmap3);
                         this.locateByLayer = new LocateByLayer(

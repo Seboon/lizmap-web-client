@@ -11,6 +11,7 @@
     </form>
 
     <ul class="nav">
+      {include 'view~measure_menu'}
       {include 'lizmap~user_menu'}
     </ul>
   </div>

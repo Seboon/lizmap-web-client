@@ -578,6 +578,31 @@ class WMSRequest extends OGCRequest
     }
 
     /**
+     * GetElevationLayers request of the ElevationProfile QGIS Server plugin
+     * (list of the elevation layers of the project).
+     *
+     * @return OGCResponse
+     */
+    protected function process_getelevationlayers()
+    {
+        // Get remote data
+        return $this->request(true);
+    }
+
+    /**
+     * GetElevationProfile request of the ElevationProfile QGIS Server plugin
+     * (elevation profile along a line). Sent to QGIS Server as POST, as the
+     * GEOMETRY parameter can be long.
+     *
+     * @return OGCResponse
+     */
+    protected function process_getelevationprofile()
+    {
+        // Get remote data
+        return $this->request(true);
+    }
+
+    /**
      * @param mixed $tplName
      * @param mixed $layerName
      * @param mixed $layerId
