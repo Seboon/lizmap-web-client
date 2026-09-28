@@ -12,20 +12,9 @@
     <h2>{$repositoryLabel}</h2>
   </div>
   <div id="headermenu" class="navbar navbar-fixed-top">
-    {* 'pageContext'=>$pageContext ajoute ici (S.Poudroux / Kheper 3D, 2026) :
-       map_headermenu est une zone, donc avec son propre scope de
-       template -- sans ce param explicite, $pageContext ('map',
-       assigne par myHtmlMapResponse) ne lui parvient jamais, ni par
-       ricochet a user_menu.tpl inclus juste apres dans
-       map_headermenu.tpl. Consequence concrete : le sous-menu Aide de
-       settings_menu.tpl (visible seulement si $context == 'map') ne
-       s'affichait jamais, meme sur la carte.
-       IMPORTANT -- nom de cle : user_menu.tpl teste isset($pageContext),
-       pas isset($context) -- la cle du tableau doit donc etre
-       'pageContext' (pas 'context') pour que ca marche. (Premiere version
-       de ce correctif utilisait 'context' par erreur -- corrige.)
-       Le reste des parametres (repository/project/auth_url_return) est
-       d'origine, inchange. *}
+    {* 'pageContext': a zone has its own template scope, so $pageContext
+       must be passed explicitly to reach user_menu.tpl (which tests
+       isset($pageContext)); the Help submenu of the Settings menu needs it. *}
     {zone 'view~map_headermenu', array('repository'=>$repository,'project'=>$project,'auth_url_return'=>$auth_url_return,'pageContext'=>$pageContext)}
   </div>
 </div>

@@ -166,9 +166,7 @@ export default class map extends olMap {
         // Mapping between layers name and states used to construct the singleWMSLayer, if needed
         this._statesSingleWMSLayers = new Map();
 
-        // Keep a reference to the root map group state, used later to recompute the
-        // OpenLayers zIndex of every layer when the layer tree order changes (drag and
-        // drop reordering in the treeview, see `updateLayersZIndex()` below)
+        // Used by updateLayersZIndex() when the layer tree is reordered.
         this._rootMapGroup = rootMapGroup;
 
         const layersCount = rootMapGroup.countExplodedMapLayers();
@@ -994,25 +992,12 @@ export default class map extends olMap {
      * Recompute and reapply the OpenLayers zIndex of every overlay layer, based on the
      * CURRENT order of the map layer/group state tree (`this._rootMapGroup`).
      *
-     * This is what makes the actual map rendering stacking order follow a layer/group
-     * reorder performed in the treeview (drag and drop), without ever mutating the
-     * original, read-only `layerOrder` property: other modules (Tooltip.js, Popup.js,
-     * Print.js, SingleWMSLayer.js) rely on `layerOrder` to keep referring to a layer by
-     * its ORIGINAL position in the QGIS project, so it must stay untouched. Instead,
-     * this method walks the tree fresh every time it is called and assigns brand new
-     * zIndex values from scratch, the same way the constructor does once at startup.
-     *
-     * The exploding of "group as layer" groups (several QGIS layers merged into a
-     * single combined WMS request/OpenLayers layer) mirrors
-     * `MapGroupState.countExplodedMapLayers()`: such a group occupies as many slots in
-     * the sequence as it has underlying layers, but only the FIRST (topmost) slot gets
-     * an actual zIndex applied, since there is only one live OpenLayers layer object
-     * for the whole group.
-     *
-     * Known limitation: when Lizmap is configured to merge every layer into a single
-     * combined WMS image (`mapState.singleWMSLayer`), individual layers have no live
-     * OpenLayers layer object of their own (see SingleWMSLayer.js) and this method has
-     * no effect on that combined request's internal layer order.
+     * Makes the stacking order of the map follow a drag and drop in the layer tree.
+     * The read-only `layerOrder` (original position in the QGIS project, used by
+     * Tooltip.js, Popup.js, Print.js, SingleWMSLayer.js) is never changed: the zIndex
+     * values are assigned again from the tree, as the constructor does. A "group as
+     * layer" takes as many slots as its layers, its single OpenLayers layer gets the
+     * first one. No effect on the combined image of `singleWMSLayer` (see To_DO).
      * @returns {void}
      */
     updateLayersZIndex() {
@@ -1020,8 +1005,7 @@ export default class map extends olMap {
             return;
         }
 
-        // Flatten the CURRENT tree (depth-first, visual top-to-bottom order) the same
-        // way the constructor originally exploded it to assign the initial zIndex
+        // Current tree, depth-first (top to bottom), as in the constructor.
         const blocks = [];
         const walk = (groupState) => {
             for (const item of groupState.children) {

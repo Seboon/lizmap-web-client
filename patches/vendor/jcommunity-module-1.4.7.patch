@@ -106,8 +106,8 @@ diff -ruN a/jelix/jcommunity-module/modules/jcommunity/lib/PasswordReset.php b/j
 -        $expectedStatus = ($this->forRegistration? Account::STATUS_NEW : Account::STATUS_PWD_CHANGED);
 -        if ($user->status != $expectedStatus) {
 +        $expectedStatuses = $this->forRegistration
-+        ? [Account::STATUS_NEW,Account::STATUS_ADMIN]  // Pour une inscription
-+        : [Account::STATUS_PWD_CHANGED, Account::STATUS_PWD_CHANGED_EXPIRED];  // Pour un reset
++        ? [Account::STATUS_NEW,Account::STATUS_ADMIN]  // For a registration
++        : [Account::STATUS_PWD_CHANGED, Account::STATUS_PWD_CHANGED_EXPIRED];  // For a password reset
 +           
 +        if (!in_array($user->status, $expectedStatuses))
 +        {

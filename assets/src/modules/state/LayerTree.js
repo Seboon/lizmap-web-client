@@ -701,24 +701,13 @@ export class TreeRootState extends LayerTreeGroupState {
  * Move a layer or group item to a new position in the layer tree, possibly under a
  * different parent group (drag and drop reordering, QGIS layer panel style).
  *
- * This keeps the display tree (LayerTreeGroupState/LayerTreeLayerState, used by
- * `<lizmap-treeview>`) and the underlying map rendering tree (MapGroupState/
- * MapLayerState, used by `map.js` to build the actual OpenLayers layers) synchronized:
- * both are mirrored structures built in the same order, so the move is applied to both.
+ * The move is applied to the display tree (LayerTree*State, `<lizmap-treeview>`)
+ * and to the mirrored map tree (Map*State). The read-only `layerOrder` is never
+ * changed: call `map.updateLayersZIndex()` afterwards to update the map.
  *
- * It deliberately never touches the read-only `layerOrder` property (see Layer.js):
- * that value is the layer's ORIGINAL position in the QGIS project and other modules
- * (Tooltip.js, Popup.js, Print.js, SingleWMSLayer.js) rely on it to keep identifying a
- * layer by that original position. To reflect the new order on the map, call
- * `map.updateLayersZIndex()` after a successful move, which recomputes and reapplies
- * the OpenLayers zIndex of every layer from the CURRENT (post-move) tree order.
- *
- * Note: moving a layer into a different group does not change which group's checkbox
- * cascades visibility to it — that cascade is driven by a third, deeper configuration
- * tree (LayerItemState/LayerGroupState in Layer.js) which this function does not
- * reparent, to avoid disturbing the visibility-change listeners it wires up once at
- * construction time. A moved layer keeps following its ORIGINAL group's checkbox for
- * checked/unchecked cascading, even though it now visually appears under a new group.
+ * Known limitation (see To_DO): a layer moved into another group still follows the
+ * checkbox of its original group (the configuration tree of Layer.js is not
+ * reparented).
  *
  * @param {LayerTreeItemState}  item        - the layer or group to move
  * @param {LayerTreeGroupState} targetGroup - the destination parent group (can be the

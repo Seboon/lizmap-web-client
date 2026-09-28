@@ -23,10 +23,8 @@
         <property name="country" fieldname="country" datatype="string" maxlength="100" default=""/>
         <property name="comment" fieldname="comment" datatype="text" maxlength="300" default=""/>
         <property name="lang" fieldname="lang" datatype="string" maxlength="10" default=""/>
-        <!-- Local addition (Seb's fork): locale (e.g. fr_FR) automatically captured
-             during self-registration (jApp::config()->locale at the time the form is
-             submitted, see lzmAuthListener::onjcommunity_registration_prepare_save).
-             Empty for accounts created/imported by the admin (no language to detect). -->
+        <!-- Locale of a self-registered user (see lzmAuthListener); empty for
+             accounts created by the admin. -->
 
         <property name="status" fieldname="status" datatype="integer" />
         <!-- status :

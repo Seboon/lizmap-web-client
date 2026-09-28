@@ -11,12 +11,8 @@ class lzmAuthListener extends jEventListener
         $event->user->lastname = $form->getData('lastname');
         $event->user->organization = $form->getData('organization');
 
-        // Local addition (Seb's fork): store the language of the person
-        // registering, as detected for THEIR OWN request (autolocale plugin:
-        // "lang" URL parameter, otherwise browser language). This does not
-        // affect the confirmation e-mail sent to the registrant (already
-        // correct, see jcommunity), but keeps a record of their language for
-        // future use (e.g. display in the admin panel).
+        // Language of the person registering (their own request, resolved
+        // by the autolocale plugin), kept for later use.
         $event->user->lang = jApp::config()->locale;
     }
 
@@ -24,19 +20,10 @@ class lzmAuthListener extends jEventListener
      * Locale to use for the emails sent to the site administrator
      * (registration request / registration confirmed).
      *
-     * These emails must always be sent in the administrator's own
-     * language, never in the language of the visitor who is
-     * registering (which is what jLocale::get() would otherwise use,
-     * since it defaults to the locale resolved for the current
-     * request -- i.e. the visitor's browser/session language when
-     * the autolocale plugin is enabled).
-     *
-     * The locale is read from the "Language of notification e-mails"
-     * field of the Services configuration (Administration > Lizmap
-     * configuration > Services > E-mails), i.e.
-     * lizmapServices::$adminNotificationLocale. If that field is left
-     * empty, it falls back to the application's configured default
-     * locale (jApp::config()->locale).
+     * Always the administrator's language, never the one of the visitor
+     * (the default of jLocale::get()): the "Language of notification
+     * e-mails" setting (lizmapServices::$adminNotificationLocale), else the
+     * default locale of the application.
      *
      * @param lizmapServices $services
      *

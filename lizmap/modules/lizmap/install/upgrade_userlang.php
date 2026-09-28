@@ -1,21 +1,12 @@
 <?php
 
 /**
- * Local addition (Seb's fork): "lang" column on jlx_user.
+ * Adds the "lang" column to jlx_user: locale of a self-registered user
+ * (see lzmAuthListener); empty for accounts created by the admin.
  *
- * Used to store the locale (e.g. fr_FR) of the person who submitted a
- * registration request (automatically captured when the form is
- * submitted, see lzmAuthListener::onjcommunity_registration_prepare_save
- * in the admin module). Stays empty for accounts created/imported by the
- * admin, since there is then no language to detect.
- *
- * This script only runs for an already-installed site that goes through
- * the Jelix installer again (php lizmap/install/installer.php) after
- * fetching these files -- not for a fresh install, where jcommunity's own
- * createTableFromDao() mechanism already creates the column directly from
- * the current DAO (see the README for the full investigation). It only
- * fires if the declared version of the lizmap module (module.xml) is
- * newer than the version already recorded as installed.
+ * Runs for an existing site when the installer is run again and the
+ * version of the lizmap module (module.xml) is newer than the installed
+ * one; a fresh install creates the column from the DAO.
  *
  * @copyright 2026 S.Poudroux / Kheper 3D
  * @license MPL-2.0

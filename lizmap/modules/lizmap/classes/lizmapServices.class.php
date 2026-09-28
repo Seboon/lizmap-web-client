@@ -404,11 +404,9 @@ class lizmapServices
     public $adminNotificationLocale = '';
 
     /**
-     * Local addition (Seb's fork): human-readable language names, for any
-     * language-choice dropdown in the UI (settings menu on the map side,
-     * and the "Language of notification e-mails" field on the admin side).
-     * Single source -- do not duplicate this list elsewhere (see
-     * lizmapServices::getAvailableLocalesList()).
+     * Names of the languages, for the language choices of the UI (settings
+     * menu, "Language of notification e-mails"). Single source: use
+     * getAvailableLocalesList().
      *
      * @var array<string,string> locale => display name
      */
@@ -440,14 +438,9 @@ class lizmapServices
     );
 
     /**
-     * Local addition (Seb's fork): list of languages actually available on
-     * this site (locale => display name), in the order of availableLocales
-     * (mainconfig.ini.php). Single source used both by the settings menu
-     * (map view, lizmap/modules/view/zones/settings_menu.zone.php) and by
-     * the "Language of notification e-mails" field (admin services form,
-     * admin/controllers/config.classic.php). A language not present in
-     * self::$localeLabels is displayed under its raw code (e.g. "xx_XX")
-     * rather than being silently omitted.
+     * Languages available on this site (locale => name), in the order of
+     * availableLocales (mainconfig.ini.php). A language without a name in
+     * self::$localeLabels is shown with its code.
      *
      * @return array<string,string>
      */

@@ -168,11 +168,7 @@
     <menulist ref="adminNotificationLocale">
         <label locale="admin~admin.form.admin_services.adminNotificationLocale.label"/>
         <help locale="admin~admin.form.admin_services.adminNotificationLocale.help"/>
-        <!-- Local addition (Seb's fork): the list of languages offered
-             here is populated dynamically by configCtrl::prepareServicesForm(),
-             from lizmapServices::getAvailableLocalesList() (which reads
-             availableLocales in mainconfig.ini.php). No static item here,
-             it would be replaced anyway when the form is displayed. -->
+        <!-- Languages filled by configCtrl::fillNotificationLocaleDatasource(). -->
         <emptyitem locale="admin~admin.form.admin_services.adminNotificationLocale.default"/>
     </menulist>
 
