@@ -7,7 +7,9 @@
    arrow otherwise, and "#" is not a valid selector for jQuery 3.
    The entries (data-measure-tool attribute) are handled by the
    <lizmap-measures> component (assets/src/components/Measures.js),
-   which opens the matching tool; only "profile" is available for now.
+   which opens the matching tool.
+   Only included when the "Measure" tool is checked in the Lizmap plugin
+   of QGIS Desktop (map_headermenu zone, $measure).
 
    @copyright 2026 S.Poudroux / Kheper 3D
    @license MPL-2.0 *}

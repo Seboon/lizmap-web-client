@@ -11,7 +11,7 @@
     </form>
 
     <ul class="nav">
-      {include 'view~measure_menu'}
+      {if $measure}{include 'view~measure_menu'}{/if}
       {include 'lizmap~user_menu'}
     </ul>
   </div>

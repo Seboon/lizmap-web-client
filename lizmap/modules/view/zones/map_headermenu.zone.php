@@ -49,6 +49,11 @@ class map_headermenuZone extends jZone
 
         try {
             $lproj = lizmap::getProject($repository.'~'.$project);
+
+            // Measure menu: shown when the "Measure" tool is checked in the
+            // Lizmap plugin of QGIS Desktop.
+            $assign['measure'] = $lproj->getBooleanOption('measure');
+
             $externalSearch = $lproj->getOption('externalSearch');
 
             if ($externalSearch !== null) {
