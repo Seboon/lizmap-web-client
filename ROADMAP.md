@@ -186,7 +186,17 @@ WebGIS, QGIS Desktop and QField share one source of truth: PostgreSQL.
 
 ## Data, formats and 3D
 
-- [ ] Support projects saved as `.qgz`.
+- [ ] Support projects saved as `.qgz` (zip holding the `.qgs` and the
+      auxiliary storage `.qgd`). QGIS Server already reads them; the blockers
+      are in Lizmap:
+  - [ ] Lizmap Web Client: list `.qgz` files in the repositories, read the
+        project XML inside the zip (`zip://` stream, PHP zip extension),
+        accept a `name.qgz.cfg` configuration, adapt the project cache,
+        thumbnails, tiler and project download (`.qgs` is hard-coded there).
+  - [ ] Lizmap QGIS Desktop plugin (3liz/lizmap-plugin): it refuses `.qgz`
+        projects; needs a change there too, ideally proposed to 3liz first.
+  - Trade-offs: smaller files and embedded auxiliary storage, but a binary
+    project that can no longer be compared line by line in Git.
 - [ ] Cloud Optimized GeoTIFF (COG) rasters.
 - [ ] 3D module with CesiumJS: 3D Tiles and photogrammetry.
 
