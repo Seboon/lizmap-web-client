@@ -5,6 +5,53 @@
 [![PHPStan](https://github.com/3liz/lizmap-web-client/actions/workflows/php-stan.yml/badge.svg)](https://github.com/3liz/lizmap-web-client/actions/workflows/php-stan.yml)
 [![End2end tests 🎳](https://github.com/3liz/lizmap-web-client/actions/workflows/e2e_tests.yml/badge.svg)](https://github.com/3liz/lizmap-web-client/actions/workflows/e2e_tests.yml)
 
+## About this fork
+
+This repository is a fork of [Lizmap Web Client](https://github.com/3liz/lizmap-web-client)
+3.9.11 by S. Poudroux (Kheper 3D). It stays close to the official release and
+adds tools inspired by QGIS Desktop. The branch `fork-3.9.11` is the official
+3.9.11 tag plus the fork commits.
+
+What the fork adds:
+
+* **Measure menu** modelled on the QGIS toolbar, with QGIS icons and
+  OpenLayers 10 tools: length, area, angle, bearing (ellipsoidal by default),
+  and an **elevation profile** of the project elevation layers (requires the
+  ElevationProfile QGIS Server plugin), in dockable windows. Shown only when
+  the Measure option is enabled in the Lizmap plugin of QGIS.
+* **Settings menu** on every page (help, dark theme).
+* **Layer tree**: drag and drop, multi-selection, context menu (zoom to layer,
+  layer comparison slider).
+* **Editing**: Edition button in the top bar with the QGIS icon; users who
+  cannot edit a project with editable layers are told so and can request
+  access from the map (e-mail to the administrators).
+* **Project download**: new right "Download the QGIS project" per repository,
+  with buttons on the project thumbnail and in the project information.
+* **Registration**: e-mail validation before administrator approval, e-mails
+  in the language of the user or of the administrator.
+* **Language** chosen by the user kept in a cookie; new `ar_SD` locale;
+  fork strings translated in the 24 languages.
+* Fixes of the selection tool from the official branch.
+
+What is planned or incomplete: see the [roadmap](ROADMAP.md).
+
+### Build from the source
+
+The repository holds the source only: the JavaScript bundles and the PHP
+dependencies are built. Requirements: PHP 8.1+, Composer, Node.js 22.12+ and npm.
+
+```bash
+composer install --working-dir=lizmap/   # also applies patches/vendor/*.patch
+npm install
+npm run build
+```
+
+`make build` does the same. Then install Lizmap as usual, see the
+[installation documentation](https://docs.lizmap.com/current/en/install/).
+The fork modules have their own versions (3.9.11.x) so that the upgrade
+scripts (new right, `lang` column of the users) run with
+`php lizmap/install/installer.php`.
+
 Lizmap web application, by 3LIZ.
 
     begin       : 2011-11-01
