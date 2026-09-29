@@ -29,6 +29,7 @@ import Message from './components/Message.js';
 import DockWindow from './components/DockWindow.js';
 import Measures from './components/Measures.js';
 import EditionAccess from './components/EditionAccess.js';
+import EditionButton from './components/EditionButton.js';
 import ElevationProfile from './components/measures/ElevationProfile.js';
 import MeasurePanel from './components/measures/MeasurePanel.js';
 
@@ -109,6 +110,7 @@ const definedCustomElements = () => {
     window.customElements.define('lizmap-measure-panel', MeasurePanel);
     window.customElements.define('lizmap-measures', Measures);
     window.customElements.define('lizmap-edition-access', EditionAccess);
+    window.customElements.define('lizmap-edition-button', EditionButton);
 
     // at this point ui is fully loaded. External
     // js can listen to uiready event to interact with the user interface

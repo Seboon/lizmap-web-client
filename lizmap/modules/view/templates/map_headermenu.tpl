@@ -12,6 +12,7 @@
 
     <ul class="nav">
       {if $measure}{include 'view~measure_menu'}{/if}
+      {if $edition}{include 'view~edition_menu'}{/if}
       {include 'lizmap~user_menu'}
     </ul>
   </div>

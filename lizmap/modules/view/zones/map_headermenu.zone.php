@@ -54,6 +54,10 @@ class map_headermenuZone extends jZone
             // Lizmap plugin of QGIS Desktop.
             $assign['measure'] = $lproj->getBooleanOption('measure');
 
+            // Edition button: shown when the project has editable layers,
+            // whether the user can edit them or can only request access.
+            $assign['edition'] = $lproj->hasEditionLayersInConfig();
+
             $externalSearch = $lproj->getOption('externalSearch');
 
             if ($externalSearch !== null) {
