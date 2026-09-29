@@ -3852,13 +3852,15 @@ div.lizmap-features-table.popup-displayed > table.lizmap-features-table-containe
 }
 
 .lizmap-dock-window .dock-window-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-  margin: 0 0.4em;
-  padding: 0 0.3em;
+  margin: 0 0.4em 0 0.2em;
+  padding: 0.2em 0.3em;
   border: none;
   background: none;
   color: #fbfbfb;
-  font-size: 18px;
   line-height: 1;
   cursor: pointer;
 }
@@ -3985,6 +3987,41 @@ div.lizmap-features-table.popup-displayed > table.lizmap-features-table-containe
 .lizmap-dock-window .dock-window-button:hover {
   color: #fff;
   opacity: 0.8;
+}
+
+/* Icons of the title bar buttons: SVG files of lizmap/www/assets/icons/,
+   painted in the colour of the button. */
+.lizmap-dock-window .dock-window-button .svg-icon,
+.lizmap-dock-window .dock-window-close .svg-icon,
+body.dock-window-popout .dock-window-button .svg-icon {
+  width: 14px;
+  height: 14px;
+  color: inherit;
+}
+
+.lizmap-dock-window .dock-window-close .svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.svg-icon.svg-window-maximize {
+  mask-image: url("../icons/window-maximize.svg");
+}
+
+.svg-icon.svg-window-restore {
+  mask-image: url("../icons/window-restore.svg");
+}
+
+.svg-icon.svg-window-popout {
+  mask-image: url("../icons/window-popout.svg");
+}
+
+.svg-icon.svg-window-popin {
+  mask-image: url("../icons/window-popin.svg");
+}
+
+.svg-icon.svg-window-close {
+  mask-image: url("../icons/window-close.svg");
 }
 
 /* Maximized: fills the container, not resizable. */
@@ -4145,7 +4182,11 @@ body.dock-window-popout .dock-window-button:hover {
   cursor: pointer;
 }
 
-.lizmap-elevation-profile .elevation-profile-layers-toggle svg {
+.lizmap-elevation-profile .elevation-profile-layers-toggle .svg-icon {
+  width: 12px;
+  height: 12px;
+  color: inherit;
+  mask-image: url("../icons/chevron-left.svg");
   transition: transform 0.15s;
 }
 
@@ -4168,7 +4209,7 @@ body.dock-window-popout .dock-window-button:hover {
   transform: rotate(180deg);
 }
 
-.lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-toggle svg {
+.lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-toggle .svg-icon {
   transform: rotate(180deg);
 }
 
@@ -4451,11 +4492,11 @@ body.dock-window-popout .dock-window-button:hover {
     transform: none;
   }
 
-  .lizmap-elevation-profile .elevation-profile-layers-toggle svg {
+  .lizmap-elevation-profile .elevation-profile-layers-toggle .svg-icon {
     transform: rotate(90deg);
   }
 
-  .lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-toggle svg {
+  .lizmap-elevation-profile .elevation-profile-layers.collapsed .elevation-profile-layers-toggle .svg-icon {
     transform: rotate(-90deg);
   }
 

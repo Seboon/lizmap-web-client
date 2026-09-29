@@ -39,25 +39,17 @@ const DOCK_MARGIN = 40;
 const HANDLES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
 /**
- * Icons of the title bar buttons (16 x 16, drawn with currentColor).
+ * Icons of the title bar buttons: SVG files of lizmap/www/assets/icons/
+ * (window-*.svg), painted in the colour of the button by the .svg-icon
+ * CSS mask (map.css).
  * @type {{[key: string]: string}}
  */
 const ICONS = {
-    maximize:
-        '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-        '<rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
-    restore:
-        '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-        '<path d="M5.5 2.5h8v8" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
-        '<rect x="2.5" y="5.5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
-    popout:
-        '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-        '<path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
-        '<path d="M11.5 9.5v4h-9v-9h4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
-    popin:
-        '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-        '<path d="M13.5 2.5 8 8M8 3.5V8h4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
-        '<path d="M11.5 10.5v3h-9v-9h3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+    maximize: '<span class="svg-icon svg-window-maximize" aria-hidden="true"></span>',
+    restore: '<span class="svg-icon svg-window-restore" aria-hidden="true"></span>',
+    popout: '<span class="svg-icon svg-window-popout" aria-hidden="true"></span>',
+    popin: '<span class="svg-icon svg-window-popin" aria-hidden="true"></span>',
+    close: '<span class="svg-icon svg-window-close" aria-hidden="true"></span>',
 };
 
 /** Counter giving each window its own browser window name when detached. */
@@ -532,8 +524,9 @@ export default class DockWindow extends HTMLElement {
         this._closeButton = document.createElement('button');
         this._closeButton.type = 'button';
         this._closeButton.className = 'dock-window-close';
-        this._closeButton.textContent = '×';
+        this._closeButton.innerHTML = ICONS.close;
         this._closeButton.title = this.getAttribute('close-label') || 'Close';
+        this._closeButton.setAttribute('aria-label', this._closeButton.title);
 
         this._header.append(this._title, this._popoutButton, this._maximizeButton, this._closeButton);
 
@@ -590,7 +583,7 @@ export default class DockWindow extends HTMLElement {
     /**
      * Creates a button of the title bar.
      * @param {string} className Class.
-     * @param {string} icon SVG icon.
+     * @param {string} icon Icon (markup of ICONS).
      * @returns {HTMLElement} Button.
      */
     _createButton(className, icon) {

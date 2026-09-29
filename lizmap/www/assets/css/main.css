@@ -283,3 +283,14 @@ div.form-horizontal .control-label {
   background-color: currentColor;
   color: var(--color-text-primary);
 }
+
+/* Download of the QGIS project: button of the project tile (home page)
+   and of the project information (map). Source file:
+   lizmap/www/assets/icons/download.svg. */
+.svg-icon.svg-download {
+  width: 16px;
+  height: 16px;
+  vertical-align: text-bottom;
+  color: inherit;
+  mask-image: url("../icons/download.svg");
+}

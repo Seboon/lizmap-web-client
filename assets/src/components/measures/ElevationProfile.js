@@ -541,7 +541,7 @@ export default class ElevationProfile extends HTMLElement {
             <div class="elevation-profile-layers-header">
                 <button type="button" class="elevation-profile-layers-toggle" title=${toggleLabel} aria-label=${toggleLabel}
                     aria-expanded=${collapsed ? 'false' : 'true'} @click=${() => this._toggleLayers()}>
-                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    <span class="svg-icon svg-chevron-left" aria-hidden="true"></span>
                 </button>
                 <span class="elevation-profile-layers-title">${lizDict['measures.profile.layers']}</span>
             </div>

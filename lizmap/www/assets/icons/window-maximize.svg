@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- window-maximize.svg: maximize a window (DockWindow title bar)
+     Drawn in black: displayed through the .svg-icon CSS mask, which paints
+     it in the text colour (currentColor).
+     @copyright 2026 S.Poudroux / Kheper 3D
+     @license MPL-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2.5" y="2.5" width="11" height="11" stroke-linecap="butt" stroke-linejoin="miter"/>
+</svg>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- window-popout.svg: open a window in a separate browser window (DockWindow)
+     Drawn in black: displayed through the .svg-icon CSS mask, which paints
+     it in the text colour (currentColor).
+     @copyright 2026 S.Poudroux / Kheper 3D
+     @license MPL-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 2.5h4.5V7M13.5 2.5l-6 6"/>
+  <path d="M11.5 9.5v4h-9v-9h4"/>
+</svg>
