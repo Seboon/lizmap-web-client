@@ -952,6 +952,35 @@ class Project
         return $this->hasEditionLayersForCurrentUser();
     }
 
+    /**
+     * Indicates if the project has editable layers, whatever the rights of
+     * the current user (hasEditionLayers() only counts the layers the
+     * current user can edit).
+     *
+     * @return bool
+     */
+    public function hasEditionLayersInConfig()
+    {
+        return $this->cfg->hasEditionLayers();
+    }
+
+    /**
+     * Titles of all the editable layers of the project, whatever the rights
+     * of the current user.
+     *
+     * @return string[]
+     */
+    public function getEditionLayerTitles()
+    {
+        $titles = array();
+        foreach ((array) $this->cfg->getEditionLayers() as $name => $eLayer) {
+            $layer = $this->cfg->getLayer($name);
+            $titles[] = ($layer && !empty($layer->title)) ? $layer->title : $name;
+        }
+
+        return $titles;
+    }
+
     public function hasEditionLayersForCurrentUser()
     {
         if ($this->editionLayersForCurrentUser === null) {
@@ -2362,6 +2391,26 @@ class Project
                 $jwp.'design/jform.css',
                 $bp.'assets/js/edition.js',
                 array('defer' => '')
+            );
+        } elseif ($this->hasEditionLayersInConfig()) {
+            // Editable layers that the current user cannot edit: an
+            // "Edition" entry tells them so and lets them ask the
+            // administrators for access (view~editionAccess:request).
+            $dockable[] = new \lizmapMapDockItem(
+                'edition-access',
+                $this->appContext->getLocale('view~editionaccess.dock.title'),
+                array('view~map_edition_access', array(
+                    'repository' => $this->repository->getKey(),
+                    'project' => $this->getKey(),
+                    'layers' => $this->getEditionLayerTitles(),
+                    'isConnected' => $this->appContext->UserIsConnected(),
+                    'allowUserAccountRequests' => $services->allowUserAccountRequests,
+                    'authUrlReturn' => $this->appContext->getUrl('view~map:index', array(
+                        'repository' => $this->repository->getKey(),
+                        'project' => $this->getKey(),
+                    )),
+                )),
+                3
             );
         }
 

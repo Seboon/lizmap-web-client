@@ -735,7 +735,17 @@ class lizmapServices
         }
     }
 
-    public function sendNotificationEmail($subject, $body)
+    /**
+     * Sends an email to the administrator (adminContactEmail).
+     *
+     * @param string      $subject
+     * @param string      $body
+     * @param null|string $replyTo address the administrator answers to,
+     *                             instead of the default one
+     *
+     * @return bool true if the email has been sent
+     */
+    public function sendNotificationEmail($subject, $body, $replyTo = null)
     {
         $email = filter_var($this->adminContactEmail, FILTER_VALIDATE_EMAIL);
         $sender = filter_var($this->adminSenderEmail, FILTER_VALIDATE_EMAIL);
@@ -744,9 +754,16 @@ class lizmapServices
             $mail->Subject = $subject;
             $mail->Body = $body;
             $mail->AddAddress($email, 'Lizmap Notifications');
+            // So that the administrator can answer the user directly.
+            if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
+                $mail->clearReplyTos();
+                $mail->AddReplyTo($replyTo);
+            }
 
             try {
                 $mail->Send();
+
+                return true;
             } catch (Exception $e) {
                 jLog::log('error while sending email to admin: '.$e->getMessage(), 'lizmapadmin');
                 jLog::logEx($e, 'error');
@@ -760,6 +777,8 @@ class lizmapServices
                 jLog::log('Notification cannot be send: no sender email has been configured', 'lizmapadmin');
             }
         }
+
+        return false;
     }
 
     /**

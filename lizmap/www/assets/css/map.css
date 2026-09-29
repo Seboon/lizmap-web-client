@@ -250,6 +250,19 @@ CSS Sprite positions calculated via http://instantsprite.com/ using 20px images 
   background-position: -450px 0;
 }
 
+/* Edition access (editable layers that the current user cannot edit):
+   the edition icon, dimmed until hovered or opened. */
+#mapmenu .nav-list > li.edition-access .icon {
+  background-position: -475px 0;
+  opacity: 0.55;
+}
+
+#mapmenu .nav-list > li.edition-access.active .icon,
+#mapmenu .nav-list > li.edition-access a:hover .icon {
+  background-position: -450px 0;
+  opacity: 1;
+}
+
 /* Change background color when edition is pending */
 #mapmenu .nav-list > li.edition.edition-pending:not(.active) #button-edition{
   background-color: #9DBE3E;
@@ -4582,4 +4595,25 @@ body.dock-window-popout .dock-window-button:hover {
 .lizmap-measure-panel .measure-panel-clear {
   flex: 0 0 auto;
   font-size: 12px;
+}
+
+/* ===Edition access=== (<lizmap-edition-access>, template
+   map_edition_access.tpl): request for access to the editable layers. */
+.edition-access .edition-access-layers {
+  margin: 0 0 10px 20px;
+}
+
+.edition-access .edition-access-form label {
+  display: block;
+  margin-top: 6px;
+}
+
+.edition-access .edition-access-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+.edition-access .edition-access-result:empty {
+  display: none;
 }
