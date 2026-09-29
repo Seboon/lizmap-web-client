@@ -15,6 +15,7 @@ class LizmapRights
         'lizmap.tools.edition.use' => 'admin~jacl2.lizmap.tools.edition.use',
         'lizmap.tools.layer.export' => 'admin~jacl2.lizmap.tools.layer.export',
         'lizmap.tools.loginFilteredLayers.override' => 'admin~jacl2.lizmap.tools.loginFilteredLayers.override',
+        'lizmap.tools.project.download' => 'admin~jacl2.lizmap.tools.project.download',
     );
 
     /**

@@ -37,6 +37,10 @@
       <p>
         <a class="btn liz-project-view" href="{$p->url}{if $hide_header}&h=0{/if}">{@default.project.open.map@}</a>
         <a class="btn liz-project-show-desc" href="#link-projet-{$idm}" data-lizmap-modal="{$idm}">{@default.project.open.map.metadata@}</a>
+        {ifacl2 'lizmap.tools.project.download', $mi->id}
+        <a class="btn liz-project-download" href="{jurl 'view~projectDownload:index', array('repository'=>$mi->id, 'project'=>$p->id)}"
+          title="{@view~projectdownload.button.title@}" aria-label="{@view~projectdownload.button.title@}" download><i class="icon-download-alt"></i></a>
+        {/ifacl2}
       </p>
     </div>
 

@@ -88,6 +88,15 @@
             <br/>
             {/if}
             {/ifacl2}
+            {ifacl2 'lizmap.tools.project.download', $repository}
+            <dt>{@view~projectdownload.metadata.label@}</dt>
+            <dd>
+              <a class="btn btn-small liz-project-download" href="{jurl 'view~projectDownload:index', array('repository'=>$repository,'project'=>$project)}" download>
+                <i class="icon-download-alt"></i> {@view~projectdownload.button.label@}
+              </a>
+            </dd>
+            <br/>
+            {/ifacl2}
           </dl>
         </p>
       </div>

@@ -159,7 +159,8 @@ class mapsCtrl extends jController
                     }
                     if ($subject->id_aclsbj == 'lizmap.repositories.view') {
                         $dataValues = array_merge($defaultGroups, array('__anonymous', 'admins'));
-                    } elseif ($subject->id_aclsbj == 'lizmap.tools.edition.use') {
+                    } elseif ($subject->id_aclsbj == 'lizmap.tools.edition.use'
+                        || $subject->id_aclsbj == 'lizmap.tools.project.download') {
                         $dataValues = array('admins');
                     } elseif ($subject->id_aclsbj != 'lizmap.tools.loginFilteredLayers.override') {
                         $dataValues = array_merge($defaultGroups, array('admins'));

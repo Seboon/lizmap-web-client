@@ -13,16 +13,22 @@
  */
 class lizmapModuleUpgrader_userlang extends jInstallerModule
 {
+    // Jelix skips an upgrader whose target version is not higher than the
+    // installed one: 3.9.11 never ran on a 3.9.11 site.
     public $targetVersions = array(
-        '3.9.11',
+        '3.9.11.2',
     );
-    public $date = '2026-09-26';
+    public $date = '2026-09-29';
 
     public function install()
     {
         if ($this->firstDbExec()) {
             $this->useDbProfile('jauth');
-            $this->execSQLScript('sql/lizAddUserLang');
+            // The column may already exist (added by hand, or by an earlier run).
+            $table = $this->dbConnection()->schema()->getTable('jlx_user');
+            if ($table && !$table->getColumn('lang')) {
+                $this->execSQLScript('sql/lizAddUserLang');
+            }
         }
     }
 }
