@@ -1,0 +1,68 @@
+name: 📦 Fork release
+
+# Builds the installable package of the fork and publishes the GitHub release
+# when a tag like "3.9.11-fork.1" is pushed. The release notes come from the
+# section of that tag in CHANGELOG-fork.md (release/fork-release-notes.sh).
+# GitHub adds the "Source code" archives by itself.
+
+on:
+  push:
+    tags:
+      - '*-fork.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.repository != '3liz/lizmap-web-client'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release notes
+        # First step: stop at once if the changelog has no section for the tag.
+        run: sh release/fork-release-notes.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" > release-notes.md
+
+      - name: PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer:v2
+          extensions: curl, gd, intl, mbstring, pgsql, sqlite3, xml, zip
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: PHP dependencies and fork patches
+        # The post-install script of lizmap/composer.json applies patches/vendor.
+        run: composer install --working-dir=lizmap/ --no-dev --prefer-dist --no-interaction --no-progress
+
+      - name: JavaScript
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package
+        run: |
+          make PACKAGE_NAME="lizmap-web-client-$GITHUB_REF_NAME" \
+               FILES="lizmap CHANGELOG-fork.md CONTRIBUTING.md icon.png INSTALL.md license.txt README.md ROADMAP.md UPGRADE.md" \
+               "build/lizmap-web-client-$GITHUB_REF_NAME.zip"
+          unzip -l "build/lizmap-web-client-$GITHUB_REF_NAME.zip" | tail -n 1
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Lizmap Web Client $GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            "build/lizmap-web-client-$GITHUB_REF_NAME.zip"

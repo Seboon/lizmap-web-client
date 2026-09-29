@@ -35,6 +35,15 @@ What the fork adds:
 
 What is planned or incomplete: see the [roadmap](ROADMAP.md).
 
+### Download
+
+Each release of the fork is on the **Releases** page of this repository, with
+its changelog (also in [CHANGELOG-fork.md](CHANGELOG-fork.md)). To install or
+upgrade Lizmap, use the file `lizmap-web-client-<version>.zip` of the release:
+it contains the PHP dependencies, with the fork patches, and the built
+JavaScript, like the official packages. The *Source code* archives must be
+built first (see below).
+
 ### Build from the source
 
 The repository holds the source only: the JavaScript bundles and the PHP
