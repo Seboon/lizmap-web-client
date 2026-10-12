@@ -19,6 +19,10 @@ What the fork adds:
   and an **elevation profile** of the project elevation layers (requires the
   ElevationProfile QGIS Server plugin), in dockable windows. Shown only when
   the Measure option is enabled in the Lizmap plugin of QGIS.
+* **Map interface**: panels (layer tree, attribute table, mini-dock tools…)
+  in dockable windows; status bar with the scale, the coordinates in a
+  chosen CRS (editable to go to a point) and the attributions; continuous
+  scale like QGIS; full screen from the logo.
 * **Settings menu** on every page (help, dark theme).
 * **Layer tree**: drag and drop, multi-selection, context menu (zoom to layer,
   layer comparison slider).
@@ -26,7 +30,12 @@ What the fork adds:
   cannot edit a project with editable layers are told so and can request
   access from the map (e-mail to the administrators).
 * **Project download**: new right "Download the QGIS project" per repository,
-  with buttons on the project thumbnail and in the project information.
+  with buttons on the project thumbnail and in the project information; the
+  whole project folder is zipped in the background and the user gets a
+  download link by e-mail.
+* **Edition right per project**, user by user, in the rights page of a user.
+* **PostgreSQL scripts** for editable layers with validation of the changes
+  (proposals, validation, audit): see [extra/postgresql](extra/postgresql/README.md).
 * **Registration**: e-mail validation before administrator approval, e-mails
   in the language of the user or of the administrator.
 * **Language** chosen by the user kept in a cookie; new `ar_SD` locale;

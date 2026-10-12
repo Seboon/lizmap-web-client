@@ -56,8 +56,20 @@ menu.
 
 ## Map interface
 
-- [ ] Movable, dockable and resizable windows for all the panels (done for
-      the measure tools and the profile with `DockWindow.js`).
+- [x] Movable, dockable and resizable windows for all the panels (measure
+      tools, profile, mini-dock, left, right and bottom docks, layer
+      information) with `DockWindow.js` and `PanelWindows.js`.
+- [ ] Panels in a separate browser window: needs the legacy tools to stop
+      looking for their elements in the main page.
+- [ ] Several windows docked to the same edge: share the edge instead of
+      overlapping (e.g. elevation profile and attribute table at the bottom).
+- [x] Status bar at the bottom of the map (coordinates and their CRS, scale,
+      scale line, attributions), like QGIS Desktop and QWC2.
+- [x] Continuous scale (any scale between those of the project), typed in the
+      status bar like QGIS.
+- [ ] Status bar: other CRS than those of the project (list set by project or
+      for the server), with their names.
+
 
 ## Settings menu
 
@@ -102,31 +114,36 @@ Editing access in the WebGIS:
       user from the editing groups, or deny the right on the repository for
       the user's private group.
 
-**Download the QGIS project** — the current version only sends the `.qgs`
-file and its `.qgs.cfg` (in a zip), and refuses projects whose data sources
+- [x] Edition right per project, user by user, in the rights page of a
+      user (repository: no / all the projects / chosen projects).
+
+**Download the QGIS project** — refused for projects whose data sources
 contain a password.
 
-- [ ] Download the complete project folder (`.qgs`, `.cfg`, thumbnail,
-      `data/`, `media/`, rasters; without the other projects of the folder
-      nor temporary files). A first attempt built the zip during the HTTP
-      request and blocked the PHP workers, so it must run in the background:
-  - [ ] Click on "Download" → rights checked → zip ready and up to date: sent
+- [x] Download the complete project folder (`.qgs`, `.cfg`, thumbnail,
+      `data/`, `media/`, rasters, files used outside the folder in
+      `external/`, README; without the other projects of the folder nor
+      temporary files), prepared in the background:
+  - [x] Click on "Download" → rights checked → zip ready and up to date: sent
         at once; otherwise the request is queued and the user is told they
-        will get an e-mail.
-  - [ ] Queue: one request per project (duplicates merged).
-  - [ ] Worker outside the web server: PHP command run by cron, one zip at a
-        time (lock), low priority (`nice`, `ionice`), maximum total size
-        (refused above it, with an e-mail to the administrator), zip written
-        to a temporary file then moved to the cache.
-  - [ ] Cache: fingerprint of the folder (files, sizes, modification dates)
-        stored with the zip; zip rebuilt when the fingerprint changes; unused
-        zips cleaned.
-  - [ ] File sent by nginx (`X-Accel-Redirect`): PHP only checks the rights.
-  - [ ] Interface: "Download (size, date)" when ready, "Being prepared…"
-        otherwise; e-mail to the user when ready, to the administrator on
-        failure.
-  - [ ] Alternatives to compare: nightly preparation of the modified
-        projects; zip streamed by the nginx `mod_zip` module.
+        will get an e-mail with a link.
+  - [x] Queue: one JSON file per project, a user asking twice counted once.
+  - [x] Worker outside the web server: command `project:zip:build` run by
+        cron, one at a time (lock), low priority (`nice`, `ionice`), free
+        disk space checked, zip written to a temporary file then renamed,
+        in `project-zips` next to the root folder of the repositories (shown
+        in the administration).
+  - [x] Cache: fingerprint of the folder (files, sizes, modification dates)
+        stored with the zip; zip rebuilt when the fingerprint changes; zips
+        not downloaded for 15 days deleted.
+  - [x] Download link valid 7 days, for the user who asked only (logged in,
+        right still granted).
+  - [x] File sent by nginx (`X-Accel-Redirect`), by PHP otherwise.
+  - [x] E-mails: link to the user (in their language); to the administrator
+        for every request and every failure.
+  - [x] Interface: state of the zip on the download buttons (waiting,
+        progress in %, size and date when ready); progress bar in the
+        terminal.
 - [ ] Package with a `pg_service.conf` without password and an installation
       guide.
 
@@ -144,10 +161,10 @@ Direct PostgreSQL access from QGIS Desktop:
 
 Traceability:
 
-- [ ] Audit triggers on the editable tables (full history: date, author,
+- [x] Audit triggers on the editable tables (full history: date, author,
       old and new values), browsed and rolled back with the QGIS plugin
       "History viewer for a PostgreSQL base with audit triggers".
-- [ ] Author field filled with `@lizmap_user` for edits made in the WebGIS;
+- [x] Author field filled with `@lizmap_user` for edits made in the WebGIS;
       reliable authors from QGIS Desktop only with individual PostgreSQL
       roles.
 - [ ] Author and date fields filled by Lizmap itself on every save, as the
@@ -156,14 +173,15 @@ Traceability:
 
 Validation ("model B": proposals kept apart from the reference data):
 
-- [ ] Contributors never write into the reference tables: their inserts,
+- [x] Contributors never write into the reference tables: their inserts,
       updates and deletions go to a proposals table (feature, operation,
       proposed values, author, date, status, reviewer, review date, comment).
 - [ ] One layer per table in the projects: an updatable view (reference +
       pending proposals) with `INSTEAD OF` triggers writing the proposals;
       trusted users write to the reference directly.
-- [ ] Validation function applying an accepted proposal to the reference in
+- [x] Validation function applying an accepted proposal to the reference in
       a transaction, under the audit trigger.
+- [x] Scripts to set this up for any table (`extra/postgresql/`).
 - [ ] Review interface: proposals layer in QGIS Desktop, then a "Changes to
       review" page in the Lizmap administration.
 - [ ] Daily summary e-mail of the pending proposals.
