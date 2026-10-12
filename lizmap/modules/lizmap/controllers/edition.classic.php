@@ -168,7 +168,7 @@ class editionCtrl extends jController
         }
 
         // Redirect if no rights to use the edition tool
-        if (!jAcl2::check('lizmap.tools.edition.use', $lrep->getKey())) {
+        if (!$lproj->canUseEditionTool()) {
             $this->setErrorMessage(jLocale::get('view~edition.access.denied'), 'AuthorizationRequired');
 
             return false;
@@ -1536,7 +1536,7 @@ class editionCtrl extends jController
         }
 
         // Redirect if no rights to use the edition tool
-        if (!jAcl2::check('lizmap.tools.edition.use', $lrep->getKey())) {
+        if (!$lproj->canUseEditionTool()) {
             $rep->data['message'] = jLocale::get('view~edition.access.denied');
 
             return $rep;

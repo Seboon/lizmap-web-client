@@ -616,6 +616,11 @@ class mapsCtrl extends jController
             $conditions = jDao::createConditions();
             $conditions->addCondition('id_aclres', '=', $repository);
             $nbdeleted = $daoright->deleteBy($conditions);
+            // and on its projects (right "lizmap.tools.edition.use" given
+            // per project in the rights page of a user)
+            $conditions = jDao::createConditions();
+            $conditions->addCondition('id_aclres', 'LIKE', str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $repository).'~%');
+            $daoright->deleteBy($conditions);
             jMessage::add(jLocale::get('admin~admin.form.admin_section.message.data.removed').' '.jLocale::get('admin~admin.form.admin_section.message.data.removed.groups.concerned', array($nbdeleted)));
         } else {
             jMessage::add(jLocale::get('admin~admin.form.admin_section.message.data.removed.failed'), 'error');

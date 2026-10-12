@@ -981,6 +981,36 @@ class Project
         return $titles;
     }
 
+    /**
+     * Indicates if the current user may use the edition tool in this
+     * project: right "lizmap.tools.edition.use" on the repository (all its
+     * projects), or on the resource "<repository>~<project>" (this project
+     * only, given in the rights page of a user). The groups allowed for each
+     * layer (Lizmap plugin) are checked afterwards.
+     *
+     * @return bool
+     */
+    public function canUseEditionTool()
+    {
+        $repository = $this->repository->getKey();
+
+        return $this->appContext->aclCheck('lizmap.tools.edition.use', $repository)
+            || $this->appContext->aclCheck('lizmap.tools.edition.use', self::editionResource($repository, $this->getKey()));
+    }
+
+    /**
+     * Resource of the right "lizmap.tools.edition.use" for one project.
+     *
+     * @param string $repository key of the repository
+     * @param string $project    key of the project
+     *
+     * @return string
+     */
+    public static function editionResource($repository, $project)
+    {
+        return $repository.'~'.$project;
+    }
+
     public function hasEditionLayersForCurrentUser()
     {
         if ($this->editionLayersForCurrentUser === null) {
@@ -998,7 +1028,7 @@ class Project
             return;
         }
 
-        if (!$this->appContext->aclCheck('lizmap.tools.edition.use', $this->repository->getKey())) {
+        if (!$this->canUseEditionTool()) {
             $this->editionLayersForCurrentUser = array();
 
             return;
@@ -1085,7 +1115,7 @@ class Project
             return null;
         }
 
-        if (!$this->appContext->aclCheck('lizmap.tools.edition.use', $this->repository->getKey())) {
+        if (!$this->canUseEditionTool()) {
             return null;
         }
 
@@ -2373,6 +2403,8 @@ class Project
             'wmsGetCapabilitiesUrl' => $wmsGetCapabilitiesUrl,
             'wmtsGetCapabilitiesUrl' => $wmtsGetCapabilitiesUrl,
             'wfsGetCapabilitiesUrl' => $wfsGetCapabilitiesUrl,
+            // Download button only when the folder of the zips is ready
+            'projectDownloadReady' => Download\ZipStore::folderReady(),
         ), $wmsInfo));
         $dockable[] = new \lizmapMapDockItem(
             'metadata',
