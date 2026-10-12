@@ -420,8 +420,10 @@ export class MapState extends EventDispatcher {
      * Zoom in
      */
     zoomIn() {
-        const newZoom = this._zoom + 1
-        if (newZoom <= this._maxZoom) {
+        // Fork: with a continuous scale the zoom can be between two levels;
+        // zoom in to the next level of the project.
+        const newZoom = Math.min(Math.floor(this._zoom + 1e-6) + 1, this._maxZoom);
+        if (newZoom > this._zoom) {
             this.update({ 'zoom': newZoom });
         }
     }
@@ -430,8 +432,9 @@ export class MapState extends EventDispatcher {
      * Zoom out
      */
     zoomOut() {
-        const newZoom = this._zoom - 1
-        if (newZoom >= this._minZoom) {
+        // Fork: to the previous level of the project (continuous scale).
+        const newZoom = Math.max(Math.ceil(this._zoom - 1e-6) - 1, this._minZoom);
+        if (newZoom < this._zoom) {
             this.update({ 'zoom': newZoom });
         }
     }

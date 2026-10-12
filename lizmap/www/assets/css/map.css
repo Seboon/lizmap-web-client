@@ -3082,10 +3082,16 @@ lizmap-overviewmap .ol-overviewmap:not(.ol-collapsed) button{
   top: unset!important;
 }
 
-lizmap-overviewmap .ol-overviewmap-box{
-  background-image: url("img/overview_replacement.gif");
-  background-repeat: no-repeat;
-  background-position: center;
+/* Extent of the map in the overview (box of ol/control/OverviewMap):
+   dark dashed outline with a light halo, without fill, like QWC2;
+   kept visible at large scales (8 px at least). */
+lizmap-overviewmap .ol-overviewmap-box {
+  box-sizing: border-box;
+  min-width: 8px;
+  min-height: 8px;
+  border: 1.5px dashed #333;
+  background: none;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 80%), inset 0 0 0 1px rgb(255 255 255 / 80%);
 }
 
 /* lizmap-reverse-geom */
@@ -3957,6 +3963,110 @@ div.lizmap-features-table.popup-displayed > table.lizmap-features-table-containe
   box-shadow: none;
 }
 
+/* Hidden window or button (the display rules above would show them). */
+.lizmap-dock-window[hidden],
+.lizmap-dock-window .dock-window-button[hidden] {
+  display: none;
+}
+
+/* Lizmap panels in dockable windows (modules/PanelWindows.js): each panel
+   fills its window and scrolls, instead of its own place and limits. The
+   legacy code shows and hides the panels themselves (inline display): the
+   window does it now, so the panel stays displayed inside it (except the
+   sub-dock, whose display tells the window when to show). */
+.lizmap-panel-window .dock-window-body {
+  padding: 0;
+}
+
+.lizmap-panel-window .dock-window-body > :is(#mini-dock, #dock, #right-dock, #bottom-dock, #sub-dock) {
+  /* Own stacking context: the content stays under the resize handles. */
+  position: relative;
+  z-index: 0;
+  inset: auto;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  overflow: auto;
+  border: none;
+  opacity: 1;
+
+  /* The bottom dock is aligned on the end of its row (flex-end). */
+  align-self: stretch;
+  background-color: transparent !important;
+}
+
+.lizmap-panel-window .dock-window-body > :is(#mini-dock, #dock, #right-dock, #bottom-dock) {
+  display: block !important;
+}
+
+.lizmap-panel-window #mini-dock div.menu-content {
+  max-height: none;
+}
+
+/* The right dock is in a window over the map: the map keeps its full
+   width instead of making room for it. */
+#mapmenu:has(.nav-right-dock.active) ~ #map-content:has(.lizmap-panel-window[data-panel="right-dock"]) {
+  margin-right: 0;
+}
+
+/* Title of the active tab of the dock and right dock: it is in the title
+   bar of the window. */
+.lizmap-panel-window :is(#dock-tabs, #right-dock-tabs) {
+  display: none;
+}
+
+/* Close buttons of the panels: replaced by the one of the window. Bottom
+   dock: its "close" and "maximize" buttons too. */
+.lizmap-panel-window :is(#dock-close, #right-dock-close, #bottom-dock-window-buttons, #hide-sub-dock) {
+  display: none !important;
+}
+
+.lizmap-panel-window #right-dock-content {
+  max-height: none !important;
+}
+
+.lizmap-panel-window #right-dock div.tabbable {
+  margin-top: 0;
+}
+
+.lizmap-panel-window #bottom-dock div.bottom-content {
+  bottom: 10px;
+}
+
+/* Sub-dock (layer information): its title is in the title bar. */
+.lizmap-panel-window #sub-dock .sub-metadata > h3 {
+  display: none;
+}
+
+/* The title and close button of each tool are in the title bar of the
+   window: the header of the tool (its first h3, not the titles inside its
+   content) is hidden, except the one of "Locate by layer" which also
+   holds its "clear" button (only that button is kept). */
+.lizmap-panel-window #mini-dock .tab-pane div.mini-dock-close,
+.lizmap-panel-window #mini-dock :is(.tab-pane > h3, .tab-pane > div > h3, .tab-pane > * > div:first-child > h3):not(:has(.btn-locate-clear)),
+.lizmap-panel-window #mini-dock :is(.tab-pane > h3, .tab-pane > div > h3) :is(.btn-error, .icon, .text) {
+  display: none;
+}
+
+/* Area of the dockable windows (modules/WindowsArea.js): the whole map
+   except the status bar at its bottom (--lizmap-status-bar-height, set
+   while the status bar is shown). It lets the clicks through to the map;
+   the windows inside it take them. */
+#map-windows-area {
+  position: absolute;
+  inset: 0 0 var(--lizmap-status-bar-height, 0);
+  pointer-events: none;
+}
+
+#map-windows-area > .lizmap-dock-window {
+  pointer-events: auto;
+}
+
 /* Where the window will dock when released. */
 .dock-window-preview {
   position: absolute;
@@ -4682,4 +4792,227 @@ body.dock-window-popout .dock-window-button:hover {
 
 .edition-access .edition-access-result:empty {
   display: none;
+}
+
+/* Logo of the header: toggles full screen (modules/LogoFullscreen.js). */
+#logo.lizmap-logo-fullscreen {
+  /* Above the header menu (#headermenu, fixed, full width, from 45 px
+     down), which otherwise takes the clicks on the lower part of it. */
+  position: relative;
+  z-index: 1031;
+  cursor: pointer;
+}
+
+#logo.lizmap-logo-fullscreen:focus-visible {
+  outline: 2px solid #0094d6;
+  outline-offset: 2px;
+}
+
+/* Status bar at the bottom of the map (components/StatusBar.js), like the
+   status bar of QGIS Desktop: scale line, coordinates and their CRS,
+   scale, attributions. It lies over the bottom of the map; the dockable
+   windows stay above it (#map-windows-area). */
+#map-content:has(> lizmap-status-bar) {
+  --lizmap-status-bar-height: 30px;
+}
+
+lizmap-status-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-sizing: border-box;
+  height: var(--lizmap-status-bar-height);
+  padding: 0 8px;
+  color: #333;
+  font-size: 12px;
+  background-color: rgb(255 255 255 / 82%);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 -1px 4px rgb(0 0 0 / 25%);
+}
+
+lizmap-status-bar .status-bar-spacer {
+  flex: 1 1 0;
+}
+
+lizmap-status-bar .status-bar-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+lizmap-status-bar .status-bar-label {
+  display: inline;
+  margin: 0;
+  color: #555;
+  font-size: 12px;
+}
+
+lizmap-status-bar :is(input[type="text"], select) {
+  box-sizing: border-box;
+  height: 22px;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  color: #222;
+  font-size: 12px;
+  line-height: 20px;
+  background-color: white;
+  box-shadow: none;
+}
+
+lizmap-status-bar input.invalid {
+  border-color: #c00;
+  background-color: #fee;
+}
+
+lizmap-status-bar .status-bar-coordinates-input {
+  width: 30ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+lizmap-status-bar .status-bar-crs {
+  width: auto;
+  max-width: 190px;
+}
+
+lizmap-status-bar .status-bar-clear-point {
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  color: #000;
+  font-size: 16px;
+  line-height: 20px;
+  background: none;
+}
+
+/* Scale: a list of the scales with a field over its text to type one. */
+lizmap-status-bar .status-bar-scale-combo {
+  position: relative;
+  width: 125px;
+}
+
+lizmap-status-bar select.status-bar-scale-select {
+  width: 100%;
+  padding-left: 22px;
+}
+
+lizmap-status-bar .status-bar-scale-prefix {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  z-index: 2;
+  line-height: 22px;
+  pointer-events: none;
+}
+
+lizmap-status-bar input.status-bar-scale-input {
+  position: absolute;
+  top: 1px;
+  left: 20px;
+  width: calc(100% - 42px);
+  height: 20px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+lizmap-status-bar input.status-bar-scale-input.invalid {
+  outline: 1px solid #c00;
+}
+
+/* Scale line (ol/control/ScaleLine, class status-bar-scale-line-control). */
+lizmap-status-bar .status-bar-scale-line {
+  flex: 0 0 auto;
+  min-width: 90px;
+}
+
+lizmap-status-bar .status-bar-scale-line-control-inner {
+  border: 1px solid #333;
+  border-top: none;
+  color: #333;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+}
+
+/* Attributions of the layers (#attribution-box moved into the bar). */
+lizmap-status-bar .status-bar-attribution {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+lizmap-status-bar #attribution-box {
+  position: static;
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+
+lizmap-status-bar #attribution-ol .ol-attribution {
+  flex-flow: row nowrap;
+  min-width: 0;
+  background: none;
+}
+
+lizmap-status-bar #attribution-ol .ol-attribution ul {
+  overflow: hidden;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The overview keeps only the overview map: its scale and coordinates are
+   in the bar. It stays above the bar. */
+#content:not(.mobile, .embed) #map-content:has(> lizmap-status-bar) #overview-box {
+  bottom: calc(var(--lizmap-status-bar-height) + 10px);
+}
+
+#content:not(.mobile, .embed) #map-content:has(> lizmap-status-bar) #overview-box :is(#overview-bar, lizmap-mouse-position) {
+  display: none;
+}
+
+/* Small screens and embedded maps: only the attributions, at their usual
+   place; the overview keeps its scale and coordinates. */
+#content:is(.mobile, .embed) #map-content {
+  --lizmap-status-bar-height: 0px;
+}
+
+#content:is(.mobile, .embed) lizmap-status-bar {
+  left: auto;
+  height: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+#content:is(.mobile, .embed) lizmap-status-bar > :not(.status-bar-attribution) {
+  display: none;
+}
+
+#content:is(.mobile, .embed) lizmap-status-bar #attribution-box {
+  padding: 0 0.5em;
+  border-top-left-radius: 1em;
+  background-color: rgb(255 255 255 / 70%);
+}
+
+/* Download of the QGIS project: state of the zip next to the icon (project_download.js) */
+.liz-project-download-state {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }

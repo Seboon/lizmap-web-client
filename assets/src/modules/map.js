@@ -73,7 +73,12 @@ export default class map extends olMap {
             ],
             view: new View({
                 resolutions: resolutions,
-                constrainResolution: true,
+                // Fork: continuous scale, like QGIS. The scales of the
+                // project (resolutions) are the zoom levels used by the
+                // +/- buttons and the mouse wheel steps, and the bounds of
+                // the map; any scale between them can be shown (typed
+                // scale, box zoom, pinch, fit to a feature...).
+                constrainResolution: false,
                 center: [lizmap3.map.getCenter().lon, lizmap3.map.getCenter().lat],
                 projection: mapProjection,
                 extent: lizmap3.map.restrictedExtent.toArray(),

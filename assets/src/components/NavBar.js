@@ -27,9 +27,9 @@ export default class NavBar extends HTMLElement {
             <button class="btn pan ${mainLizmap.map.isDragZoomActive ? '' : 'active'}" title="${lizDict['navbar.pan.hover']}" @click=${ () => mainLizmap.map.deactivateDragZoom()}></button>
             <button class="btn zoom ${mainLizmap.map.isDragZoomActive ? 'active' : ''}" title="${lizDict['navbar.zoom.hover']}" @click=${ () => mainLizmap.map.activateDragZoom()}></button>
             <button class="btn zoom-extent" title="${lizDict['navbar.zoomextent.hover']}" @click=${ () => mainLizmap.state.map.zoomToInitialExtent()}></button>
-            <button class="btn zoom-in" title="${lizDict['navbar.zoomin.hover']}" ?disabled=${mainLizmap.state.map.zoom === mainLizmap.state.map.maxZoom} @click=${ () => mainLizmap.state.map.zoomIn()}></button>
+            <button class="btn zoom-in" title="${lizDict['navbar.zoomin.hover']}" ?disabled=${mainLizmap.state.map.zoom >= mainLizmap.state.map.maxZoom - 1e-6} @click=${ () => mainLizmap.state.map.zoomIn()}></button>
             <div class="slider" title="${lizDict['navbar.slider.hover']}"></div>
-            <button class="btn zoom-out" title="${lizDict['navbar.zoomout.hover']}" ?disabled=${mainLizmap.state.map.zoom === mainLizmap.state.map.minZoom} @click=${ () => mainLizmap.state.map.zoomOut()}></button>
+            <button class="btn zoom-out" title="${lizDict['navbar.zoomout.hover']}" ?disabled=${mainLizmap.state.map.zoom <= mainLizmap.state.map.minZoom + 1e-6} @click=${ () => mainLizmap.state.map.zoomOut()}></button>
         `;
 
         render(mainTemplate(), this);

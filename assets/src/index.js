@@ -13,6 +13,7 @@ import SelectionInvert from './components/SelectionInvert.js';
 import Snapping from './components/Snapping.js';
 import Scaleline from './components/Scaleline.js';
 import MousePosition from './components/MousePosition.js';
+import StatusBar from './components/StatusBar.js';
 import Digitizing from './components/Digitizing.js';
 import OverviewMap from './components/OverviewMap.js';
 import FeatureToolbar from './components/FeatureToolbar.js';
@@ -35,6 +36,8 @@ import MeasurePanel from './components/measures/MeasurePanel.js';
 
 import { mainLizmap, mainEventDispatcher } from './modules/Globals.js';
 import executeJSFromServer from './modules/ExecuteJSFromServer.js';
+import { initPanelWindows } from './modules/PanelWindows.js';
+import { initLogoFullscreen } from './modules/LogoFullscreen.js';
 
 import olDep from './dependencies/ol.js';
 import litHTMLDep from './dependencies/lit-html.js';
@@ -94,6 +97,7 @@ const definedCustomElements = () => {
     window.customElements.define('lizmap-snapping', Snapping);
     window.customElements.define('lizmap-scaleline', Scaleline);
     window.customElements.define('lizmap-mouse-position', MousePosition);
+    window.customElements.define('lizmap-status-bar', StatusBar);
     window.customElements.define('lizmap-digitizing', Digitizing);
     window.customElements.define('lizmap-overviewmap', OverviewMap);
     window.customElements.define('lizmap-feature-toolbar', FeatureToolbar);
@@ -111,6 +115,12 @@ const definedCustomElements = () => {
     window.customElements.define('lizmap-measures', Measures);
     window.customElements.define('lizmap-edition-access', EditionAccess);
     window.customElements.define('lizmap-edition-button', EditionButton);
+
+    // Lizmap panels (mini-dock...) in dockable windows, like the measure
+    // tools.
+    lizMap.panelWindows = initPanelWindows(lizMap);
+    // Click on the logo of the header: full screen.
+    initLogoFullscreen(document);
 
     // at this point ui is fully loaded. External
     // js can listen to uiready event to interact with the user interface

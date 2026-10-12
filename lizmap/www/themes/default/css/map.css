@@ -623,21 +623,8 @@ lizmap-treeview .icon-info-sign {
   background-color: rgb(240 240 240);
 }
 
-.olControlOverviewMapExtentRectangle {
-  border: 2px solid #59B4D4;
-}
-
-.olControlOverviewMapRectReplacement {
-  background-image:url("img/overview_replacement.gif");
-}
-
 #attribution-box {
   background-color : rgb(255 255 255 / 70%);
-}
-
-/* Overview map rectangle */
-.ol-overviewmap-box {
-  border: 2px dotted var(--color-contrasted-elements);
 }
 
 

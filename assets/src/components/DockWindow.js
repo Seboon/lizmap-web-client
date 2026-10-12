@@ -77,7 +77,8 @@ let popoutCounter = 0;
  * positioned, e.g. #map-content). Its content goes into `body`.
  *
  * Attributes: `close-label`, `maximize-label`, `restore-label`,
- * `popout-label` and `popin-label` (tooltips of the buttons).
+ * `popout-label` and `popin-label` (tooltips of the buttons);
+ * `no-popout` hides the "New window" button.
  * Events: `dockwindowclose` (close button), `dockwindowlayout` (after
  * each move, resize, dock, float or maximize), `dockwindowpopout` and
  * `dockwindowpopin` (content moved to a separate browser window, and back).
@@ -222,6 +223,68 @@ export default class DockWindow extends HTMLElement {
 
     get heading() {
         return this._title ? this._title.textContent : '';
+    }
+
+    /**
+     * Place of the window, to give it back later (e.g. when the window is
+     * opened again during the same visit): state ('floating', 'left',
+     * 'right', 'bottom' or 'maximized'; a window in a separate browser
+     * window gives its state before), floating rectangle, docked sizes,
+     * last docked side and state before maximizing. Not saved anywhere.
+     * @type {{state: string, restoreState: string, floatRect: object|null, dockSize: object, lastDockSide: string}}
+     */
+    get layout() {
+        const state = this._state === 'popout' ? this._restoreState : this._state;
+
+        return {
+            state,
+            restoreState: this._restoreState === 'popout' ? 'floating' : this._restoreState,
+            floatRect: this._floatRect ? { ...this._floatRect } : null,
+            dockSize: { ...this._dockSize },
+            lastDockSide: this._lastDockSide,
+        };
+    }
+
+    /**
+     * Gives the window a place read from `layout`. Invalid values are
+     * ignored; the window is kept inside its container.
+     * @param {object} layout Value of `layout`.
+     */
+    set layout(layout) {
+        if (!layout || typeof layout !== 'object' || this._state === 'popout') {
+            return;
+        }
+
+        const states = ['floating', 'left', 'right', 'bottom', 'maximized'];
+        const sides = ['left', 'right', 'bottom'];
+        const isNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+        const rect = layout.floatRect;
+
+        if (rect && ['left', 'top', 'width', 'height'].every((key) => isNumber(rect[key]))) {
+            this._floatRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+        }
+
+        if (layout.dockSize && typeof layout.dockSize === 'object') {
+            sides.forEach((side) => {
+                if (isNumber(layout.dockSize[side])) {
+                    this._dockSize[side] = layout.dockSize[side];
+                }
+            });
+        }
+
+        if (sides.includes(layout.lastDockSide)) {
+            this._lastDockSide = layout.lastDockSide;
+        }
+
+        if (states.includes(layout.restoreState) && layout.restoreState !== 'maximized') {
+            this._restoreState = layout.restoreState;
+        }
+
+        if (states.includes(layout.state)) {
+            this._state = layout.state;
+        }
+
+        this._applyLayout();
     }
 
     /**
@@ -612,10 +675,11 @@ export default class DockWindow extends HTMLElement {
             ? this.getAttribute('restore-label') || 'Restore'
             : this.getAttribute('maximize-label') || 'Maximize';
         this._popoutButton.title = this.getAttribute('popout-label') || 'Open in a new window';
+        this._popoutButton.hidden = this.hasAttribute('no-popout');
     }
 
     static get observedAttributes() {
-        return ['close-label', 'maximize-label', 'restore-label', 'popout-label', 'popin-label'];
+        return ['close-label', 'maximize-label', 'restore-label', 'popout-label', 'popin-label', 'no-popout'];
     }
 
     attributeChangedCallback(name, oldValue, newValue) {

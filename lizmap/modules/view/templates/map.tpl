@@ -71,8 +71,8 @@
     </div>
     <div id="attribution-box">
       <div id="attribution-ol"></div>
-      <img src="{$j_themepath.'css/img/logo_footer.png'}" alt=""/>
     </div>
+    <lizmap-status-bar></lizmap-status-bar>
 
     <div id="message" class="span6">{jmessage_bootstrap}</div>
 

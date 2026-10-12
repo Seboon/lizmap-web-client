@@ -6,6 +6,7 @@
  */
 
 import { mainLizmap, mainEventDispatcher } from '../modules/Globals.js';
+import { windowsArea } from '../modules/WindowsArea.js';
 
 /**
  * Measure tools of the "Measure" menu of the top bar.
@@ -281,9 +282,13 @@ export default class Measures extends HTMLElement {
      * The window can still be floated by dragging its title bar (or by
      * double-clicking it): it then appears at the top right of the map
      * (450 x 280 px).
+     *
+     * Opened again during the same visit, the window takes back the place
+     * it had when it was closed (kept in memory only, until the page is
+     * reloaded).
      */
     openElevationProfile() {
-        const container = document.getElementById('map-content');
+        const container = windowsArea();
 
         if (this._profileWindow || !container) {
             return;
@@ -302,6 +307,10 @@ export default class Measures extends HTMLElement {
         // at the bottom.
         dockWindow.open({ width: 450, height: 280, top: 10, right: 60 });
         dockWindow.dock('bottom');
+
+        if (this._profileLayout) {
+            dockWindow.layout = this._profileLayout;
+        }
 
         // The display is added before the module is activated, so that it
         // receives the list of DEMs.
@@ -323,6 +332,8 @@ export default class Measures extends HTMLElement {
 
         const dockWindow = this._profileWindow;
 
+        // Place kept for the next opening during this visit.
+        this._profileLayout = dockWindow.layout;
         this._profileWindow = null;
         this._updateRunButton();
 
@@ -356,11 +367,12 @@ export default class Measures extends HTMLElement {
      * Opens a measure tool (length, area, angle, bearing) with its panel in
      * a small floating window at the top right of the map. If another
      * measure tool is open, its window is reused (its measures are
-     * removed).
+     * removed). Opened again during the same visit, the window takes back
+     * the place it had when it was closed (kept in memory only).
      * @param {string} tool - 'length', 'area', 'angle' or 'bearing'
      */
     openMeasure(tool) {
-        const container = document.getElementById('map-content');
+        const container = windowsArea();
         const module = mainLizmap.measure;
 
         if (!container || !module) {
@@ -388,6 +400,10 @@ export default class Measures extends HTMLElement {
 
         dockWindow.open({ width: 320, height: 300, top: 10, right: 60 });
 
+        if (this._measureLayout) {
+            dockWindow.layout = this._measureLayout;
+        }
+
         module.activate(tool);
 
         dockWindow.body.appendChild(document.createElement('lizmap-measure-panel'));
@@ -406,6 +422,8 @@ export default class Measures extends HTMLElement {
 
         const dockWindow = this._measureWindow;
 
+        // Place kept for the next opening during this visit.
+        this._measureLayout = dockWindow.layout;
         this._measureWindow = null;
         this._updateRunButton();
 
