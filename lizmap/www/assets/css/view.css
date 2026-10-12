@@ -141,3 +141,42 @@
     max-height: 150px;
   }
 }
+
+/* Buttons of the project tile ("View the map", "Description" and, with
+   the right, "Download the QGIS project") on one row: the tile is a size
+   container and its buttons get smaller when it is narrow (4 tiles per
+   row on a 940 px wide page). They go on two rows only when the tile is
+   too narrow even so. */
+.liz-repository-project-item {
+  /* The tile keeps its share of the row (1fr) whatever its buttons. */
+  min-width: 0;
+}
+
+.liz-repository-project-item .thumbnail {
+  container-type: inline-size;
+}
+
+.liz-project-title ~ p {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+@container (width < 270px) {
+  .liz-project-title ~ p {
+    gap: 3px;
+  }
+
+  .liz-project-title ~ p > .btn {
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+}
+
+/* Download of the QGIS project: state of the zip next to the icon (project_download.js) */
+.liz-project-download-state {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}

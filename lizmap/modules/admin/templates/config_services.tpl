@@ -44,6 +44,22 @@
                     <th>{ctrl_label}</th><td>{ctrl_control}</td>
                 </tr>
             {/formcontrols}
+                {if $showSystem}
+                    <tr class="project-zips-dir">
+                        <th><label class="control-label">{@admin~admin.form.admin_services.projectZipsDir.label@}</label></th>
+                        <td>{if !$projectZips['fromRoot']}<small>{@admin~admin.form.admin_services.projectZipsDir.fallback@}</small>{else}<code>{$projectZips['dir']|eschtml}</code>
+                            <br/><small>{@admin~admin.form.admin_services.projectZipsDir.help@}</small>
+                            {if $projectZips['writable']}
+                            <br/><span class="text-success">{@admin~admin.form.admin_services.projectZipsDir.ok@}</span>
+                            {else}
+                            <br/><span class="text-warning">{if $projectZips['exists']}{@admin~admin.form.admin_services.projectZipsDir.notWritable@}{else}{@admin~admin.form.admin_services.projectZipsDir.missing@}{/if}</span>
+                            <pre>{if $projectZips['exists']}{$projectZips['fixCommand']|eschtml}{else}{$projectZips['command']|eschtml}{/if}</pre>
+                            {/if}
+                            <details><summary>{@admin~admin.form.admin_services.projectZipsDir.nginx@}</summary><pre>{$projectZips['nginx']|eschtml}</pre></details>
+                        {/if}
+                        </td>
+                    </tr>
+                {/if}
         </table>
     </div>
 

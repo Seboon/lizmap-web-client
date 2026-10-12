@@ -88,15 +88,17 @@
             <br/>
             {/if}
             {/ifacl2}
-            {ifacl2 'lizmap.tools.project.download', $repository}
+            {if $projectDownloadReady}{ifacl2 'lizmap.tools.project.download', $repository}
             <dt>{@view~projectdownload.metadata.label@}</dt>
             <dd>
-              <a class="btn btn-small liz-project-download" href="{jurl 'view~projectDownload:index', array('repository'=>$repository,'project'=>$project)}" download>
-                <span class="svg-icon svg-download" aria-hidden="true"></span> {@view~projectdownload.button.label@}
+              {meta_html js $j_basepath.'assets/js/project_download.js', ['defer' => '']}
+              <a class="btn btn-small liz-project-download" href="{jurl 'view~projectDownload:index', array('repository'=>$repository,'project'=>$project)}" target="_blank" rel="noopener"
+                data-download-item="{$repository|eschtml}~{$project|eschtml}" data-download-status="{jurl 'view~projectDownload:status'}">
+                <span class="svg-icon svg-download" aria-hidden="true"></span> {@view~projectdownload.button.label@}<span class="liz-project-download-state"></span>
               </a>
             </dd>
             <br/>
-            {/ifacl2}
+            {/ifacl2}{/if}
           </dl>
         </p>
       </div>

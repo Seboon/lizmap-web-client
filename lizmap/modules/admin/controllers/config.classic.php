@@ -22,6 +22,37 @@ class configCtrl extends jController
     );
 
     /**
+     * Folder of the zips of the projects prepared for download: derived from
+     * the root folder of the repositories, shown and not editable, with its
+     * state and what to do on the server (see ZipStore::defaultDir()).
+     *
+     * @return array
+     */
+    protected function projectZipsInfo()
+    {
+        $store = new Lizmap\Project\Download\ZipStore();
+        $dir = $store->getDir();
+        $user = '';
+        if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+            $info = posix_getpwuid(posix_geteuid());
+            $user = $info ? $info['name'] : '';
+        }
+        $user = $user ?: 'www-data';
+
+        $arg = preg_match('#^[A-Za-z0-9_./-]+$#', $dir) ? $dir : escapeshellarg($dir);
+
+        return array(
+            'dir' => $dir,
+            'fromRoot' => $dir !== '',
+            'exists' => is_dir($dir),
+            'writable' => $store->isUsable(),
+            'command' => 'sudo install -d -o '.$user.' -g '.$user.' -m 0750 '.$arg,
+            'fixCommand' => 'sudo chown '.$user.':'.$user.' '.$arg.' && sudo chmod 0750 '.$arg,
+            'nginx' => $store->nginxLocation(),
+        );
+    }
+
+    /**
      * Populates the "language of notification e-mails" dropdown
      * (adminNotificationLocale) with the languages available on this site
      * (lizmapServices::getAvailableLocalesList()).
@@ -117,6 +148,7 @@ class configCtrl extends jController
         $tpl->assign('showSystem', !lizmap::getServices()->hideSensitiveProperties());
         $tpl->assign('servicesForm', $form);
         $tpl->assign('version', $version);
+        $tpl->assign('projectZips', $this->projectZipsInfo());
         $rep->body->assign('MAIN', $tpl->fetch('config'));
         $rep->body->assign('selectedMenuItem', 'lizmap_configuration');
 
@@ -204,6 +236,7 @@ class configCtrl extends jController
             $tpl->assign('hasSenderEmail', $hasSenderEmail);
             $tpl->assign('showSystem', !lizmap::getServices()->hideSensitiveProperties());
             $tpl->assign('smtpEnabled', lizmap::getServices()->isSmtpEnabled());
+            $tpl->assign('projectZips', $this->projectZipsInfo());
             $rep->body->assign('MAIN', $tpl->fetch('admin~config_services'));
             $rep->body->assign('selectedMenuItem', 'lizmap_configuration');
 

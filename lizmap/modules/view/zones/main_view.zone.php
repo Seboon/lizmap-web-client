@@ -20,6 +20,10 @@ class main_viewZone extends jZone
         $this->_tpl->assign('protocol', $protocol);
         $domain = jApp::coord()->request->getDomainName();
         $this->_tpl->assign('domain', $domain);
+
+        // Download button only when the folder of the zips is ready
+        // (Lizmap configuration, Projects).
+        $this->_tpl->assign('projectDownloadReady', \Lizmap\Project\Download\ZipStore::folderReady());
         $this->_tpl->assign('auth_url_return', $this->param('auth_url_return'));
         $this->_tpl->assign('hide_header', $this->param('hide_header'));
         $this->_tpl->assign('isConnected', jAuth::isConnected());

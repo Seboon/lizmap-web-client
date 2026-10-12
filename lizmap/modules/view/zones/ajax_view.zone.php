@@ -21,6 +21,10 @@ class ajax_viewZone extends jZone
         $domain = jApp::coord()->request->getDomainName();
         $this->_tpl->assign('domain', $domain);
 
+        // Download button only when the folder of the zips is ready
+        // (Lizmap configuration, Projects).
+        $this->_tpl->assign('projectDownloadReady', \Lizmap\Project\Download\ZipStore::folderReady());
+
         $maps = array();
 
         // Get repository data

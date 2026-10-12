@@ -1,3 +1,4 @@
+{meta_html js $j_basepath.'assets/js/project_download.js', ['defer' => '']}
 {meta_html csstheme 'css/main.css'}
 {meta_html csstheme 'css/view.css'}
 {meta_html csstheme 'css/media.css'}
@@ -37,10 +38,11 @@
       <p>
         <a class="btn liz-project-view" href="{$p->url}{if $hide_header}&h=0{/if}">{@default.project.open.map@}</a>
         <a class="btn liz-project-show-desc" href="#link-projet-{$idm}" data-lizmap-modal="{$idm}">{@default.project.open.map.metadata@}</a>
-        {ifacl2 'lizmap.tools.project.download', $mi->id}
+        {if $projectDownloadReady}{ifacl2 'lizmap.tools.project.download', $mi->id}
         <a class="btn liz-project-download" href="{jurl 'view~projectDownload:index', array('repository'=>$mi->id, 'project'=>$p->id)}"
-          title="{@view~projectdownload.button.title@}" aria-label="{@view~projectdownload.button.title@}" download><span class="svg-icon svg-download" aria-hidden="true"></span></a>
-        {/ifacl2}
+          data-download-item="{$mi->id|eschtml}~{$p->id|eschtml}" data-download-status="{jurl 'view~projectDownload:status'}"
+          title="{@view~projectdownload.button.title@}" aria-label="{@view~projectdownload.button.title@}"><span class="svg-icon svg-download" aria-hidden="true"></span><span class="liz-project-download-state"></span></a>
+        {/ifacl2}{/if}
       </p>
     </div>
 
